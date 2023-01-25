@@ -1,0 +1,673 @@
+openapi: 3.0.3
+info:
+  title: VCBackend
+  description: Backend component to verify credentials
+  version: 0.0.1
+tags:
+  - name: frontend
+    description: All endpoints that belong to the frontend-application part
+  - name: api
+    description: All api-endpoints, e.g. the once that can be reused by other applicatios
+  - name: verifier
+    description: All endpoints belonging to the verifier functionality
+  - name: issuer
+    description: All endpoints belonging to the issuer functionality
+  - name: core
+    description: All endpoints belonging to core functionality, e.g. setup and info stuff
+  - name: wallet    
+    description: All endpoints belonging to the wallet functionality
+  - name: base
+    description: General endpoints, providing information or entrypoint routing
+paths:
+  /issuer/api/v1/newcredential:
+    get:
+      tags:
+        - issuer
+        - frontend
+      operationId: IssuerPageNewCredentialFormDisplay
+      summary: Returns the page to issue new credentials
+      responses:
+        '200':
+          description: Show the credentials input page
+          content:
+            text/html:
+              schema: 
+                type: object
+    post:
+      tags:
+        - issuer
+        - frontend
+      operationId: IssuerPageNewCredentialFormPost
+      summary: Issues a new credentials and renders them to a page
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VCCreate'
+      responses:
+        '200':
+          description: Show the created credential on a rendered page
+          content:
+            text/html:
+              schema: 
+                type: object
+  /issuer/api/v1/creddetails/{id}:
+    get:
+      tags:
+        - issuer
+        - frontend
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      operationId: IssuerPageCredentialDetails
+      summary: Show the credential details on a rendered page
+      responses:
+        '200':
+          description: Present the credential details in a rendered html page
+          content:
+            text/html:
+              schema: 
+                type: object
+  /issuer/api/v1/displayqrurl/{id}:
+    get:
+      tags:
+        - issuer
+        - frontend
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      operationId: IssuerPageDisplayQRURL
+      summary: Show the credential encoded as a qr-code on a rendered html page 
+      responses:
+        '200':
+          description: Present the credential qr-code in a rendered html page
+          content:
+            text/html:
+              schema: 
+                type: object
+    
+  /issuer/api/v1/allcredentials:
+    get:
+      tags:
+        - issuer
+        - api
+      operationId: IssuerAPIAllCredentials
+      summary: Return the ids of all issued credentials
+      responses:
+        '200':
+          description: Returns the list of ids
+          content:
+            application/json:
+              schema:
+                type: array
+                items: 
+                  $ref: '#/components/schemas/CredentialId'
+  /issuer/api/v1/credential:
+    post:
+      tags:
+        - issuer
+        - api
+      operationId: CreateNewCredential
+      summary: Issues a new credentials and returns it
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VCCreate'
+      responses:
+        '200':
+          description: Return the created credential
+          content:
+            application/json:
+              schema: 
+                $ref: '#/components/schemas/VerifiableCredential'
+  /issuer/api/v1/credential/{id}:
+    get:
+      tags:
+        - issuer
+        - api
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      operationId: IssuerAPICredential
+      summary: Return credential with the given ID
+      responses:
+        '200':
+          description: The credential
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/VerifiableCredential'
+  /verifier/api/v1/displayqr:
+    get:
+      tags:
+        - verifier
+        - frontend
+      operationId: VerifierPageDisplayQRSIOP
+      summary: Presents a qr as starting point for the auth process
+      description: Returns a rendered html with a QR encoding the login-starting point for the siop flow - e.g. 'openid://?scope=somethign&response_type=rt&response_mode=rm&client_id=ci&redirect_uri=uri&state=state&nonce=nonce'
+      responses:
+        '200':
+          description: A rendered page, containing the qr
+          content:
+            text/html:
+              schema:
+                type: object
+  /verifier/api/v1/loginexpired:
+    get:
+      tags:
+        - verifier
+        - frontend
+      operationId: VerifierPageLoginExpired
+      summary: Presents a page when the login session is expired
+      responses: 
+        '200':
+          description: A rendered page, showing the error message
+          content:
+            text/html:
+              schema:
+                type: object
+  /verifier/api/v1/startsiopsamedevice:
+    get:
+      tags:
+        - verifier
+        - api
+      parameters:
+        - $ref: '#/components/parameters/QueryState'
+      operationId: VerifierPageStartSIOPSameDevice
+      summary: Starts the siop flow for credentials hold by the same device
+      description: When the credential is already present in the requesting browser, the same-device flow can be used. It creates the login information and then redirects to the /authenticationresponse path.
+      responses: 
+        '302':
+          description: A redirect to the authenticationresponse path, containing scope, response_type, client_id, redirect_uri, state and nonce to be used for the request
+  /verifier/api/v1/receivecredential/{state}:
+    get:
+      tags:
+        - verifier
+        - frontend
+      parameters:
+        - $ref: '#/components/parameters/State'
+      operationId: VerifierPageReceiveCredential
+      summary: Presents a rendered page, showing the credential associated with the requested state
+      responses:
+        '200':
+          description: A rendered page, showing the credential
+          content:
+            text/html:
+              schema:
+                type: object
+  /verifier/api/v1/accessprotectedservice:
+    get:
+      tags:
+        - verifier
+        - frontend
+      operationId: VerifierPageAccessProtectedService
+      summary: Presents a rendered page, containing the response from the protected service
+      description: When called, the vc connected to the current session is used to access the 'protected-service'. The response then is rendered into an html page.
+      responses:
+        '200':
+          description: A rendered page, showing the response from the protected service
+          content:
+            text/html:
+              schema:
+                type: object
+  /verifier/api/v1/poll/{state}:
+    get:
+      tags:
+        - verifier
+        - api
+      parameters:
+        - $ref: '#/components/parameters/State'
+      operationId: VerifierAPIPoll
+      summary: Endpoint to check the current state of a session
+      responses:
+        '200':
+          description: Returns either the state of the session(pending, expired) or the credential itself
+          content:
+            text/plain:
+              schema:
+                type: string
+  /verifier/api/v1/token/{state}:
+    get:
+      tags:
+        - verifier
+        - api
+      parameters:
+        - $ref: '#/components/parameters/State'
+      operationId: VerifierAPIToken
+      summary: Return the jwt for the requested session
+      responses:
+        '200':
+          description: The access token
+          content:
+            text/plain:
+              schema: 
+                type: string
+        '403':
+          description: Unauthorized, in case the session is not authorized
+  /verifier/api/v1/startsiop:
+    get:
+      tags:
+        - verifier
+        - api 
+      parameters:
+        - $ref: '#/components/parameters/QueryState'
+      operationId: VerifierAPIStartSIOP
+      summary: Initiates the siop flow and returns the 'openid://...' connection string
+      responses:
+        '200': 
+          description: The connection string 
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: openid://?scope=dsba.credentials.presentation.PacketDeliveryService&response_type=vp_token&response_mode=post&client_id=did:key:z6MktZy7CErCqdLvknH6g9YNVpWupuBNBNovsBrj4DFGn4R1&redirect_uri=http://localhost:3000/verifier/api/v1/authenticationresponse&state=&nonce=BfEte4DFdlmdO7a_fBiXTw
+  /verifier/api/v1/authenticationrequest:
+    $ref: '#/paths/~1verifier~1api~1v1~1startsiop'
+  /verifier/api/v1/authenticationresponse:
+    post:
+      tags:
+        - verifier
+        - api 
+      parameters:
+        - $ref: '#/components/parameters/QueryState'
+      operationId: VerifierAPIAuthenticationResponse
+      summary: Stores the credential for the given session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VCContainer'
+      responses:
+        '200':  
+          description: Ok when it worked
+          content:
+            text/plain:
+              schema:
+                type: string
+                enum: 
+                  - "ok"
+  /verifier/.well-known/jwks_uri:
+    get: 
+      tags:
+        - verifier
+        - api
+      operationId: VerifierAPIJWKS
+      summary: Provides the public keys for the given verifier, to be used for verifing the JWTs
+      responses:
+        '200': 
+          description: The list of public keys, belonging to the issuer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JWKSet'
+          
+  /wallet/api/v1/selectcredential:
+    get:
+      tags:
+        - wallet
+        - frontend
+      operationId: WalletPageSelectCredential
+      summary: Present a rendered page with the available credentials
+      responses:
+        '200':
+          description: The rendered page
+          content:
+            text/html:
+              schema:
+                type: object
+  /wallet/api/v1/sendcredential:
+    get:
+      tags:
+        - wallet
+        - frontend
+      parameters:
+        - $ref: '#/components/parameters/QueryState'
+        - $ref: '#/components/parameters/QueryId'
+        - $ref: '#/components/parameters/RedirectUri'
+      operationId: WalletPageSendCredential
+      summary: Executes a post with the given credential to the redirect_uri and returns a rendered page, presenting the post-result
+      responses:
+        '200':
+          description: The rendered page
+          content:
+            text/html:
+              schema:
+                type: object
+  /core/api/v1/createdid:
+    get:
+      tags:
+        - core
+        - api
+      operationId: CoreAPICreateDID
+      summary: Wrapper for the waltid-ssikit custodian endpoint for creating did's of type key
+      responses:
+        '200':
+          description: Creation result from the ssikit
+          content:
+            application/json:
+              schema:
+                type: string
+                example: did:key:z6MkibsKombswvCMhej83YbHsyknL2uc5kVazwr4xB3JqeUX
+  /core/api/v1/listcredentialtemplates:
+    get:
+      tags:
+        - core
+        - api
+      operationId: CoreAPIListCredentialTemplates
+      summary: Wrapper for the waltid-ssikit signatory endpoint for listing templates
+      responses:
+        '200':
+          description: List of templates, no offical spec available from ssikit, format is assumed
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CredentialTemplate'
+  /core/api/v1/getcredentialtemplate/{id}:
+    get:
+      tags:
+        - core
+        - api
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      operationId: CoreAPIGetCredentialTemplate
+      summary: Wrapper for the waltid-ssikit signatory endpoint for retrieving a template
+      responses:
+        '200':
+          description: The requested template.
+          content: 
+            application/json:
+              schema: 
+                description: SSIKit doc says type string, but its a vc-object instead.
+                type: object
+  /:
+    get: 
+      tags:
+        - base
+        - frontend
+      operationId: HandleHome
+      summary: Returns the rendered index.page
+      responses:
+        '200':
+          description: The home page
+          content:
+            text/plain:
+              schema:
+                type: object
+  /issuer:
+    get: 
+      tags:
+        - base
+        - frontend
+      operationId: HandleIssuerHome
+      summary: Returns the rendered homepage for the issuer functionality
+      responses:
+        '200':
+          description: The issuer page
+          content:
+            text/plain:
+              schema:
+                type: object
+  /verifier:
+    get: 
+      tags:
+        - base
+        - frontend
+      operationId: HandleVerifierHome
+      summary: Returns the rendered homepage for the verifier functionality
+      responses:
+        '200':
+          description: The verifier page
+          content:
+            text/plain:
+              schema:
+                type: object
+  /info:
+    get: 
+      tags:
+        - base
+        - api
+      operationId: GetBackendInfo
+      summary: Returns the issuer and verifier did, generated on startup
+      responses:
+        '200':
+          description: Object containing the info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackendInfo'
+                
+components:
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        example: urn:uuid:274e7465-cc9d-4cad-b75f-190db927e56a
+    State:
+      name: state
+      in: path
+      required: true
+      schema: 
+        type: string
+        example: 274e7465-cc9d-4cad-b75f-190db927e56a
+    QueryState:
+      name: state
+      in: query
+      required: true
+      schema: 
+        type: string
+        example: 274e7465-cc9d-4cad-b75f-190db927e56a
+    QueryId:
+      name: id
+      in: query
+      required: true
+      schema:
+        type: string
+        example: urn:uuid:274e7465-cc9d-4cad-b75f-190db927e56a
+    RedirectUri:
+      name: redirect_uri
+      in: query
+      required: true
+      schema:
+        type: string
+        example: https://my-verifier.com/verifier/api/v1/authenticationresponse
+  schemas:
+    CredentialTemplate:
+      type: object
+      properties:
+        mutable:
+          type: boolean
+          example: false
+        name: 
+          type: string
+          example: VerifiableId
+        template:
+          type: string
+    CredentialId:
+      type: object
+      properties:
+        id:
+          type: string
+          example: urn:uuid:e44beccc-a766-4baf-8cd0-17f86ef74a5c 
+    CredentialsType:
+      type: array
+      items:
+        type: string
+      example:
+        - PacketDeliveryService
+        - VerifiableCredential
+    Did:
+      type: object
+      properties:
+        id:
+          type: string
+          format: did
+          example: did:key:z6Mks9m9ifLwy3JWqH4c57EbBQVS2SpRCjfa79wHb5vWM6vh
+    Date:
+      type: string
+      format: date-time
+      example: 2023-01-06T07:51:36Z
+    CredentialSchema:
+      type: object
+      properties:
+        id: 
+          type: string
+          example: https://raw.githubusercontent.com/hesusruiz/dsbamvf/main/schemas/PacketDeliveryService/2022-10/schema.json
+        type:
+          type: string
+          example: FullJsonSchemaValidator2021
+    Proof:
+      type: object
+      properties:
+        type:
+          type: string
+          example: JsonWebSignature2020
+        creator: 
+          type: string
+          format: did
+          example: did:key:z6Mks9m9ifLwy3JWqH4c57EbBQVS2SpRCjfa79wHb5vWM6vh
+        created:
+          $ref: '#/components/schemas/Date'
+        verificationMethod:
+          type: string
+          example: did:key:z6Mks9m9ifLwy3JWqH4c57EbBQVS2SpRCjfa79wHb5vWM6vh#z6Mks9m9ifLwy3JWqH4c57EbBQVS2SpRCjfa79wHb5vWM6vh
+        jws:
+          type: string
+          example: eyJiNjQiOmZhbHNlLCJjcml0IjpbImI2NCJdLCJhbGciOiJFZERTQSJ9..6xSqoZja0NwjF0af9Zknqx3Cbh9GENunBf9C8uL2ulGfwus3UFM_ZnhPjWtHPl-72E9p3BT5f2ptZoYktMKpDA
+    SubjectRole:
+      type: object
+      properties:
+        names:
+          type: array
+          items: 
+            type: string
+          example:
+            - GOLD_CUSTOMER
+            - STANDARD_CUSTOMER
+        target:
+          type: string
+          example: did:key:mytarget
+    PacketDeliverySubject:
+      type: object
+      properties:
+        id:
+          type: string
+          format: did
+          example: did:key:z6Mkfdio1n9SKoZUtKdr9GTCZsRPbwHN8f7rbJghJRGdCt88
+        familyName:
+          type: string
+          example: Mustermann
+        firstName:
+          type: string
+          example: Max
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubjectRole'
+        email:
+          type: string
+          format: email
+          example: max@mustermann.org
+    VerifiableCredential:
+      type: object
+      properties:
+        type:
+          $ref: '#/components/schemas/CredentialsType'
+        '@context':
+          type: array
+          items:
+            type: string
+            format: uri
+          example:
+            - https://www.w3.org/2018/credentials/v1
+            - https://w3id.org/security/suites/jws-2020/v1
+        id:
+          type: string
+          example: urn:uuid:274e7465-cc9d-4cad-b75f-190db927e56a
+        issuer:
+          $ref: '#/components/schemas/Did'
+        issuanceDate:
+          $ref: '#/components/schemas/Date'
+        issued:
+          $ref: '#/components/schemas/Date'
+        validFrom:
+          $ref: '#/components/schemas/Date'
+        credentialSchema:
+          $ref: '#/components/schemas/CredentialSchema'
+        credentialsSubject:
+          $ref: '#/components/schemas/PacketDeliverySubject'
+        proof:
+          $ref: '#/components/schemas/Proof'
+    VCContainer:
+      type: object
+      properties:
+        credential:
+          $ref: '#/components/schemas/VerifiableCredential'
+    VCCreate:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          example: test@test.org
+        firstName:
+          type: string
+          example: Test
+        familyName: 
+          type: string
+          example: User
+        target:
+          type: string
+          example: did:key:myuserkey
+        roles:
+          type: string
+          example: GOLD_CUSTOMER,STANDARD_CUSTOMER
+    BackendInfo:
+      type: object
+      properties:
+        issuerDid:
+          $ref: '#/components/schemas/Did'
+        verifierDid:
+          $ref: '#/components/schemas/Did'
+    JWK:
+      type: object
+      properties:
+        kid:
+          type: string
+          example: 179d7b56-6598-4045-9a32-4635e8b0f605
+        kty:
+          type: string
+          example: EC
+        use:
+          type: string
+          example: sig
+        alg:
+          type: string
+          example: ES256
+        crv:
+          type: string
+          example: P-256
+        x:
+          type: string
+          example: 3ctHY_0KJW5ezT-oF39t3wPX6XlggWKOSPFW8iooBXk
+        y:
+          type: string
+          example: HXA4mBHgObIE56E92yxN5bYQ27wSxlVPfuNWaY06TTI
+        n:
+          type: string
+        e:
+          type: string
+        d:
+          type: string
+    JWKSet:
+      type: object
+      properties: 
+        keys: 
+         type: array
+         items:
+          $ref: '#/components/schemas/JWK'

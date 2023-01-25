@@ -1,0 +1,35 @@
+{{define "verifier_protectedservice"}} {{template "partials/header" .}}
+
+<main class="w3-container">
+
+
+    {{if .accesstoken}}
+        <div class="w3-container w3-padding-16">
+            <h4>This is a protected service</h4>
+            <p>We received an access token</p>
+        </div>
+
+<pre><code class="language-json">
+{{.accesstoken}}
+</code></pre>
+
+        {{if .protected}}
+            <div class="w3-container w3-padding-16">
+                <h4>We also tried to access a resource at:</h4>
+                <p>{{.protected}}</p>
+                <p>With status code {{.code}} and returned:</p>
+                <p>{{.returnBody}}</p>
+            </div>
+        {{end}}
+
+    {{else}}
+        <div class="w3-container w3-padding-16">
+            <h4>This is a protected service</h4>
+            <p>We did not receive an access token and access should be forbidden</p>
+        </div>
+    {{end}}
+
+
+</main>
+
+{{template "partials/footer" .}} {{end}}

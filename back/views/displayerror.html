@@ -1,0 +1,22 @@
+{{define "displayerror"}} {{template "partials/header" .}}
+
+<main class="w3-container">
+
+    <div class="w3-half w3-container w3-margin-bottom w3-center">
+
+        <div class="w3-card-4">
+            <div class=" w3-container w3-margin-bottom color-error">
+                <h4>Error</h4>
+            </div>
+
+            <div class="w3-container w3-padding-16">
+                <p>{{.error}}</p>
+            </div>
+
+        </div>
+    </div>
+
+
+</main>
+
+{{template "partials/footer" .}} {{end}}

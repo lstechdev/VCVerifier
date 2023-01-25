@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <!-- Load the application -->
+    <link rel="stylesheet" href="css/w3.css">
+    <script type="module" src="js/webauthn.js"></script>
+    <script src="https://unpkg.com/uhtml"></script>
+
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="WebAuthn Login Screen" />
+    <meta name="theme-color" content="#919597">
+    <title>WebAuthn Login Screen</title>
+    <meta itemprop="name" content="WebAuthn Login Screen">
+    <meta itemprop="description" content="WebAuthn Login Screen">
+    <!-- Facebook Meta Tags -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="WebAuthn Login Screen">
+    <meta property="og:description"
+        content="Privacy-focused Wallet for Verifiable Credentials">
+    <link rel="manifest" href="./manifest.webmanifest">
+
+    <link rel="icon" type="image/png" href="./favicon.ico" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="apple-mobile-web-app-title" content="WebAuthn Login Screen" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+
+
+</head>
+
+<body class="w3-content">
+
+<header>
+</header>
+
+<main>
+
+<div class="w3-container w3-padding-48">
+    <div class="w3-card-4 w3-half-centered">
+
+        <div class="w3-container w3-margin-bottom color-primary">
+        <h4>Login</h4>
+        </div>
+        
+        <form class="w3-container">
+        <label>Email</label>
+        <input class="w3-input w3-border w3-margin-bottom" type="text" name="username" id="email" placeholder="i.e. foo@bar.com">
+
+        <div id="errormessage" class="w3-container color-error">
+        </div>
+        <div id="normalmessage" class="w3-container">
+        </div>
+        <div id="successmessage" class="w3-container color-success">
+        </div>
+
+        </form>
+
+        <div class="w3-container w3-padding-16">
+            <btn-primary style="width:45%" onclick="registerUser()">Register</btn-primary>
+            <btn-primary class="w3-right" style="width:45%" onclick="loginUser()">Login</btn-primary>
+        </div>
+        <btn-primary style="width:45%" onclick="prueba()">Test</btn-primary>
+
+    </div>
+</div>
+
+</main>
+
+<footer>
+<webauthn-elem></webauthn-elem>
+
+</footer>
+
+</body>
+
+</html>

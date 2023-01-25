@@ -1,0 +1,48 @@
+{{define "verifier_present_qr"}} {{template "partials/header" .}}
+
+<main class="w3-container w3-center">
+
+    <h3>Scan this QR code to authenticate with a mobile</h3>
+
+    <img src="data:{{.qrcode}}" alt="EvidenceLedger logo">
+
+    <h3>Or click this button to authenticate with the browser</h3>
+
+    <div class="w3-container w3-padding-16">
+        <a href="{{.verifierPrefix}}/startsiopsamedevice?state={{.state}}" target="_blank" class="btn-primary">Login with browser</a>
+    </div>
+
+</main>
+
+<script>
+    const intervalID = setInterval(pollServer, 1000, 'nonce');
+
+    async function pollServer(a) {
+        try {
+            const response = await fetch('{{.verifierPrefix}}/poll/{{.state}}')
+            if (!response.ok) {
+                window.alert("A server error happened.")
+                location = "/verifier"
+                return
+            }
+            const data = await response.text()
+            if (data === "expired") {
+                location = "{{.verifierPrefix}}/loginexpired"
+                return
+            }
+            if (data === "pending") {
+                return
+            }
+
+            console.log("Received:", data)
+            location = "{{.verifierPrefix}}/receivecredential/{{.state}}"
+            return
+        } catch (error) {
+            window.alert("A server error happened.")
+            location = "/verifier"
+            return
+        }
+    }
+</script>
+
+{{template "partials/footer" .}} {{end}}
