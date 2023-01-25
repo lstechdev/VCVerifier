@@ -1,6 +1,4 @@
-module github.com/fiware/vcbackend
-
-go 1.19
+module github.com/fiware/vcverifier
 
 require (
 	entgo.io/ent v0.11.0

@@ -11,7 +11,7 @@ import (
 	"github.com/duo-labs/webauthn/protocol"
 	"github.com/duo-labs/webauthn/webauthn"
 
-	"github.com/fiware/vcverifier/operations"
+	"github.com/fiware/vcverifier/back/operations"
 	"github.com/hesusruiz/vcutils/yaml"
 
 	"github.com/gofiber/fiber/v2"
