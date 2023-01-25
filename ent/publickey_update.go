@@ -11,8 +11,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/fiware/vcbackend/ent/predicate"
-	"github.com/fiware/vcbackend/ent/publickey"
+	"github.com/fiware/vcverifier/ent/predicate"
+	"github.com/fiware/vcverifier/ent/publickey"
 )
 
 // PublicKeyUpdate is the builder for updating PublicKey entities.

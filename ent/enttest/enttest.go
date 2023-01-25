@@ -5,12 +5,12 @@ package enttest
 import (
 	"context"
 
-	"github.com/fiware/vcbackend/ent"
+	"github.com/fiware/vcverifier/ent"
 	// required by schema hooks.
-	_ "github.com/fiware/vcbackend/ent/runtime"
+	_ "github.com/fiware/vcverifier/ent/runtime"
 
 	"entgo.io/ent/dialect/sql/schema"
-	"github.com/fiware/vcbackend/ent/migrate"
+	"github.com/fiware/vcverifier/ent/migrate"
 )
 
 type (

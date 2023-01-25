@@ -11,10 +11,10 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/fiware/vcbackend/ent/credential"
-	"github.com/fiware/vcbackend/ent/naturalperson"
-	"github.com/fiware/vcbackend/ent/predicate"
-	"github.com/fiware/vcbackend/ent/privatekey"
+	"github.com/fiware/vcverifier/ent/credential"
+	"github.com/fiware/vcverifier/ent/naturalperson"
+	"github.com/fiware/vcverifier/ent/predicate"
+	"github.com/fiware/vcverifier/ent/privatekey"
 )
 
 // NaturalPersonQuery is the builder for querying NaturalPerson entities.

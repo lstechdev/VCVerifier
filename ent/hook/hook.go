@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/fiware/vcbackend/ent"
+	"github.com/fiware/vcverifier/ent"
 )
 
 // The CredentialFunc type is an adapter to allow the use of ordinary

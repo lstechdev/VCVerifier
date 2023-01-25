@@ -9,11 +9,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/fiware/vcbackend/ent"
-	"github.com/fiware/vcbackend/ent/did"
-	"github.com/fiware/vcbackend/ent/user"
-	"github.com/fiware/vcbackend/internal/jwk"
-	"github.com/fiware/vcbackend/internal/jwt"
+	"github.com/fiware/vcverifier/ent"
+	"github.com/fiware/vcverifier/ent/did"
+	"github.com/fiware/vcverifier/ent/user"
+	"github.com/fiware/vcverifier/internal/jwk"
+	"github.com/fiware/vcverifier/internal/jwt"
 	"github.com/hesusruiz/vcutils/yaml"
 	"golang.org/x/crypto/bcrypt"
 

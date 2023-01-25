@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
-	"github.com/fiware/vcbackend/ent/naturalperson"
+	"github.com/fiware/vcverifier/ent/naturalperson"
 )
 
 // NaturalPerson is the model entity for the NaturalPerson schema.

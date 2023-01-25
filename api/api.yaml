@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: VCBackend
+  title: vcverifier
   description: Backend component to verify credentials
   version: 0.0.1
 tags:

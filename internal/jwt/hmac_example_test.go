@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github.com/fiware/vcbackend/internal/jwt"
+	"github.com/fiware/vcverifier/internal/jwt"
 )
 
 // For HMAC signing method, the key can be any []byte. It is recommended to generate

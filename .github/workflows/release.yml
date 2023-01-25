@@ -41,7 +41,7 @@ jobs:
 
    # image build&push
 
-  vcbackend:
+  vcverifier:
     needs: [ "generate-version" ]
     runs-on: ubuntu-latest
   
@@ -52,7 +52,7 @@ jobs:
         id: build-image
         uses: redhat-actions/buildah-build@v2
         with:
-          image: vcbackend
+          image: vcverifier
           tags: latest ${{ github.sha }} ${{needs.generate-version.outputs.version}}
           dockerfiles: |
             ./Dockerfile
@@ -71,7 +71,7 @@ jobs:
   git-release:
     needs:
       - generate-version
-      - vcbackend
+      - vcverifier
     
     runs-on: ubuntu-latest
 

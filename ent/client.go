@@ -7,14 +7,14 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/fiware/vcbackend/ent/migrate"
+	"github.com/fiware/vcverifier/ent/migrate"
 
-	"github.com/fiware/vcbackend/ent/credential"
-	"github.com/fiware/vcbackend/ent/did"
-	"github.com/fiware/vcbackend/ent/naturalperson"
-	"github.com/fiware/vcbackend/ent/privatekey"
-	"github.com/fiware/vcbackend/ent/publickey"
-	"github.com/fiware/vcbackend/ent/user"
+	"github.com/fiware/vcverifier/ent/credential"
+	"github.com/fiware/vcverifier/ent/did"
+	"github.com/fiware/vcverifier/ent/naturalperson"
+	"github.com/fiware/vcverifier/ent/privatekey"
+	"github.com/fiware/vcverifier/ent/publickey"
+	"github.com/fiware/vcverifier/ent/user"
 
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
