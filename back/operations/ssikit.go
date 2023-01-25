@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/fiware/vcbackend/vault"
+	"github.com/fiware/vcverifier/vault"
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
 )

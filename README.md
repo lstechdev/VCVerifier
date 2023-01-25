@@ -1,6 +1,6 @@
-# VCBackend
+# vcverifier
 
-VCBackend includes in a single binary demo versions of Issuer, Verifier and Wallet (same-device only, for a cross-device wallet please see [VCWallet](https://github.com/hesusruiz/VCWallet)).
+vcverifier includes in a single binary demo versions of Issuer, Verifier and Wallet (same-device only, for a cross-device wallet please see [VCWallet](https://github.com/hesusruiz/VCWallet)).
 
 This facilitates installation and allows to see how all components fit together and the protocol flows between them.
 
@@ -9,14 +9,14 @@ This facilitates installation and allows to see how all components fit together 
 Clone the repository:
 
 ```
-git clone git@github.com:hesusruiz/VCBackend.git
+git clone git@github.com:hesusruiz/vcverifier.git
 ```
 
-Before running VCBackend you need to have accessible the endpoints implemented by [VCWaltid](https://github.com/FIWARE/VCWaltid). Please install an run VCWaltid following the instructions there. The endpoints and ports required from VCBackend are preconfigured to match the ones from VCWaltid without any change. If you do require changes, they can be setup in the configuration file in `configs\server.yaml`.
+Before running vcverifier you need to have accessible the endpoints implemented by [VCWaltid](https://github.com/FIWARE/VCWaltid). Please install an run VCWaltid following the instructions there. The endpoints and ports required from vcverifier are preconfigured to match the ones from VCWaltid without any change. If you do require changes, they can be setup in the configuration file in `configs\server.yaml`.
 
 ## Running
 
-The first time that you start the VCBackend you have to make sure the database artifacts are consistent. Tou can use the provided Makefile for that or run the command directly:
+The first time that you start the vcverifier you have to make sure the database artifacts are consistent. Tou can use the provided Makefile for that or run the command directly:
 
 ```
 make datamodel
@@ -24,7 +24,7 @@ make datamodel
 
 The above command has to be executed every time that you modify the database model in the application.
 
-To start VCBackend in development mode, type:
+To start vcverifier in development mode, type:
 
 ```
 go run .
@@ -32,7 +32,7 @@ go run .
 
 # Configuration
 
-The configuration file in `config\server.yaml` provides for some configuration of VCBackend. An example config file is:
+The configuration file in `config\server.yaml` provides for some configuration of vcverifier. An example config file is:
 
 ```yaml
 server:

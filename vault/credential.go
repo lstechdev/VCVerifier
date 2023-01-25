@@ -8,9 +8,9 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
-	"github.com/fiware/vcbackend/ent"
-	"github.com/fiware/vcbackend/internal/jwk"
-	"github.com/fiware/vcbackend/internal/jwt"
+	"github.com/fiware/vcverifier/ent"
+	"github.com/fiware/vcverifier/internal/jwk"
+	"github.com/fiware/vcverifier/internal/jwt"
 	"github.com/google/uuid"
 	"github.com/hesusruiz/vcutils/yaml"
 	zlog "github.com/rs/zerolog/log"

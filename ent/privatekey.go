@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
-	"github.com/fiware/vcbackend/ent/privatekey"
-	"github.com/fiware/vcbackend/ent/user"
+	"github.com/fiware/vcverifier/ent/privatekey"
+	"github.com/fiware/vcverifier/ent/user"
 )
 
 // PrivateKey is the model entity for the PrivateKey schema.

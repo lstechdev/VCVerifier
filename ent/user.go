@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
-	"github.com/fiware/vcbackend/ent/user"
+	"github.com/fiware/vcverifier/ent/user"
 )
 
 // User is the model entity for the User schema.

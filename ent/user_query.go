@@ -11,11 +11,11 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/fiware/vcbackend/ent/credential"
-	"github.com/fiware/vcbackend/ent/did"
-	"github.com/fiware/vcbackend/ent/predicate"
-	"github.com/fiware/vcbackend/ent/privatekey"
-	"github.com/fiware/vcbackend/ent/user"
+	"github.com/fiware/vcverifier/ent/credential"
+	"github.com/fiware/vcverifier/ent/did"
+	"github.com/fiware/vcverifier/ent/predicate"
+	"github.com/fiware/vcverifier/ent/privatekey"
+	"github.com/fiware/vcverifier/ent/user"
 )
 
 // UserQuery is the builder for querying User entities.

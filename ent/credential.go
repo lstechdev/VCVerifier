@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
-	"github.com/fiware/vcbackend/ent/credential"
-	"github.com/fiware/vcbackend/ent/user"
+	"github.com/fiware/vcverifier/ent/credential"
+	"github.com/fiware/vcverifier/ent/user"
 )
 
 // Credential is the model entity for the Credential schema.

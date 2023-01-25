@@ -2,7 +2,7 @@
 
 package runtime
 
-// The schema-stitching logic is generated in github.com/fiware/vcbackend/ent/runtime.go
+// The schema-stitching logic is generated in github.com/fiware/vcverifier/ent/runtime.go
 
 const (
 	Version = "v0.11.0"                                         // Version of ent codegen.
