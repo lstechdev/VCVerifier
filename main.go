@@ -9,10 +9,11 @@ import (
 	"io"
 	"os"
 
-	"github.com/fiware/vcverifier/back/handlers"
-	"github.com/fiware/vcverifier/back/operations"
+	"github.com/fiware/vcverifier/handlers"
 	"github.com/fiware/vcverifier/internal/jwk"
+	"github.com/fiware/vcverifier/operations"
 	"github.com/fiware/vcverifier/vault"
+
 	"github.com/hesusruiz/vcutils/yaml"
 
 	"flag"
