@@ -1,13 +1,15 @@
-FROM golang:1.19-buster AS build
+FROM golang:1.18-alpine AS build
 
 WORKDIR /go/src/app
 COPY ./ ./
+
+RUN apk add build-base
 
 RUN go get -d -v ./...
 RUN go generate ./ent
 RUN go build -v .
 
-FROM golang:1.19-alpine
+FROM golang:1.18-alpine
 
 WORKDIR /go/src/app
 COPY --from=build /go/src/app/back/views /go/src/app/back/views

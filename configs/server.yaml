@@ -34,10 +34,3 @@ ssikit:
   custodianURL: localhost:7003
   essifURL: localhost:7010
 
-webauthn:
-  RPDisplayName: "Gaia-X AISBL"
-  RPID: "localhost"
-  RPOrigin: "http://localhost:3000"
-  AuthenticatorAttachment: "platform"
-  UserVerification: "required"
-
