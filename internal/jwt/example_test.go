@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/fiware/vcbackend/internal/jwt"
+	"github.com/fiware/vcverifier/internal/jwt"
 )
 
 // Example (atypical) using the RegisteredClaims type by itself to parse a token.

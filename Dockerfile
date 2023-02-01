@@ -13,7 +13,7 @@ WORKDIR /go/src/app
 COPY --from=build /go/src/app/back/views /go/src/app/back/views
 COPY --from=build /go/src/app/back/www /go/src/app/back/www
 COPY --from=build /go/src/app/configs /go/src/app/configs
-COPY --from=build /go/src/app/vcbackend /go/src/app/vcbackend
+COPY --from=build /go/src/app/vcverifier /go/src/app/vcverifier
 COPY --from=build /go/src/app/vault/templates /go/src/app/vault/templates
 
 CMD ["./vcverifier"]
