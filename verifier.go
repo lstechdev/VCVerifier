@@ -236,7 +236,7 @@ func (v *Verifier) VerifierPageAccessServicePost(c *fiber.Ctx) error {
 	code, returnBody, errors = agent.Bytes()
 	if len(errors) > 0 {
 		v.server.logger.Errorw("error calling backend at "+service.Url, zap.Errors("errors", errors))
-		return fmt.Errorf("error calling backend: %v", errors[0])
+		return fmt.Errorf("error calling backend as %s: %v", service.Url, errors[0])
 	}
 
 	// Render
