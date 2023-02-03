@@ -48,6 +48,8 @@ func setupVerifier(s *Server) {
 
 	// Allow simulation of accessing protected resources, after successful login
 	verifierRoutes.Get("/accessprotectedservice", verifier.VerifierPageAccessProtectedService)
+	verifierRoutes.Post("/accessService", verifier.VerifierPageAccessServicePost)
+	verifierRoutes.Get("/accessService", verifier.VerifierPageAccessServiceGet)
 
 	// APIs
 
@@ -194,6 +196,57 @@ func (v *Verifier) VerifierPageReceiveCredential(c *fiber.Ctx) error {
 		"prefix":         verifierPrefix,
 	}
 	return c.Render("verifier_receivedcredential", m)
+}
+
+type AccessServiceForm struct {
+	Url string `form:"requestUrl,omitempty"`
+}
+
+func (v *Verifier) VerifierPageAccessServiceGet(c *fiber.Ctx) error {
+
+	protected := v.server.cfg.String("verifier.protectedResource.url")
+	// Render
+	m := fiber.Map{
+		"protectedService": protected,
+		"verifierPrefix":   verifierPrefix,
+	}
+	return c.Render("verifier_request_service", m)
+}
+
+func (v *Verifier) VerifierPageAccessServicePost(c *fiber.Ctx) error {
+	var code int
+	var returnBody []byte
+	var errors []error
+
+	// Get the access token from the cookie
+	accessToken := c.Cookies("dbsamvf")
+	service := &AccessServiceForm{}
+	if err := c.BodyParser(service); err != nil {
+		v.server.logger.Infof("Error parsing: %s", err)
+		return err
+	}
+
+	// Prepare to GET to the url
+	agent := fiber.Get(service.Url)
+
+	// Set the Authentication header
+	agent.Set("Authorization", "Bearer "+accessToken)
+
+	agent.Set("accept", "application/json")
+	code, returnBody, errors = agent.Bytes()
+	if len(errors) > 0 {
+		v.server.logger.Errorw("error calling SSI Kit", zap.Errors("errors", errors))
+		return fmt.Errorf("error calling SSI Kit: %v", errors[0])
+	}
+
+	// Render
+	m := fiber.Map{
+		"protectedService": service.Url,
+		"verifierPrefix":   verifierPrefix,
+		"code":             code,
+		"returnBody":       string(returnBody),
+	}
+	return c.Render("verifier_request_service", m)
 }
 
 func (v *Verifier) VerifierPageAccessProtectedService(c *fiber.Ctx) error {
