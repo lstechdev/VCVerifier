@@ -225,7 +225,7 @@ func (v *Verifier) VerifierPageAccessServicePost(c *fiber.Ctx) error {
 		v.server.logger.Infof("Error parsing: %s", err)
 		return err
 	}
-
+	v.server.logger.Errorw(string(c.Body()))
 	// Prepare to GET to the url
 	agent := fiber.Get(service.Url)
 
