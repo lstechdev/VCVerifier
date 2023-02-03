@@ -42,7 +42,6 @@ const walletPrefix = "/wallet/api/v1"
 var (
 	prod       = flag.Bool("prod", false, "Enable prefork in Production")
 	configFile = flag.String("config", LookupEnvOrString("CONFIG_FILE", defaultConfigFile), "path to configuration file")
-	password   = flag.String("pass", LookupEnvOrString("PASSWORD", defaultPassword), "admin password for the server")
 )
 
 type SSIKitConfig struct {
@@ -60,7 +59,6 @@ type Server struct {
 	WebAuthn      *handlers.WebAuthnHandler
 	Operations    *operations.Manager
 	verifierVault *vault.Vault
-	issuerDID     string
 	verifierDID   string
 	logger        *zap.SugaredLogger
 	storage       *memory.Storage
@@ -151,8 +149,7 @@ func BackendServer() {
 
 	// ##########################
 	// Application Home pages
-	s.Get("/", s.HandleHome)
-	s.Get("/verifier", s.HandleVerifierHome)
+	s.Get("/", s.HandleVerifierHome)
 
 	// Info base path
 	s.Get("/info", s.GetBackendInfo)
