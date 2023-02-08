@@ -34,10 +34,7 @@ const defaultStoreDriverName = "sqlite3"
 const defaultStoreDataSourceName = "file:issuer.sqlite?mode=rwc&cache=shared&_fk=1"
 const defaultPassword = "ThePassword"
 
-const corePrefix = "/core/api/v1"
-const issuerPrefix = "/issuer/api/v1"
 const verifierPrefix = "/verifier/api/v1"
-const walletPrefix = "/wallet/api/v1"
 
 var (
 	prod       = flag.Bool("prod", false, "Enable prefork in Production")
@@ -160,27 +157,12 @@ func BackendServer() {
 	}
 
 	setupVerifier(s)
-	setupCoreRoutes(s)
 
 	// Setup static files
 	s.Static("/static", cfg.String("server.staticDir", defaultStaticDir))
 
 	// Start the server
 	log.Fatal(s.Listen(cfg.String("server.listenAddress")))
-
-}
-
-func setupCoreRoutes(s *Server) {
-	// ########################################
-	// Core routes
-	coreRoutes := s.Group(corePrefix)
-
-	// Create DID
-	coreRoutes.Get("/createdid", s.CoreAPICreateDID)
-	// List Templates
-	coreRoutes.Get("/listcredentialtemplates", s.CoreAPIListCredentialTemplates)
-	// Get one template
-	coreRoutes.Get("/getcredentialtemplate/:id", s.CoreAPIGetCredentialTemplate)
 
 }
 

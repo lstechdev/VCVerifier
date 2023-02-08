@@ -40,9 +40,6 @@ func setupVerifier(s *Server) {
 	// Error page when login session has expired without the user sending the credential
 	verifierRoutes.Get("/loginexpired", verifier.VerifierPageLoginExpired)
 
-	// For same-device logins (e.g., with the enterprise wallet)
-	verifierRoutes.Get("/startsiopsamedevice", verifier.VerifierPageStartSIOPSameDevice)
-
 	// Page displaying the received credential, after successful login
 	verifierRoutes.Get("/receivecredential/:state", verifier.VerifierPageReceiveCredential)
 
@@ -95,9 +92,7 @@ func (v *Verifier) VerifierPageDisplayQRSIOP(c *fiber.Ctx) error {
 
 	// Render the page
 	m := fiber.Map{
-		"issuerPrefix":   issuerPrefix,
 		"verifierPrefix": verifierPrefix,
-		"walletPrefix":   walletPrefix,
 		"qrcode":         base64Img,
 		"prefix":         verifierPrefix,
 		"state":          state,
@@ -110,45 +105,6 @@ func (v *Verifier) VerifierPageLoginExpired(c *fiber.Ctx) error {
 		"prefix": verifierPrefix,
 	}
 	return c.Render("verifier_loginexpired", m)
-}
-
-func (v *Verifier) VerifierPageStartSIOPSameDevice(c *fiber.Ctx) error {
-
-	state := c.Query("state")
-
-	const scope = "dsba.credentials.presentation.PacketDeliveryService"
-	const response_type = "vp_token"
-	redirect_uri := c.Protocol() + "://" + c.Hostname() + verifierPrefix + "/authenticationresponse"
-
-	// template := "https://hesusruiz.github.io/faster/?scope={{scope}}" +
-	// 	"&response_type={{response_type}}" +
-	// 	"&response_mode=post" +
-	// 	"&client_id={{client_id}}" +
-	// 	"&redirect_uri={{redirect_uri}}" +
-	// 	"&state={{state}}" +
-	// 	"&nonce={{nonce}}"
-
-	walletUri := c.Protocol() + "://" + c.Hostname() + walletPrefix + "/selectcredential"
-	template := walletUri + "/?scope={{scope}}" +
-		"&response_type={{response_type}}" +
-		"&response_mode=post" +
-		"&client_id={{client_id}}" +
-		"&redirect_uri={{redirect_uri}}" +
-		"&state={{state}}" +
-		"&nonce={{nonce}}"
-
-	t := fasttemplate.New(template, "{{", "}}")
-	str := t.ExecuteString(map[string]interface{}{
-		"scope":         scope,
-		"response_type": response_type,
-		"client_id":     v.server.verifierDID,
-		"redirect_uri":  redirect_uri,
-		"state":         state,
-		"nonce":         generateNonce(),
-	})
-	fmt.Println(str)
-
-	return c.Redirect(str)
 }
 
 func (v *Verifier) VerifierPageReceiveCredential(c *fiber.Ctx) error {
@@ -189,9 +145,7 @@ func (v *Verifier) VerifierPageReceiveCredential(c *fiber.Ctx) error {
 
 	// Render
 	m := fiber.Map{
-		"issuerPrefix":   issuerPrefix,
 		"verifierPrefix": verifierPrefix,
-		"walletPrefix":   walletPrefix,
 		"claims":         claims,
 		"prefix":         verifierPrefix,
 	}
@@ -279,9 +233,7 @@ func (v *Verifier) VerifierPageAccessProtectedService(c *fiber.Ctx) error {
 
 	// Render
 	m := fiber.Map{
-		"issuerPrefix":   issuerPrefix,
 		"verifierPrefix": verifierPrefix,
-		"walletPrefix":   walletPrefix,
 		"accesstoken":    accessToken,
 		"protected":      protected,
 		"code":           code,
@@ -419,10 +371,6 @@ func (v *Verifier) VerifierAPIAuthenticationResponse(c *fiber.Ctx) error {
 
 func (v *Verifier) VerifierPageDisplayQR(c *fiber.Ctx) error {
 
-	if sameDevice {
-		return v.VerifierPageStartSIOPSameDevice(c)
-	}
-
 	// Generate the state that will be used for checking expiration
 	state := generateNonce()
 
@@ -440,9 +388,7 @@ func (v *Verifier) VerifierPageDisplayQR(c *fiber.Ctx) error {
 
 	// Render index
 	m := fiber.Map{
-		"issuerPrefix":   issuerPrefix,
 		"verifierPrefix": verifierPrefix,
-		"walletPrefix":   walletPrefix,
 		"qrcode":         qrCode1,
 		"prefix":         verifierPrefix,
 		"state":          state,
