@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const frontendPrefix = "/"
+const frontendPrefix = ""
 
 type Frontend struct {
 	server *Server
@@ -52,7 +52,7 @@ func (f *Frontend) HandleVerifierHome(c *fiber.Ctx) error {
 	// Render template
 	m := fiber.Map{
 		"verifierPrefix": frontendPrefix,
-		"prefix":         verifierPrefix,
+		"prefix":         frontendPrefix,
 		"credlist":       credsSummary,
 	}
 	return c.Render("verifier_home", m)
