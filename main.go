@@ -144,10 +144,6 @@ func BackendServer() {
 	s.storage = memory.New()
 	defer s.storage.Close()
 
-	// ##########################
-	// Application Home pages
-	s.Get("/", s.HandleVerifierHome)
-
 	// Info base path
 	s.Get("/info", s.GetBackendInfo)
 
@@ -210,23 +206,6 @@ func (s *Server) HandleHome(c *fiber.Ctx) error {
 func (s *Server) HandleStop(c *fiber.Ctx) error {
 	os.Exit(0)
 	return nil
-}
-
-func (s *Server) HandleVerifierHome(c *fiber.Ctx) error {
-
-	// Get the list of credentials
-	credsSummary, err := s.Operations.GetAllCredentials()
-	if err != nil {
-		return err
-	}
-
-	// Render template
-	m := fiber.Map{
-		"verifierPrefix": verifierPrefix,
-		"prefix":         verifierPrefix,
-		"credlist":       credsSummary,
-	}
-	return c.Render("verifier_home", m)
 }
 
 func generateNonce() string {

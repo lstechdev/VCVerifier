@@ -25,7 +25,7 @@ func setupFrontend(s *Server) {
 	frontendRoutes := s.Group(frontendPrefix)
 
 	// Pages
-
+	frontendRoutes.Get("/", frontend.HandleVerifierHome)
 	// Display a QR code for mobile wallet or a link for enterprise wallet
 	frontendRoutes.Get("/displayqr", frontend.VerifierPageDisplayQRSIOP)
 
@@ -39,6 +39,23 @@ func setupFrontend(s *Server) {
 	frontendRoutes.Get("/accessprotectedservice", frontend.VerifierPageAccessProtectedService)
 	frontendRoutes.Post("/accessService", frontend.VerifierPageAccessServicePost)
 	frontendRoutes.Get("/accessService", frontend.VerifierPageAccessServiceGet)
+}
+
+func (f *Frontend) HandleVerifierHome(c *fiber.Ctx) error {
+
+	// Get the list of credentials
+	credsSummary, err := f.server.Operations.GetAllCredentials()
+	if err != nil {
+		return err
+	}
+
+	// Render template
+	m := fiber.Map{
+		"verifierPrefix": frontendPrefix,
+		"prefix":         frontendPrefix,
+		"credlist":       credsSummary,
+	}
+	return c.Render("verifier_home", m)
 }
 
 func (f *Frontend) VerifierPageDisplayQRSIOP(c *fiber.Ctx) error {
