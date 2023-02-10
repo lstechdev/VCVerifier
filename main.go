@@ -157,6 +157,7 @@ func BackendServer() {
 	}
 
 	setupVerifier(s)
+	setupFrontend(s)
 
 	// Setup static files
 	s.Static("/static", cfg.String("server.staticDir", defaultStaticDir))

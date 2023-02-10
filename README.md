@@ -1,6 +1,6 @@
-# vcverifier
+# VCVerifier
 
-vcverifier includes in a single binary demo versions of Issuer, Verifier and Wallet (same-device only, for a cross-device wallet please see [VCWallet](https://github.com/hesusruiz/VCWallet)).
+VCerifier includes in a single binary demo versions of Issuer, Verifier and Wallet (same-device only, for a cross-device wallet please see [VCWallet](https://github.com/hesusruiz/VCWallet)).
 
 This facilitates installation and allows to see how all components fit together and the protocol flows between them.
 
