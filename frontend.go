@@ -52,7 +52,7 @@ func (f *Frontend) HandleVerifierHome(c *fiber.Ctx) error {
 	// Render template
 	m := fiber.Map{
 		"verifierPrefix": frontendPrefix,
-		"prefix":         frontendPrefix,
+		"prefix":         verifierPrefix,
 		"credlist":       credsSummary,
 	}
 	return c.Render("verifier_home", m)
