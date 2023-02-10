@@ -86,7 +86,8 @@ func (f *Frontend) VerifierPageDisplayQRSIOP(c *fiber.Ctx) error {
 
 	// Render the page
 	m := fiber.Map{
-		"verifierPrefix": frontendPrefix,
+		"verifierPrefix": verifierPrefix,
+		"frontendPrefix": frontendPrefix,
 		"qrcode":         base64Img,
 		"prefix":         frontendPrefix,
 		"state":          state,

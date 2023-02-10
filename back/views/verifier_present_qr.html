@@ -27,7 +27,7 @@
             }
             const data = await response.text()
             if (data === "expired") {
-                location = "{{.verifierPrefix}}/loginexpired"
+                location = "{{.frontendPrefix}}/loginexpired"
                 return
             }
             if (data === "pending") {
@@ -35,7 +35,7 @@
             }
 
             console.log("Received:", data)
-            location = "{{.verifierPrefix}}/receivecredential/{{.state}}"
+            location = "{{.frontendPrefix}}/receivecredential/{{.state}}"
             return
         } catch (error) {
             window.alert("A server error happened.")

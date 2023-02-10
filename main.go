@@ -215,8 +215,6 @@ func generateNonce() string {
 	return nonce
 }
 
-var sameDevice = false
-
 type jwkSet struct {
 	Keys []*jwk.JWK `json:"keys"`
 }
