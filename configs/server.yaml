@@ -18,6 +18,7 @@ verifier:
     dataSourceName: "file:verifier.sqlite?mode=rwc&cache=shared&_fk=1"
   uri_prefix: /verifier
   jwks_uri: /.well-known/jwks_uri
+  tirAddress: "https://api-pilot.ebsi.eu/trusted-issuers-registry/v2/issuers/"
   protectedResource:
     url: "https://www.google.com"
 

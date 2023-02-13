@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
+	"github.com/fiware/vcverifier/back/operations"
+	model "github.com/fiware/vcverifier/model"
 	"github.com/gofiber/fiber/v2"
 	"github.com/hesusruiz/vcutils/yaml"
 	qrcode "github.com/skip2/go-qrcode"
@@ -15,13 +18,26 @@ import (
 )
 
 type Verifier struct {
-	server *Server
+	server     *Server
+	tirAddress *string
 }
 
 // setupVerifier creates and setups the Issuer routes
 func setupVerifier(s *Server) {
 
-	verifier := &Verifier{s}
+	configuredAddress := s.cfg.String("tirAddress")
+
+	var tirAddress *string
+
+	if configuredAddress == "" {
+		s.logger.Warn("No trusted issuer registry configured. Will not use the tir check")
+		tirAddress = nil
+	} else {
+		s.logger.Infof("Will use tir at %s to verify the credentials.", configuredAddress)
+		tirAddress = &configuredAddress
+	}
+
+	verifier := &Verifier{s, tirAddress}
 
 	// Define the prefix for Verifier routes
 	verifierRoutes := s.Group(verifierPrefix)
@@ -126,6 +142,10 @@ func (v *Verifier) VerifierAPIStartSIOP(c *fiber.Ctx) error {
 	return c.SendString(str)
 }
 
+type verficationMsg struct {
+	Msg string `json:"message"`
+}
+
 // VerifierAPIAuthenticationResponseVP receives a VP, extracts the VC and display a page
 func (v *Verifier) VerifierAPIAuthenticationResponseVP(c *fiber.Ctx) error {
 
@@ -144,16 +164,44 @@ func (v *Verifier) VerifierAPIAuthenticationResponseVP(c *fiber.Ctx) error {
 		return err
 	}
 
-	credential := vp.String("credential")
+	credential := []byte(vp.String("credential"))
 	// Validate the credential
+	res, err := v.verifyCredential(credential)
+	if err != nil {
+		v.server.logger.Errorw("Was not able to verify credential.", zap.Error(err))
+		return err
+	}
+	if !res {
+		v.server.logger.Info("Credential is not valid.")
+		return c.Status(http.StatusUnauthorized).JSON(verficationMsg{"Credential is invalid."})
+	}
 
 	// Set the credential in storage, and wait for the polling from client
-	v.server.storage.Set(state, []byte(credential), 10*time.Second)
+	v.server.storage.Set(state, credential, 10*time.Second)
 
 	return c.SendString("ok")
 }
 
-type verifiableCredential struct {
+func (v *Verifier) verifyCredential(credential []byte) (result bool, err error) {
+
+	var vcToVerify model.VerifiableCredential
+
+	json.Unmarshal(credential, &vcToVerify)
+
+	policies := []model.Policy{
+		{Policy: "SignaturePolicy"},
+		{Policy: "IssuedDateBeforePolicy"},
+		{Policy: "ValidFromBeforePolicy"},
+		{Policy: "ExpirationDateAfterPolicy"},
+	}
+	if v.tirAddress != nil {
+		policies = append(policies, model.Policy{Policy: "TrustedIssuerRegistryPolicy", Argument: &model.TirArgument{RegistryAddress: *v.tirAddress}})
+	}
+
+	return operations.VerifyVC(v.server.ssiKit.auditorUrl, policies, vcToVerify)
+}
+
+type VerifiableCredential struct {
 	Credential *json.RawMessage `json:"credential"`
 }
 
@@ -167,7 +215,7 @@ func (v *Verifier) VerifierAPIAuthenticationResponse(c *fiber.Ctx) error {
 	v.server.logger.Infof("Authenticate for state '%s' with %s", state, body)
 	// Decode into a map
 
-	vc := &verifiableCredential{}
+	vc := &VerifiableCredential{}
 	json.Unmarshal(body, vc)
 
 	// Validate the credential
