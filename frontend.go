@@ -112,7 +112,8 @@ func (f *Frontend) VerifierPageReceiveCredential(c *fiber.Ctx) error {
 	if len(rawCred) == 0 {
 		// Render an error
 		m := fiber.Map{
-			"error": "No credential found",
+			"error":          "No credential found",
+			"frontendPrefix": frontendPrefix,
 		}
 		return c.Render("displayerror", m)
 	}
@@ -141,6 +142,7 @@ func (f *Frontend) VerifierPageReceiveCredential(c *fiber.Ctx) error {
 	// Render
 	m := fiber.Map{
 		"verifierPrefix": frontendPrefix,
+		"frontendPrefix": frontendPrefix,
 		"claims":         claims,
 		"prefix":         frontendPrefix,
 	}
@@ -153,6 +155,7 @@ func (f *Frontend) VerifierPageAccessServiceGet(c *fiber.Ctx) error {
 	// Render
 	m := fiber.Map{
 		"protectedService": protected,
+		"frontendPrefix":   frontendPrefix,
 		"verifierPrefix":   verifierPrefix,
 	}
 	return c.Render("frontendPrefix", m)
@@ -188,6 +191,7 @@ func (f *Frontend) VerifierPageAccessServicePost(c *fiber.Ctx) error {
 	m := fiber.Map{
 		"protectedService": service.Url,
 		"verifierPrefix":   frontendPrefix,
+		"frontendPrefix":   frontendPrefix,
 		"code":             code,
 		"returnBody":       string(returnBody),
 	}
@@ -226,6 +230,7 @@ func (f *Frontend) VerifierPageAccessProtectedService(c *fiber.Ctx) error {
 	m := fiber.Map{
 		"verifierPrefix": frontendPrefix,
 		"accesstoken":    accessToken,
+		"frontendPrefix": frontendPrefix,
 		"protected":      protected,
 		"code":           code,
 		"returnBody":     string(returnBody),
