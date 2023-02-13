@@ -158,7 +158,7 @@ func (f *Frontend) VerifierPageAccessServiceGet(c *fiber.Ctx) error {
 		"frontendPrefix":   frontendPrefix,
 		"verifierPrefix":   verifierPrefix,
 	}
-	return c.Render("frontendPrefix", m)
+	return c.Render("verifier_request_service", m)
 }
 
 func (f *Frontend) VerifierPageAccessServicePost(c *fiber.Ctx) error {
