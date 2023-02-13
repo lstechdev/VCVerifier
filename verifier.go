@@ -219,6 +219,16 @@ func (v *Verifier) VerifierAPIAuthenticationResponse(c *fiber.Ctx) error {
 	json.Unmarshal(body, vc)
 
 	// Validate the credential
+	res, err := v.verifyCredential(*vc.Credential)
+	if err != nil {
+		v.server.logger.Errorw("Was not able to verify credential.", zap.Error(err))
+		return err
+	}
+	if !res {
+		v.server.logger.Info("Credential is not valid.")
+		return c.Status(http.StatusUnauthorized).JSON(verficationMsg{"Credential is invalid."})
+	}
+
 	v.server.logger.Infof("Store credential %s", *vc.Credential)
 	// Set the credential in storage, and wait for the polling from client
 	v.server.storage.Set(state, *vc.Credential, 10*time.Second)
