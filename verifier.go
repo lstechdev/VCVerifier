@@ -25,7 +25,7 @@ type Verifier struct {
 // setupVerifier creates and setups the Issuer routes
 func setupVerifier(s *Server) {
 
-	configuredAddress := s.cfg.String("tirAddress")
+	configuredAddress := s.cfg.String("verifier.tirAddress")
 
 	var tirAddress *string
 
