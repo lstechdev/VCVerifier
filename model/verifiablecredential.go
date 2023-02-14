@@ -8,6 +8,7 @@ type VerifiableCredential struct {
 	IssuanceDate      string                 `json:"issuanceDate,omitempty"`
 	ValidFrom         string                 `json:"validFrom,omitempty"`
 	ExpirationDate    string                 `json:"expirationDate,omitempty"`
+	CredentialSchema  map[string]interface{} `json:"credentialSchema,omitempty"`
 	CredentialSubject map[string]interface{} `json:"credentialSubject,omitempty"`
 	Proof             map[string]interface{} `json:"proof"`
 }
