@@ -74,6 +74,8 @@ func VerifyVC(auditorURL string, policies []model.Policy, verifiableCredential m
 	verificationRequest := verificationRequest{policies, []model.VerifiableCredential{verifiableCredential}}
 
 	agent.JSON(verificationRequest)
+
+	logger.Debug(fmt.Sprintf("Request is %s", prettyPrintObject(verificationRequest)))
 	agent.ContentType("application/json")
 	agent.Set("accept", "application/json")
 
