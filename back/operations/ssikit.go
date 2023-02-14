@@ -35,7 +35,7 @@ func SSIKitCreateDID(custodianURL string, v *vault.Vault, userid string) (string
 	agent.Set("accept", "application/json")
 	code, returnBody, reqErr := agent.Bytes()
 	if len(reqErr) > 0 {
-		err := fmt.Errorf("error calling SSI Kit: %v", reqErr[0])
+		err := fmt.Errorf("error calling SSI Kit at: %v", reqErr[0])
 		logger.Error("error calling SSI Kit", zap.Error(err))
 		return "", err
 	}
@@ -68,6 +68,7 @@ type verificationResponse struct {
 
 func VerifyVC(auditorURL string, policies []model.Policy, verifiableCredential model.VerifiableCredential) (result bool, err error) {
 	defer logger.Sync()
+	auditorAddress := auditorURL + verificationPath
 	// Call the SSI Kit
 	agent := fiber.Post(auditorURL + verificationPath)
 	verificationRequest := verificationRequest{policies, []model.VerifiableCredential{verifiableCredential}}
@@ -78,7 +79,7 @@ func VerifyVC(auditorURL string, policies []model.Policy, verifiableCredential m
 
 	code, returnBody, reqErr := agent.Bytes()
 	if len(reqErr) > 0 {
-		err := fmt.Errorf("error calling SSI Kit: %v", reqErr[0])
+		err := fmt.Errorf("error calling SSI Kit at %s: %v", auditorAddress, reqErr[0])
 		logger.Error("error calling SSI Kit", zap.Error(err))
 		return false, err
 	}
