@@ -84,7 +84,7 @@ func VerifyVC(auditorURL string, policies []model.Policy, verifiableCredential m
 		return false, err
 	}
 	if code != http.StatusOK {
-		err := fmt.Errorf("error calling SSI Kit - status was %d", code)
+		err := fmt.Errorf("error calling SSI Kit - status was %d: %s", code, string(returnBody))
 		logger.Error(fmt.Sprintf("error calling SSI Kit - response was %d: %s", code, string(returnBody)), zap.Error(err))
 		return false, err
 	}
