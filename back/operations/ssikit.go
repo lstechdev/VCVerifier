@@ -57,8 +57,8 @@ type verificationRequest struct {
 }
 
 type verificationResult struct {
-	Valid         bool              `json:"valid"`
-	PolicyResults map[string]string `json:"policyResults`
+	Valid         bool            `json:"valid"`
+	PolicyResults map[string]bool `json:"policyResults`
 }
 
 type verificationResponse struct {
