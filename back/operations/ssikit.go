@@ -96,7 +96,16 @@ func VerifyVC(auditorURL string, policies []model.Policy, verifiableCredential m
 		return true, err
 	} else {
 		logger.Info("Verfication failed.")
-		logger.Debug(fmt.Sprintf("Detailed result is %v", vr.Results))
+		logger.Debug(fmt.Sprintf("Detailed result is %v", prettyPrintObject(vr)))
 		return false, err
 	}
+}
+
+func prettyPrintObject(objectInterface interface{}) string {
+	jsonBytes, err := json.Marshal(objectInterface)
+	if err != nil {
+		logger.Debug(fmt.Sprintf("Was not able to pretty print the object: %v", objectInterface))
+		return ""
+	}
+	return string(jsonBytes)
 }
