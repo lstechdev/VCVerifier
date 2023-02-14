@@ -52,8 +52,8 @@ func SSIKitCreateDID(custodianURL string, v *vault.Vault, userid string) (string
 }
 
 type verificationRequest struct {
-	Policies    []model.Policy               `json:"policies"`
-	Credentials []model.VerifiableCredential `json:"credentials"`
+	Policies    []model.Policy           `json:"policies"`
+	Credentials []map[string]interface{} `json:"credentials"`
 }
 
 type verificationResult struct {
@@ -66,12 +66,12 @@ type verificationResponse struct {
 	Results []verificationResult `json:"results"`
 }
 
-func VerifyVC(auditorURL string, policies []model.Policy, verifiableCredential model.VerifiableCredential) (result bool, err error) {
+func VerifyVC(auditorURL string, policies []model.Policy, verifiableCredential map[string]interface{}) (result bool, err error) {
 	defer logger.Sync()
 	auditorAddress := auditorURL + verificationPath
 	// Call the SSI Kit
 	agent := fiber.Post(auditorURL + verificationPath)
-	verificationRequest := verificationRequest{policies, []model.VerifiableCredential{verifiableCredential}}
+	verificationRequest := verificationRequest{policies, []map[string]interface{}{verifiableCredential}}
 
 	agent.JSON(verificationRequest)
 
