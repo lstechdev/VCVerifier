@@ -184,7 +184,7 @@ func (v *Verifier) VerifierAPIAuthenticationResponseVP(c *fiber.Ctx) error {
 
 func (v *Verifier) verifyCredential(credential []byte) (result bool, err error) {
 
-	var vcToVerify model.VerifiableCredential
+	var vcToVerify map[string]interface{}
 
 	json.Unmarshal(credential, &vcToVerify)
 
