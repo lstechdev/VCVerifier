@@ -11,6 +11,7 @@ store:
 
 verifier:
   id: PacketDelivery
+  did: did:key:z6Mkv4Lh9zBTPLoFhLHHMFJA7YAeVw5HFYZV8rkdfY9fNtm3
   name: PacketDelivery
   password: ThePassword
   store:

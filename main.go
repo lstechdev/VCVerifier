@@ -125,7 +125,7 @@ func BackendServer() {
 
 	s.logger.Infof("SSIKit is configured at: %v", s.ssiKit)
 
-	s.verifierDID, err = operations.SSIKitCreateDID(s.ssiKit.custodianUrl, s.verifierVault, cfg.String("verifier.id"))
+	s.verifierDID, err = operations.SSIKitCreateDID(s.ssiKit.custodianUrl, s.verifierVault, cfg.String("verifier.id"), s.cfg.String("verifier.did"))
 	if err != nil {
 		panic(err)
 	}

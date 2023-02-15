@@ -16,13 +16,18 @@ const verificationPath = "/v1/verify"
 
 var logger = zap.Must(zap.NewDevelopment())
 
-func SSIKitCreateDID(custodianURL string, v *vault.Vault, userid string) (string, error) {
+func SSIKitCreateDID(custodianURL string, v *vault.Vault, userid string, configueredDid string) (did string, err error) {
 	defer logger.Sync()
 
-	// Create a new DID only if it does not exist
-	did, _ := v.GetDIDForUser(userid)
-	if len(did) > 0 {
-		return did, nil
+	if len(configueredDid) == 0 {
+		// Create a new DID only if it does not exist
+		did, err = v.GetDIDForUser(userid)
+		if len(did) > 0 {
+			return did, err
+		}
+	} else {
+		v.SetDIDForUser(userid, configueredDid)
+		return did, err
 	}
 
 	// Call the SSI Kit
