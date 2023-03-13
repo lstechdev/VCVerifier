@@ -61,6 +61,7 @@ func setupVerifier(s *Server) {
 	// Used by the wallet (both enterprise and mobile) to send the VC/VP as Authentication Response
 	verifierRoutes.Post("/authenticationresponse", verifier.VerifierAPIAuthenticationResponse)
 	s.logger.Info("Routes are setup")
+
 }
 
 type AccessServiceForm struct {
@@ -69,6 +70,7 @@ type AccessServiceForm struct {
 
 func (v *Verifier) VerifierAPIPoll(c *fiber.Ctx) error {
 
+	v.server.logger.Info("VerifierAPIPoll")
 	// get the state
 	state := c.Params("state")
 
@@ -112,6 +114,8 @@ func (v *Verifier) VerifierAPIToken(c *fiber.Ctx) error {
 }
 
 func (v *Verifier) VerifierAPIStartSIOP(c *fiber.Ctx) error {
+
+	v.server.logger.Info("Start siop")
 
 	// Get the state
 	state := c.Query("state")
