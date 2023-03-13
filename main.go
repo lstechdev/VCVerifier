@@ -17,7 +17,6 @@ import (
 	"github.com/hesusruiz/vcutils/yaml"
 
 	"flag"
-	"log"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -158,8 +157,10 @@ func BackendServer() {
 	// Setup static files
 	s.Static("/static", cfg.String("server.staticDir", defaultStaticDir))
 
+	s.logger.Info("Start")
 	// Start the server
-	log.Fatal(s.Listen(cfg.String("server.listenAddress")))
+	s.logger.Info(s.Listen(cfg.String("server.listenAddress")))
+	s.logger.Info("Started")
 
 }
 
