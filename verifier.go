@@ -149,6 +149,7 @@ type verficationMsg struct {
 // VerifierAPIAuthenticationResponseVP receives a VP, extracts the VC and display a page
 func (v *Verifier) VerifierAPIAuthenticationResponseVP(c *fiber.Ctx) error {
 
+	v.server.logger.Infof("Authenticate")
 	// Get the state, which indicates the login session to which this request belongs
 	state := c.Query("state")
 
