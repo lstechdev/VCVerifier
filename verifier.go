@@ -61,7 +61,9 @@ func setupVerifier(s *Server) {
 
 	// Used by the wallet (both enterprise and mobile) to send the VC/VP as Authentication Response
 	verifierRoutes.Post("/authenticationresponse", verifier.VerifierAPIAuthenticationResponse)
-
+	s.logger.Info("Routes are setup")
+	s.logger.Warn("W")
+	s.logger.Error("E")
 }
 
 type AccessServiceForm struct {
@@ -149,7 +151,6 @@ type verficationMsg struct {
 // VerifierAPIAuthenticationResponseVP receives a VP, extracts the VC and display a page
 func (v *Verifier) VerifierAPIAuthenticationResponseVP(c *fiber.Ctx) error {
 
-	v.server.logger.Infof("Authenticate")
 	// Get the state, which indicates the login session to which this request belongs
 	state := c.Query("state")
 
@@ -207,8 +208,6 @@ type VerifiableCredential struct {
 }
 
 func (v *Verifier) VerifierAPIAuthenticationResponse(c *fiber.Ctx) error {
-
-	v.server.logger.Infof("Authenticate")
 
 	// Get the state
 	state := c.Query("state")
