@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -70,7 +71,7 @@ type AccessServiceForm struct {
 
 func (v *Verifier) VerifierAPIPoll(c *fiber.Ctx) error {
 
-	v.server.logger.Info("VerifierAPIPoll")
+	fmt.Println("VerifierAPIPoll")
 	// get the state
 	state := c.Params("state")
 
@@ -86,7 +87,7 @@ func (v *Verifier) VerifierAPIPoll(c *fiber.Ctx) error {
 
 // retrieve token for the given session("state"-paramter)
 func (v *Verifier) VerifierAPIToken(c *fiber.Ctx) error {
-	v.server.logger.Info("Get the token")
+	fmt.Println("Get the token")
 	// get the state
 	state := c.Params("state")
 
@@ -115,6 +116,7 @@ func (v *Verifier) VerifierAPIToken(c *fiber.Ctx) error {
 
 func (v *Verifier) VerifierAPIStartSIOP(c *fiber.Ctx) error {
 
+	fmt.Println("Start siop")
 	v.server.logger.Info("Start siop")
 
 	// Get the state
@@ -152,7 +154,7 @@ type verficationMsg struct {
 // VerifierAPIAuthenticationResponseVP receives a VP, extracts the VC and display a page
 func (v *Verifier) VerifierAPIAuthenticationResponseVP(c *fiber.Ctx) error {
 
-	v.server.logger.Info("Received VP")
+	fmt.Println("Received VP")
 
 	// Get the state, which indicates the login session to which this request belongs
 	state := c.Query("state")
@@ -186,7 +188,7 @@ func (v *Verifier) VerifierAPIAuthenticationResponseVP(c *fiber.Ctx) error {
 }
 
 func (v *Verifier) verifyCredential(credential []byte) (result bool, err error) {
-	v.server.logger.Info("Verify Credential")
+	fmt.Println("Verify Credential")
 
 	var vcToVerify map[string]interface{}
 
@@ -211,7 +213,7 @@ type VerifiableCredential struct {
 
 func (v *Verifier) VerifierAPIAuthenticationResponse(c *fiber.Ctx) error {
 
-	v.server.logger.Info("Auth")
+	fmt.Println("Auth")
 
 	// Get the state
 	state := c.Query("state")
