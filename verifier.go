@@ -70,7 +70,7 @@ type AccessServiceForm struct {
 
 func (v *Verifier) VerifierAPIPoll(c *fiber.Ctx) error {
 
-	s.logger.Debug("VerifierAPIPoll")
+	v.server.logger.Debug("VerifierAPIPoll")
 	// get the state
 	state := c.Params("state")
 
