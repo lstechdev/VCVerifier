@@ -164,7 +164,7 @@ func BackendServer() {
 		s.logger.Warn("Failed to start.", err)
 	}
 	s.logger.Info("Started")
-
+	s.logger.Info("now")
 }
 
 func fromMap(configMap map[string]any) (skc *SSIKitConfig) {
