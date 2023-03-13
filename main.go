@@ -159,7 +159,7 @@ func BackendServer() {
 
 	s.logger.Info("Start")
 	// Start the server
-	s.logger.Info(s.Listen(cfg.String("server.listenAddress")))
+	s.Listen(cfg.String("server.listenAddress"))
 	s.logger.Info("Started")
 
 }
