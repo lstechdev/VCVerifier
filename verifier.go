@@ -207,6 +207,8 @@ type VerifiableCredential struct {
 
 func (v *Verifier) VerifierAPIAuthenticationResponse(c *fiber.Ctx) error {
 
+	v.server.logger.Infof("Authenticate")
+
 	// Get the state
 	state := c.Query("state")
 

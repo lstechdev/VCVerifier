@@ -104,6 +104,8 @@ func (f *Frontend) VerifierPageLoginExpired(c *fiber.Ctx) error {
 
 func (f *Frontend) VerifierPageReceiveCredential(c *fiber.Ctx) error {
 
+	f.server.logger.Infof("Received credential")
+
 	// Get the state as a path parameter
 	state := c.Params("state")
 
