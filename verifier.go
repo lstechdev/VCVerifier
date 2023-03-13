@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -62,8 +61,6 @@ func setupVerifier(s *Server) {
 	// Used by the wallet (both enterprise and mobile) to send the VC/VP as Authentication Response
 	verifierRoutes.Post("/authenticationresponse", verifier.VerifierAPIAuthenticationResponse)
 	s.logger.Info("Routes are setup")
-	s.logger.Warn("W")
-	s.logger.Error("E")
 }
 
 type AccessServiceForm struct {
@@ -151,13 +148,13 @@ type verficationMsg struct {
 // VerifierAPIAuthenticationResponseVP receives a VP, extracts the VC and display a page
 func (v *Verifier) VerifierAPIAuthenticationResponseVP(c *fiber.Ctx) error {
 
+	v.server.logger.Info("Received VP")
+
 	// Get the state, which indicates the login session to which this request belongs
 	state := c.Query("state")
 
 	// We should receive the Verifiable Presentation in the body as JSON
 	body := c.Body()
-	fmt.Println(string(body))
-	fmt.Println(string(state))
 
 	// Decode into a map
 	vp, err := yaml.ParseJson(string(body))
@@ -185,6 +182,7 @@ func (v *Verifier) VerifierAPIAuthenticationResponseVP(c *fiber.Ctx) error {
 }
 
 func (v *Verifier) verifyCredential(credential []byte) (result bool, err error) {
+	v.server.logger.Info("Verify Credential")
 
 	var vcToVerify map[string]interface{}
 
@@ -208,6 +206,8 @@ type VerifiableCredential struct {
 }
 
 func (v *Verifier) VerifierAPIAuthenticationResponse(c *fiber.Ctx) error {
+
+	v.server.logger.Info("Auth")
 
 	// Get the state
 	state := c.Query("state")
