@@ -157,7 +157,7 @@ func BackendServer() {
 	// Setup static files
 	s.Static("/static", cfg.String("server.staticDir", defaultStaticDir))
 
-	s.logger.Info("Start")
+	s.logger.Infof("Start %s", cfg.String("server.listenAddress"))
 	// Start the server
 	s.Listen(cfg.String("server.listenAddress"))
 	s.logger.Info("Started")
