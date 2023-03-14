@@ -180,8 +180,10 @@ func (v *Verifier) VerifierAPIAuthenticationResponseVP(c *fiber.Ctx) error {
 	}
 
 	// Set the credential in storage, and wait for the polling from client
-	v.server.storage.Set(state, credential, 10*time.Second)
-
+	err = v.server.storage.Set(state, credential, 10*time.Second)
+	if err != nil {
+		v.server.logger.Warnf("Was not able to store for %s", state)
+	}
 	return c.SendString("ok")
 }
 
