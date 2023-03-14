@@ -10,133 +10,7 @@ tags:
     description: All api-endpoints, e.g. the once that can be reused by other applicatios
   - name: verifier
     description: All endpoints belonging to the verifier functionality
-  - name: issuer
-    description: All endpoints belonging to the issuer functionality
-  - name: core
-    description: All endpoints belonging to core functionality, e.g. setup and info stuff
-  - name: wallet    
-    description: All endpoints belonging to the wallet functionality
-  - name: base
-    description: General endpoints, providing information or entrypoint routing
 paths:
-  /issuer/api/v1/newcredential:
-    get:
-      tags:
-        - issuer
-        - frontend
-      operationId: IssuerPageNewCredentialFormDisplay
-      summary: Returns the page to issue new credentials
-      responses:
-        '200':
-          description: Show the credentials input page
-          content:
-            text/html:
-              schema: 
-                type: object
-    post:
-      tags:
-        - issuer
-        - frontend
-      operationId: IssuerPageNewCredentialFormPost
-      summary: Issues a new credentials and renders them to a page
-      requestBody:
-        required: true
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/VCCreate'
-      responses:
-        '200':
-          description: Show the created credential on a rendered page
-          content:
-            text/html:
-              schema: 
-                type: object
-  /issuer/api/v1/creddetails/{id}:
-    get:
-      tags:
-        - issuer
-        - frontend
-      parameters:
-        - $ref: '#/components/parameters/Id'
-      operationId: IssuerPageCredentialDetails
-      summary: Show the credential details on a rendered page
-      responses:
-        '200':
-          description: Present the credential details in a rendered html page
-          content:
-            text/html:
-              schema: 
-                type: object
-  /issuer/api/v1/displayqrurl/{id}:
-    get:
-      tags:
-        - issuer
-        - frontend
-      parameters:
-        - $ref: '#/components/parameters/Id'
-      operationId: IssuerPageDisplayQRURL
-      summary: Show the credential encoded as a qr-code on a rendered html page 
-      responses:
-        '200':
-          description: Present the credential qr-code in a rendered html page
-          content:
-            text/html:
-              schema: 
-                type: object
-    
-  /issuer/api/v1/allcredentials:
-    get:
-      tags:
-        - issuer
-        - api
-      operationId: IssuerAPIAllCredentials
-      summary: Return the ids of all issued credentials
-      responses:
-        '200':
-          description: Returns the list of ids
-          content:
-            application/json:
-              schema:
-                type: array
-                items: 
-                  $ref: '#/components/schemas/CredentialId'
-  /issuer/api/v1/credential:
-    post:
-      tags:
-        - issuer
-        - api
-      operationId: CreateNewCredential
-      summary: Issues a new credentials and returns it
-      requestBody:
-        required: true
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/VCCreate'
-      responses:
-        '200':
-          description: Return the created credential
-          content:
-            application/json:
-              schema: 
-                $ref: '#/components/schemas/VerifiableCredential'
-  /issuer/api/v1/credential/{id}:
-    get:
-      tags:
-        - issuer
-        - api
-      parameters:
-        - $ref: '#/components/parameters/Id'
-      operationId: IssuerAPICredential
-      summary: Return credential with the given ID
-      responses:
-        '200':
-          description: The credential
-          content:
-            text/plain:
-              schema:
-                $ref: '#/components/schemas/VerifiableCredential'
   /verifier/api/v1/displayqr:
     get:
       tags:
@@ -301,87 +175,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/JWKSet'
-          
-  /wallet/api/v1/selectcredential:
-    get:
-      tags:
-        - wallet
-        - frontend
-      operationId: WalletPageSelectCredential
-      summary: Present a rendered page with the available credentials
-      responses:
-        '200':
-          description: The rendered page
-          content:
-            text/html:
-              schema:
-                type: object
-  /wallet/api/v1/sendcredential:
-    get:
-      tags:
-        - wallet
-        - frontend
-      parameters:
-        - $ref: '#/components/parameters/QueryState'
-        - $ref: '#/components/parameters/QueryId'
-        - $ref: '#/components/parameters/RedirectUri'
-      operationId: WalletPageSendCredential
-      summary: Executes a post with the given credential to the redirect_uri and returns a rendered page, presenting the post-result
-      responses:
-        '200':
-          description: The rendered page
-          content:
-            text/html:
-              schema:
-                type: object
-  /core/api/v1/createdid:
-    get:
-      tags:
-        - core
-        - api
-      operationId: CoreAPICreateDID
-      summary: Wrapper for the waltid-ssikit custodian endpoint for creating did's of type key
-      responses:
-        '200':
-          description: Creation result from the ssikit
-          content:
-            application/json:
-              schema:
-                type: string
-                example: did:key:z6MkibsKombswvCMhej83YbHsyknL2uc5kVazwr4xB3JqeUX
-  /core/api/v1/listcredentialtemplates:
-    get:
-      tags:
-        - core
-        - api
-      operationId: CoreAPIListCredentialTemplates
-      summary: Wrapper for the waltid-ssikit signatory endpoint for listing templates
-      responses:
-        '200':
-          description: List of templates, no offical spec available from ssikit, format is assumed
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/CredentialTemplate'
-  /core/api/v1/getcredentialtemplate/{id}:
-    get:
-      tags:
-        - core
-        - api
-      parameters:
-        - $ref: '#/components/parameters/Id'
-      operationId: CoreAPIGetCredentialTemplate
-      summary: Wrapper for the waltid-ssikit signatory endpoint for retrieving a template
-      responses:
-        '200':
-          description: The requested template.
-          content: 
-            application/json:
-              schema: 
-                description: SSIKit doc says type string, but its a vc-object instead.
-                type: object
   /:
     get: 
       tags:
@@ -392,20 +185,6 @@ paths:
       responses:
         '200':
           description: The home page
-          content:
-            text/plain:
-              schema:
-                type: object
-  /issuer:
-    get: 
-      tags:
-        - base
-        - frontend
-      operationId: HandleIssuerHome
-      summary: Returns the rendered homepage for the issuer functionality
-      responses:
-        '200':
-          description: The issuer page
           content:
             text/plain:
               schema:
@@ -477,23 +256,6 @@ components:
         type: string
         example: https://my-verifier.com/verifier/api/v1/authenticationresponse
   schemas:
-    CredentialTemplate:
-      type: object
-      properties:
-        mutable:
-          type: boolean
-          example: false
-        name: 
-          type: string
-          example: VerifiableId
-        template:
-          type: string
-    CredentialId:
-      type: object
-      properties:
-        id:
-          type: string
-          example: urn:uuid:e44beccc-a766-4baf-8cd0-17f86ef74a5c 
     CredentialsType:
       type: array
       items:
@@ -608,25 +370,6 @@ components:
       properties:
         credential:
           $ref: '#/components/schemas/VerifiableCredential'
-    VCCreate:
-      type: object
-      properties:
-        email:
-          type: string
-          format: email
-          example: test@test.org
-        firstName:
-          type: string
-          example: Test
-        familyName: 
-          type: string
-          example: User
-        target:
-          type: string
-          example: did:key:myuserkey
-        roles:
-          type: string
-          example: GOLD_CUSTOMER,STANDARD_CUSTOMER
     BackendInfo:
       type: object
       properties:

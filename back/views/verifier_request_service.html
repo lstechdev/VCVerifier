@@ -1,0 +1,36 @@
+{{define "verifier_request_service"}} {{template "partials/header" .}}
+
+<main class="w3-container">
+
+    <div class="w3-container w3-padding-16">
+        <h4>Enter URL:</h4>
+    </div>
+    <form class="w3-container" action="{{.frontendPrefix}}/accessService" method="post">
+
+        <label>Request</label>
+        <input
+          class="w3-input w3-border w3-margin-bottom"
+          type="text"
+          name="requestUrl"
+          id="requestUrl"
+          value="{{.protectedService}}"
+        />
+        <input
+            class="btn-primary w3-round-large"
+            type="submit"
+            value="Request"
+        />
+    </form>
+
+
+    {{if .returnBody}}
+    <div class="w3-container w3-padding-16">
+        <h4>Response</h4>
+        <p>With status code {{.code}} and returned:</p>
+        <p><code class="language-json">{{.returnBody}}</code></p>
+    </div>
+    {{end}}
+
+</main>
+
+{{template "partials/footer" .}} {{end}}

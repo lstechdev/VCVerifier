@@ -4,9 +4,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
+	"net/http"
 	"time"
 
+	"github.com/fiware/vcverifier/back/operations"
+	model "github.com/fiware/vcverifier/model"
 	"github.com/gofiber/fiber/v2"
 	"github.com/hesusruiz/vcutils/yaml"
 	qrcode "github.com/skip2/go-qrcode"
@@ -15,13 +17,26 @@ import (
 )
 
 type Verifier struct {
-	server *Server
+	server     *Server
+	tirAddress *string
 }
 
 // setupVerifier creates and setups the Issuer routes
 func setupVerifier(s *Server) {
 
-	verifier := &Verifier{s}
+	configuredAddress := s.cfg.String("verifier.tirAddress")
+
+	var tirAddress *string
+
+	if configuredAddress == "" {
+		s.logger.Warn("No trusted issuer registry configured. Will not use the tir check")
+		tirAddress = nil
+	} else {
+		s.logger.Infof("Will use tir at %s to verify the credentials.", configuredAddress)
+		tirAddress = &configuredAddress
+	}
+
+	verifier := &Verifier{s, tirAddress}
 
 	// Define the prefix for Verifier routes
 	verifierRoutes := s.Group(verifierPrefix)
@@ -31,23 +46,6 @@ func setupVerifier(s *Server) {
 	// The JWKS endpoint
 	jwks_uri := s.cfg.String("verifier.uri_prefix") + s.cfg.String("verifier.jwks_uri")
 	s.Get(jwks_uri, s.VerifierAPIJWKS)
-
-	// Pages
-
-	// Display a QR code for mobile wallet or a link for enterprise wallet
-	verifierRoutes.Get("/displayqr", verifier.VerifierPageDisplayQRSIOP)
-
-	// Error page when login session has expired without the user sending the credential
-	verifierRoutes.Get("/loginexpired", verifier.VerifierPageLoginExpired)
-
-	// For same-device logins (e.g., with the enterprise wallet)
-	verifierRoutes.Get("/startsiopsamedevice", verifier.VerifierPageStartSIOPSameDevice)
-
-	// Page displaying the received credential, after successful login
-	verifierRoutes.Get("/receivecredential/:state", verifier.VerifierPageReceiveCredential)
-
-	// Allow simulation of accessing protected resources, after successful login
-	verifierRoutes.Get("/accessprotectedservice", verifier.VerifierPageAccessProtectedService)
 
 	// APIs
 
@@ -62,183 +60,17 @@ func setupVerifier(s *Server) {
 
 	// Used by the wallet (both enterprise and mobile) to send the VC/VP as Authentication Response
 	verifierRoutes.Post("/authenticationresponse", verifier.VerifierAPIAuthenticationResponse)
+	s.logger.Info("Routes are setup")
 
 }
 
-func (v *Verifier) VerifierPageDisplayQRSIOP(c *fiber.Ctx) error {
-
-	// Generate the state that will be used for checking expiration and also successful logon
-	state := generateNonce()
-
-	// Create an entry in storage that will expire.
-	// The entry is identified by the nonce
-	v.server.storage.Set(state, []byte("pending"), 200*time.Second)
-
-	// This is the endpoint inside the QR that the wallet will use to send the VC/VP
-	redirect_uri := c.Protocol() + "://" + c.Hostname() + verifierPrefix + "/authenticationresponse"
-
-	// Create the Authentication Request
-	authRequest := createAuthenticationRequest(v.server.verifierDID, redirect_uri, state)
-	v.server.logger.Info("AuthRequest", authRequest)
-
-	// Create the QR code for cross-device SIOP
-	png, err := qrcode.Encode(authRequest, qrcode.Medium, 256)
-	if err != nil {
-		return err
-	}
-
-	// Convert the image data to a dataURL
-	base64Img := base64.StdEncoding.EncodeToString(png)
-	base64Img = "data:image/png;base64," + base64Img
-
-	// Render the page
-	m := fiber.Map{
-		"issuerPrefix":   issuerPrefix,
-		"verifierPrefix": verifierPrefix,
-		"walletPrefix":   walletPrefix,
-		"qrcode":         base64Img,
-		"prefix":         verifierPrefix,
-		"state":          state,
-	}
-	return c.Render("verifier_present_qr", m)
-}
-
-func (v *Verifier) VerifierPageLoginExpired(c *fiber.Ctx) error {
-	m := fiber.Map{
-		"prefix": verifierPrefix,
-	}
-	return c.Render("verifier_loginexpired", m)
-}
-
-func (v *Verifier) VerifierPageStartSIOPSameDevice(c *fiber.Ctx) error {
-
-	state := c.Query("state")
-
-	const scope = "dsba.credentials.presentation.PacketDeliveryService"
-	const response_type = "vp_token"
-	redirect_uri := c.Protocol() + "://" + c.Hostname() + verifierPrefix + "/authenticationresponse"
-
-	// template := "https://hesusruiz.github.io/faster/?scope={{scope}}" +
-	// 	"&response_type={{response_type}}" +
-	// 	"&response_mode=post" +
-	// 	"&client_id={{client_id}}" +
-	// 	"&redirect_uri={{redirect_uri}}" +
-	// 	"&state={{state}}" +
-	// 	"&nonce={{nonce}}"
-
-	walletUri := c.Protocol() + "://" + c.Hostname() + walletPrefix + "/selectcredential"
-	template := walletUri + "/?scope={{scope}}" +
-		"&response_type={{response_type}}" +
-		"&response_mode=post" +
-		"&client_id={{client_id}}" +
-		"&redirect_uri={{redirect_uri}}" +
-		"&state={{state}}" +
-		"&nonce={{nonce}}"
-
-	t := fasttemplate.New(template, "{{", "}}")
-	str := t.ExecuteString(map[string]interface{}{
-		"scope":         scope,
-		"response_type": response_type,
-		"client_id":     v.server.verifierDID,
-		"redirect_uri":  redirect_uri,
-		"state":         state,
-		"nonce":         generateNonce(),
-	})
-	fmt.Println(str)
-
-	return c.Redirect(str)
-}
-
-func (v *Verifier) VerifierPageReceiveCredential(c *fiber.Ctx) error {
-
-	// Get the state as a path parameter
-	state := c.Params("state")
-
-	// get the credential from the storage
-	rawCred, _ := v.server.storage.Get(state)
-	if len(rawCred) == 0 {
-		// Render an error
-		m := fiber.Map{
-			"error": "No credential found",
-		}
-		return c.Render("displayerror", m)
-	}
-
-	claims := string(rawCred)
-
-	// Create an access token from the credential
-	accessToken, err := v.server.verifierVault.CreateAccessToken(claims, v.server.cfg.String("verifier.id"))
-	if err != nil {
-		return err
-	}
-
-	// Set it in a cookie
-	cookie := new(fiber.Cookie)
-	cookie.Name = "dbsamvf"
-	cookie.Value = string(accessToken)
-	cookie.Expires = time.Now().Add(1 * time.Hour)
-
-	// Set cookie
-	c.Cookie(cookie)
-
-	// Set also the access token in the Authorization field of the response header
-	bearer := "Bearer " + string(accessToken)
-	c.Set("Authorization", bearer)
-
-	// Render
-	m := fiber.Map{
-		"issuerPrefix":   issuerPrefix,
-		"verifierPrefix": verifierPrefix,
-		"walletPrefix":   walletPrefix,
-		"claims":         claims,
-		"prefix":         verifierPrefix,
-	}
-	return c.Render("verifier_receivedcredential", m)
-}
-
-func (v *Verifier) VerifierPageAccessProtectedService(c *fiber.Ctx) error {
-
-	var code int
-	var returnBody []byte
-	var errors []error
-
-	// Get the access token from the cookie
-	accessToken := c.Cookies("dbsamvf")
-
-	// Check if the user has configured a protected service to access
-	protected := v.server.cfg.String("verifier.protectedResource.url")
-	if len(protected) > 0 {
-
-		// Prepare to GET to the url
-		agent := fiber.Get(protected)
-
-		// Set the Authentication header
-		agent.Set("Authorization", "Bearer "+accessToken)
-
-		agent.Set("accept", "application/json")
-		code, returnBody, errors = agent.Bytes()
-		if len(errors) > 0 {
-			v.server.logger.Errorw("error calling SSI Kit", zap.Errors("errors", errors))
-			return fmt.Errorf("error calling SSI Kit: %v", errors[0])
-		}
-
-	}
-
-	// Render
-	m := fiber.Map{
-		"issuerPrefix":   issuerPrefix,
-		"verifierPrefix": verifierPrefix,
-		"walletPrefix":   walletPrefix,
-		"accesstoken":    accessToken,
-		"protected":      protected,
-		"code":           code,
-		"returnBody":     string(returnBody),
-	}
-	return c.Render("verifier_protectedservice", m)
+type AccessServiceForm struct {
+	Url string `form:"requestUrl,omitempty"`
 }
 
 func (v *Verifier) VerifierAPIPoll(c *fiber.Ctx) error {
 
+	v.server.logger.Debug("VerifierAPIPoll")
 	// get the state
 	state := c.Params("state")
 
@@ -254,7 +86,7 @@ func (v *Verifier) VerifierAPIPoll(c *fiber.Ctx) error {
 
 // retrieve token for the given session("state"-paramter)
 func (v *Verifier) VerifierAPIToken(c *fiber.Ctx) error {
-	v.server.logger.Info("Get the token")
+	v.server.logger.Debug("Get the token")
 	// get the state
 	state := c.Params("state")
 
@@ -282,6 +114,8 @@ func (v *Verifier) VerifierAPIToken(c *fiber.Ctx) error {
 }
 
 func (v *Verifier) VerifierAPIStartSIOP(c *fiber.Ctx) error {
+
+	v.server.logger.Debug("Start siop")
 
 	// Get the state
 	state := c.Query("state")
@@ -311,16 +145,20 @@ func (v *Verifier) VerifierAPIStartSIOP(c *fiber.Ctx) error {
 	return c.SendString(str)
 }
 
+type verficationMsg struct {
+	Msg string `json:"message"`
+}
+
 // VerifierAPIAuthenticationResponseVP receives a VP, extracts the VC and display a page
 func (v *Verifier) VerifierAPIAuthenticationResponseVP(c *fiber.Ctx) error {
+
+	v.server.logger.Debug("Received VP")
 
 	// Get the state, which indicates the login session to which this request belongs
 	state := c.Query("state")
 
 	// We should receive the Verifiable Presentation in the body as JSON
 	body := c.Body()
-	fmt.Println(string(body))
-	fmt.Println(string(state))
 
 	// Decode into a map
 	vp, err := yaml.ParseJson(string(body))
@@ -329,20 +167,53 @@ func (v *Verifier) VerifierAPIAuthenticationResponseVP(c *fiber.Ctx) error {
 		return err
 	}
 
-	credential := vp.String("credential")
+	credential := []byte(vp.String("credential"))
 	// Validate the credential
+	res, err := v.verifyCredential(credential)
+	if err != nil {
+		v.server.logger.Errorw("Was not able to verify credential.", zap.Error(err))
+		return err
+	}
+	if !res {
+		v.server.logger.Info("Credential is not valid.")
+		return c.Status(http.StatusUnauthorized).JSON(verficationMsg{"Credential is invalid."})
+	}
 
 	// Set the credential in storage, and wait for the polling from client
-	v.server.storage.Set(state, []byte(credential), 10*time.Second)
-
+	err = v.server.storage.Set(state, credential, 10*time.Second)
+	if err != nil {
+		v.server.logger.Warnf("Was not able to store for %s", state)
+	}
 	return c.SendString("ok")
 }
 
-type verifiableCredential struct {
+func (v *Verifier) verifyCredential(credential []byte) (result bool, err error) {
+	v.server.logger.Debug("Verify Credential")
+
+	var vcToVerify map[string]interface{}
+
+	json.Unmarshal(credential, &vcToVerify)
+
+	policies := []model.Policy{
+		{Policy: "SignaturePolicy"},
+		{Policy: "IssuedDateBeforePolicy"},
+		{Policy: "ValidFromBeforePolicy"},
+		{Policy: "ExpirationDateAfterPolicy"},
+	}
+	if v.tirAddress != nil {
+		policies = append(policies, model.Policy{Policy: "TrustedIssuerRegistryPolicy", Argument: &model.TirArgument{RegistryAddress: *v.tirAddress}})
+	}
+
+	return operations.VerifyVC(v.server.ssiKit.auditorUrl, policies, vcToVerify)
+}
+
+type VerifiableCredential struct {
 	Credential *json.RawMessage `json:"credential"`
 }
 
 func (v *Verifier) VerifierAPIAuthenticationResponse(c *fiber.Ctx) error {
+
+	v.server.logger.Debug("Auth")
 
 	// Get the state
 	state := c.Query("state")
@@ -352,10 +223,20 @@ func (v *Verifier) VerifierAPIAuthenticationResponse(c *fiber.Ctx) error {
 	v.server.logger.Infof("Authenticate for state '%s' with %s", state, body)
 	// Decode into a map
 
-	vc := &verifiableCredential{}
+	vc := &VerifiableCredential{}
 	json.Unmarshal(body, vc)
 
 	// Validate the credential
+	res, err := v.verifyCredential(*vc.Credential)
+	if err != nil {
+		v.server.logger.Errorw("Was not able to verify credential.", zap.Error(err))
+		return err
+	}
+	if !res {
+		v.server.logger.Info("Credential is not valid.")
+		return c.Status(http.StatusUnauthorized).JSON(verficationMsg{"Credential is invalid."})
+	}
+
 	v.server.logger.Infof("Store credential %s", *vc.Credential)
 	// Set the credential in storage, and wait for the polling from client
 	v.server.storage.Set(state, *vc.Credential, 10*time.Second)
@@ -365,10 +246,6 @@ func (v *Verifier) VerifierAPIAuthenticationResponse(c *fiber.Ctx) error {
 }
 
 func (v *Verifier) VerifierPageDisplayQR(c *fiber.Ctx) error {
-
-	if sameDevice {
-		return v.VerifierPageStartSIOPSameDevice(c)
-	}
 
 	// Generate the state that will be used for checking expiration
 	state := generateNonce()
@@ -387,9 +264,7 @@ func (v *Verifier) VerifierPageDisplayQR(c *fiber.Ctx) error {
 
 	// Render index
 	m := fiber.Map{
-		"issuerPrefix":   issuerPrefix,
 		"verifierPrefix": verifierPrefix,
-		"walletPrefix":   walletPrefix,
 		"qrcode":         qrCode1,
 		"prefix":         verifierPrefix,
 		"state":          state,

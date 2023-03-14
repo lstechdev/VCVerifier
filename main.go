@@ -17,7 +17,6 @@ import (
 	"github.com/hesusruiz/vcutils/yaml"
 
 	"flag"
-	"log"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -34,15 +33,11 @@ const defaultStoreDriverName = "sqlite3"
 const defaultStoreDataSourceName = "file:issuer.sqlite?mode=rwc&cache=shared&_fk=1"
 const defaultPassword = "ThePassword"
 
-const corePrefix = "/core/api/v1"
-const issuerPrefix = "/issuer/api/v1"
 const verifierPrefix = "/verifier/api/v1"
-const walletPrefix = "/wallet/api/v1"
 
 var (
 	prod       = flag.Bool("prod", false, "Enable prefork in Production")
 	configFile = flag.String("config", LookupEnvOrString("CONFIG_FILE", defaultConfigFile), "path to configuration file")
-	password   = flag.String("pass", LookupEnvOrString("PASSWORD", defaultPassword), "admin password for the server")
 )
 
 type SSIKitConfig struct {
@@ -60,7 +55,6 @@ type Server struct {
 	WebAuthn      *handlers.WebAuthnHandler
 	Operations    *operations.Manager
 	verifierVault *vault.Vault
-	issuerDID     string
 	verifierDID   string
 	logger        *zap.SugaredLogger
 	storage       *memory.Storage
@@ -130,7 +124,7 @@ func BackendServer() {
 
 	s.logger.Infof("SSIKit is configured at: %v", s.ssiKit)
 
-	s.verifierDID, err = operations.SSIKitCreateDID(s.ssiKit.custodianUrl, s.verifierVault, cfg.String("verifier.id"))
+	s.verifierDID, err = operations.SSIKitCreateDID(s.ssiKit.custodianUrl, s.verifierVault, cfg.String("verifier.id"), s.cfg.String("verifier.did"))
 	if err != nil {
 		panic(err)
 	}
@@ -149,11 +143,6 @@ func BackendServer() {
 	s.storage = memory.New()
 	defer s.storage.Close()
 
-	// ##########################
-	// Application Home pages
-	s.Get("/", s.HandleHome)
-	s.Get("/verifier", s.HandleVerifierHome)
-
 	// Info base path
 	s.Get("/info", s.GetBackendInfo)
 
@@ -163,28 +152,17 @@ func BackendServer() {
 	}
 
 	setupVerifier(s)
-	setupCoreRoutes(s)
+	setupFrontend(s)
 
 	// Setup static files
 	s.Static("/static", cfg.String("server.staticDir", defaultStaticDir))
 
+	s.logger.Infof("Start %s", cfg.String("server.listenAddress"))
 	// Start the server
-	log.Fatal(s.Listen(cfg.String("server.listenAddress")))
-
-}
-
-func setupCoreRoutes(s *Server) {
-	// ########################################
-	// Core routes
-	coreRoutes := s.Group(corePrefix)
-
-	// Create DID
-	coreRoutes.Get("/createdid", s.CoreAPICreateDID)
-	// List Templates
-	coreRoutes.Get("/listcredentialtemplates", s.CoreAPIListCredentialTemplates)
-	// Get one template
-	coreRoutes.Get("/getcredentialtemplate/:id", s.CoreAPIGetCredentialTemplate)
-
+	err = s.Listen(cfg.String("server.listenAddress"))
+	if err != nil {
+		s.logger.Warn("Failed to start.", err)
+	}
 }
 
 func fromMap(configMap map[string]any) (skc *SSIKitConfig) {
@@ -232,31 +210,12 @@ func (s *Server) HandleStop(c *fiber.Ctx) error {
 	return nil
 }
 
-func (s *Server) HandleVerifierHome(c *fiber.Ctx) error {
-
-	// Get the list of credentials
-	credsSummary, err := s.Operations.GetAllCredentials()
-	if err != nil {
-		return err
-	}
-
-	// Render template
-	m := fiber.Map{
-		"verifierPrefix": verifierPrefix,
-		"prefix":         verifierPrefix,
-		"credlist":       credsSummary,
-	}
-	return c.Render("verifier_home", m)
-}
-
 func generateNonce() string {
 	b := make([]byte, 16)
 	io.ReadFull(rand.Reader, b)
 	nonce := base64.RawURLEncoding.EncodeToString(b)
 	return nonce
 }
-
-var sameDevice = false
 
 type jwkSet struct {
 	Keys []*jwk.JWK `json:"keys"`

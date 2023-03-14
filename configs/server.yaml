@@ -11,6 +11,7 @@ store:
 
 verifier:
   id: PacketDelivery
+  did: did:key:z6Mkv4Lh9zBTPLoFhLHHMFJA7YAeVw5HFYZV8rkdfY9fNtm3
   name: PacketDelivery
   password: ThePassword
   store:
@@ -18,6 +19,7 @@ verifier:
     dataSourceName: "file:verifier.sqlite?mode=rwc&cache=shared&_fk=1"
   uri_prefix: /verifier
   jwks_uri: /.well-known/jwks_uri
+  tirAddress: "https://api-pilot.ebsi.eu/trusted-issuers-registry/v2/issuers/"
   protectedResource:
     url: "https://www.google.com"
 
