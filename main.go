@@ -1,358 +1,130 @@
 package main
 
 import (
-	"crypto/rand"
-	"encoding/base64"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
+	"net/http"
 	"os"
 
-	"github.com/fiware/vcverifier/back/handlers"
-	"github.com/fiware/vcverifier/back/operations"
-	"github.com/fiware/vcverifier/internal/jwk"
-	"github.com/fiware/vcverifier/vault"
+	configModel "wistefan/VCVerifier/config"
+	logging "wistefan/VCVerifier/logging"
+	api "wistefan/VCVerifier/openapi"
+	ssi "wistefan/VCVerifier/ssikit"
+	verifier "wistefan/VCVerifier/verifier"
 
-	"github.com/hesusruiz/vcutils/yaml"
-
-	"flag"
-	"log"
-
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/gofiber/storage/memory"
-	"github.com/gofiber/template/html"
-	"go.uber.org/zap"
+	"github.com/foolin/goview/supports/ginview"
+	"github.com/gin-gonic/gin"
+	"github.com/gookit/config/v2"
+	"github.com/gookit/config/v2/yaml"
+	"github.com/penglongli/gin-metrics/ginmetrics"
 )
 
-const defaultConfigFile = "configs/server.yaml"
-const defaultTemplateDir = "back/views"
-const defaultStaticDir = "back/www"
-const defaultStoreDriverName = "sqlite3"
-const defaultStoreDataSourceName = "file:issuer.sqlite?mode=rwc&cache=shared&_fk=1"
-const defaultPassword = "ThePassword"
+// default config file location - can be overwritten by envvar
+var configFile string = "server.yaml"
 
-const corePrefix = "/core/api/v1"
-const issuerPrefix = "/issuer/api/v1"
-const verifierPrefix = "/verifier/api/v1"
-const walletPrefix = "/wallet/api/v1"
+// config objects
+var serverConfig configModel.Server
+var loggingConfig configModel.Logging
+var ssiKitConfig configModel.SSIKit
+var verifierConfig configModel.Verifier
 
-var (
-	prod       = flag.Bool("prod", false, "Enable prefork in Production")
-	configFile = flag.String("config", LookupEnvOrString("CONFIG_FILE", defaultConfigFile), "path to configuration file")
-	password   = flag.String("pass", LookupEnvOrString("PASSWORD", defaultPassword), "admin password for the server")
-)
-
-type SSIKitConfig struct {
-	coreUrl      string
-	signatoryUrl string
-	auditorUrl   string
-	custodianUrl string
-	essifUrl     string
-}
-
-// Server is the struct holding the state of the server
-type Server struct {
-	*fiber.App
-	cfg           *yaml.YAML
-	WebAuthn      *handlers.WebAuthnHandler
-	Operations    *operations.Manager
-	verifierVault *vault.Vault
-	issuerDID     string
-	verifierDID   string
-	logger        *zap.SugaredLogger
-	storage       *memory.Storage
-	ssiKit        *SSIKitConfig
-}
-
-func LookupEnvOrString(key string, defaultVal string) string {
-	if val, ok := os.LookupEnv(key); ok {
-		return val
-	}
-	return defaultVal
-}
-
+/**
+* Startup method to run the gin-server.
+ */
 func main() {
-	BackendServer()
+
+	readConfig()
+
+	logging.Configure(
+		loggingConfig.JsonLogging,
+		loggingConfig.Level,
+		loggingConfig.LogRequests,
+		loggingConfig.PathsToSkip)
+
+	logger := logging.Log()
+
+	logger.Infof("Logging config is: %s", logging.PrettyPrintObject(loggingConfig))
+	logger.Infof("Server config is: %s", logging.PrettyPrintObject(serverConfig))
+	logger.Infof("SSIKit config is: %s", logging.PrettyPrintObject(ssiKitConfig))
+	logger.Infof("Verifier config is: %s", logging.PrettyPrintObject(verifierConfig))
+
+	ssiKitClient, err := ssi.NewSSIKitClient(&ssiKitConfig)
+	if err != nil {
+		logger.Errorf("Was not able to get an ssiKit client. Err: %v", err)
+		return
+	}
+	verifier.InitVerifier(&verifierConfig, ssiKitClient)
+
+	router := getRouter()
+
+	//new template engine
+	router.HTMLRender = ginview.Default()
+	// static files for the frontend
+	router.Static("/static", serverConfig.StaticDir)
+
+	// initiate metrics
+	metrics := ginmetrics.GetMonitor()
+	metrics.SetMetricPath("/metrics")
+	metrics.Use(router)
+
+	router.Run(fmt.Sprintf("0.0.0.0:%v", serverConfig.Port))
+
+	logger.Infof("Started router at %v", serverConfig.Port)
 }
 
-func BackendServer() {
-	var err error
+// initiate the router
+func getRouter() *gin.Engine {
+	// the openapi generated router uses the defaults, which we want to override to improve and configure logging
+	router := gin.New()
+	router.Use(logging.GinHandlerFunc(), gin.Recovery())
 
-	// Create the server instance
-	s := &Server{}
+	for _, route := range api.NewRouter().Routes() {
 
-	// Read configuration file
-	cfg := readConfiguration(*configFile)
-
-	// Create the logger and store in Server so all handlers can use it
-	if cfg.String("server.environment") == "production" {
-		s.logger = zap.Must(zap.NewProduction()).Sugar()
-	} else {
-		s.logger = zap.Must(zap.NewDevelopment()).Sugar()
-	}
-	zap.WithCaller(true)
-	defer s.logger.Sync()
-
-	// Parse command-line flags
-	flag.Parse()
-
-	// Create the template engine using the templates in the configured directory
-	templateDir := cfg.String("server.templateDir", defaultTemplateDir)
-	templateEngine := html.New(templateDir, ".html")
-
-	if cfg.String("server.environment") == "development" {
-		// Just for development time. Disable when in production
-		templateEngine.Reload(true)
+		switch route.Method {
+		case http.MethodGet:
+			router.GET(route.Path, route.HandlerFunc)
+		case http.MethodPost:
+			router.POST(route.Path, route.HandlerFunc)
+		case http.MethodPut:
+			router.PUT(route.Path, route.HandlerFunc)
+		case http.MethodPatch:
+			router.PATCH(route.Path, route.HandlerFunc)
+		case http.MethodDelete:
+			router.DELETE(route.Path, route.HandlerFunc)
+		}
 	}
 
-	// Define the configuration for Fiber
-	fiberCfg := fiber.Config{
-		Views:       templateEngine,
-		ViewsLayout: "layouts/main",
-		Prefork:     *prod,
-	}
+	return router
+}
 
-	// Create a Fiber instance and set it in our Server struct
-	s.App = fiber.New(fiberCfg)
-	s.cfg = cfg
+// read the config from the config file
+func readConfig() {
+	config.WithOptions(config.ParseDefault)
+	config.AddDriver(yaml.Driver)
+	err := config.LoadFiles(configFile)
 
-	// Connect to the different store engines
-	s.verifierVault = vault.Must(vault.New(yaml.New(cfg.Map("verifier"))))
-
-	// Create the issuer and verifier users
-	// TODO: the password is only for testing
-	s.verifierVault.CreateUserWithKey(cfg.String("verifier.id"), cfg.String("verifier.name"), "legalperson", cfg.String("verifier.password"))
-
-	s.ssiKit = fromMap(cfg.Map("ssikit"))
-
-	s.logger.Infof("SSIKit is configured at: %v", s.ssiKit)
-
-	s.verifierDID, err = operations.SSIKitCreateDID(s.ssiKit.custodianUrl, s.verifierVault, cfg.String("verifier.id"))
 	if err != nil {
 		panic(err)
 	}
-	s.logger.Infow("VerifierDID created", "did", s.verifierDID)
 
-	// Backend Operations, with its DB connection configuration
-	s.Operations = operations.NewManager(cfg)
+	serverConfig = configModel.Server{}
+	config.BindStruct("server", &serverConfig)
 
-	// Recover panics from the HTTP handlers so the server continues running
-	s.Use(recover.New(recover.Config{EnableStackTrace: true}))
+	loggingConfig = configModel.Logging{}
+	config.BindStruct("logging", &loggingConfig)
 
-	// CORS
-	s.Use(cors.New())
+	ssiKitConfig = configModel.SSIKit{}
+	config.BindStruct("ssiKit", &ssiKitConfig)
 
-	// Create a storage entry for logon expiration
-	s.storage = memory.New()
-	defer s.storage.Close()
-
-	// ##########################
-	// Application Home pages
-	s.Get("/", s.HandleHome)
-	s.Get("/verifier", s.HandleVerifierHome)
-
-	// Info base path
-	s.Get("/info", s.GetBackendInfo)
-
-	// WARNING! This is just for development. Disable this in production by using the config file setting
-	if cfg.String("server.environment") == "development" {
-		s.Get("/stop", s.HandleStop)
-	}
-
-	setupVerifier(s)
-	setupCoreRoutes(s)
-
-	// Setup static files
-	s.Static("/static", cfg.String("server.staticDir", defaultStaticDir))
-
-	// Start the server
-	log.Fatal(s.Listen(cfg.String("server.listenAddress")))
-
+	verifierConfig = configModel.Verifier{}
+	config.BindStruct("verifier", &verifierConfig)
 }
 
-func setupCoreRoutes(s *Server) {
-	// ########################################
-	// Core routes
-	coreRoutes := s.Group(corePrefix)
+// allow override of the config-file on init. Everything else happens on main to improve testability
+func init() {
 
-	// Create DID
-	coreRoutes.Get("/createdid", s.CoreAPICreateDID)
-	// List Templates
-	coreRoutes.Get("/listcredentialtemplates", s.CoreAPIListCredentialTemplates)
-	// Get one template
-	coreRoutes.Get("/getcredentialtemplate/:id", s.CoreAPIGetCredentialTemplate)
-
-}
-
-func fromMap(configMap map[string]any) (skc *SSIKitConfig) {
-	coreUrl, ok := configMap["coreURL"]
-	if !ok {
-		panic(errors.New("no_core_url"))
+	configFileEnv := os.Getenv("CONFIG_FILE")
+	if configFileEnv != "" {
+		configFile = configFileEnv
 	}
-	custodianUrl, ok := configMap["custodianURL"]
-	if !ok {
-		panic(errors.New("no_custodian_url"))
-	}
-	signatoryUrl, ok := configMap["signatoryURL"]
-	if !ok {
-		panic(errors.New("no_signatory_url"))
-	}
-	essifUrl, ok := configMap["essifURL"]
-	if !ok {
-		panic(errors.New("no_essif_url"))
-	}
-	auditorUrl, ok := configMap["auditorURL"]
-	if !ok {
-		panic(errors.New("no_auditor_url"))
-	}
-	return &SSIKitConfig{coreUrl: coreUrl.(string), signatoryUrl: signatoryUrl.(string), auditorUrl: auditorUrl.(string), essifUrl: essifUrl.(string), custodianUrl: custodianUrl.(string)}
-}
-
-type backendInfo struct {
-	VerifierDID string `json:"verifierDid"`
-}
-
-func (s *Server) GetBackendInfo(c *fiber.Ctx) error {
-	info := backendInfo{VerifierDID: s.verifierDID}
-
-	return c.JSON(info)
-}
-
-func (s *Server) HandleHome(c *fiber.Ctx) error {
-
-	// Render index
-	return c.Render("index", "")
-}
-
-func (s *Server) HandleStop(c *fiber.Ctx) error {
-	os.Exit(0)
-	return nil
-}
-
-func (s *Server) HandleVerifierHome(c *fiber.Ctx) error {
-
-	// Get the list of credentials
-	credsSummary, err := s.Operations.GetAllCredentials()
-	if err != nil {
-		return err
-	}
-
-	// Render template
-	m := fiber.Map{
-		"verifierPrefix": verifierPrefix,
-		"prefix":         verifierPrefix,
-		"credlist":       credsSummary,
-	}
-	return c.Render("verifier_home", m)
-}
-
-func generateNonce() string {
-	b := make([]byte, 16)
-	io.ReadFull(rand.Reader, b)
-	nonce := base64.RawURLEncoding.EncodeToString(b)
-	return nonce
-}
-
-var sameDevice = false
-
-type jwkSet struct {
-	Keys []*jwk.JWK `json:"keys"`
-}
-
-func (s *Server) VerifierAPIJWKS(c *fiber.Ctx) error {
-
-	// Get public keys from Verifier
-	pubkeys, err := s.verifierVault.PublicKeysForUser(s.cfg.String("verifier.id"))
-	if err != nil {
-		return err
-	}
-
-	keySet := jwkSet{pubkeys}
-
-	return c.JSON(keySet)
-
-}
-
-// readConfiguration reads a YAML file and creates an easy-to navigate structure
-func readConfiguration(configFile string) *yaml.YAML {
-	var cfg *yaml.YAML
-	var err error
-
-	cfg, err = yaml.ParseYamlFile(configFile)
-	if err != nil {
-		fmt.Printf("Config file not found, exiting\n")
-		panic(err)
-	}
-	return cfg
-}
-
-// DID handling
-func (srv *Server) CoreAPICreateDID(c *fiber.Ctx) error {
-
-	// body := c.Body()
-
-	// Call the SSI Kit
-	agent := fiber.Post(srv.ssiKit.custodianUrl + "/did/create")
-	bodyRequest := fiber.Map{
-		"method": "key",
-	}
-	agent.JSON(bodyRequest)
-	agent.ContentType("application/json")
-	agent.Set("accept", "application/json")
-	_, returnBody, errors := agent.Bytes()
-	if len(errors) > 0 {
-		srv.logger.Errorw("error calling SSI Kit", zap.Errors("errors", errors))
-		return fmt.Errorf("error calling SSI Kit: %v", errors[0])
-	}
-
-	c.Set("Content-Type", "application/json")
-	return c.Send(returnBody)
-
-}
-
-func (srv *Server) CoreAPIListCredentialTemplates(c *fiber.Ctx) error {
-
-	// Call the SSI Kit
-	agent := fiber.Get(srv.ssiKit.signatoryUrl + "/v1/templates")
-	agent.Set("accept", "application/json")
-	_, returnBody, errors := agent.Bytes()
-	if len(errors) > 0 {
-		srv.logger.Errorw("error calling SSI Kit", zap.Errors("errors", errors))
-		return fmt.Errorf("error calling SSI Kit: %v", errors[0])
-	}
-
-	c.Set("Content-Type", "application/json")
-	return c.Send(returnBody)
-
-}
-
-func (srv *Server) CoreAPIGetCredentialTemplate(c *fiber.Ctx) error {
-
-	id := c.Params("id")
-	if len(id) == 0 {
-		return fmt.Errorf("no template id specified")
-	}
-
-	// Call the SSI Kit
-	agent := fiber.Get(srv.ssiKit.signatoryUrl + "/v1/templates/" + id)
-	agent.Set("accept", "application/json")
-	_, returnBody, errors := agent.Bytes()
-	if len(errors) > 0 {
-		srv.logger.Errorw("error calling SSI Kit", zap.Errors("errors", errors))
-		return fmt.Errorf("error calling SSI Kit: %v", errors[0])
-	}
-
-	c.Set("Content-Type", "application/json")
-	return c.Send(returnBody)
-
-}
-
-func prettyFormatJSON(in []byte) string {
-	decoded := &fiber.Map{}
-	json.Unmarshal(in, decoded)
-	out, _ := json.MarshalIndent(decoded, "", "  ")
-	return string(out)
+	logging.Log().Infof("Will read config from %s", configFile)
 }
