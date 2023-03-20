@@ -380,6 +380,44 @@ func getRequest(request string) *url.URL {
 	return url
 }
 
+func TestInitVerifier(t *testing.T) {
+	logging.Configure(true, "DEBUG", true, []string{})
+
+	type test struct {
+		testName      string
+		testConfig    configModel.Verifier
+		expectedError error
+	}
+
+	tests := []test{
+		{"A verifier should be properly intantiated.", configModel.Verifier{Did: "did:key:verifier", TirAddress: "https://tir.org", SessionExpiry: 30, RequestScope: "org.fiware.MyVC"}, nil},
+		{"Without a did, no verifier should be instantiated.", configModel.Verifier{TirAddress: "https://tir.org", SessionExpiry: 30, RequestScope: "org.fiware.MyVC"}, ErrorNoDID},
+		{"Without a tir, no verifier should be instantiated.", configModel.Verifier{Did: "did:key:verifier", SessionExpiry: 30, RequestScope: "org.fiware.MyVC"}, ErrorNoTIR},
+	}
+
+	for _, tc := range tests {
+
+		verifier = nil
+		logging.Log().Info("TestInitVerifier +++++++++++++++++ Running test: ", tc.testName)
+
+		err := InitVerifier(&tc.testConfig, &mockSsiKit{})
+		if tc.expectedError != err {
+			t.Errorf("%s - Expected error %v but was %v.", tc.testName, tc.expectedError, err)
+		}
+		if tc.expectedError != nil && GetVerifier() != nil {
+			t.Errorf("%s - When an error happens, no verifier should be created.", tc.testName)
+			continue
+		}
+		if tc.expectedError != nil {
+			continue
+		}
+
+		if GetVerifier() == nil {
+			t.Errorf("%s - Verifier should have been initiated, but is not available.", tc.testName)
+		}
+	}
+}
+
 func TestGetJWKS(t *testing.T) {
 	logging.Configure(true, "DEBUG", true, []string{})
 
