@@ -13,6 +13,9 @@ import (
 
 const verificationPath = "/v1/verify"
 
+// http client to be used
+var httpClient = client.HttpClient()
+
 // configuration object for the ssikit client connection(s)
 type SSIKitClient struct {
 	auditorAddress string
@@ -83,7 +86,7 @@ func (s *SSIKitClient) VerifyVC(policies []Policy, verifiableCredential map[stri
 	}
 	verificationHttpRequest.Header.Set("Content-Type", "application/json")
 	verificationHttpRequest.Header.Set("accept", "application/json")
-	verificationHttpResponse, err := client.HttpClient().Do(verificationHttpRequest)
+	verificationHttpResponse, err := httpClient.Do(verificationHttpRequest)
 
 	// evaluate the results
 	if err != nil || verificationHttpResponse == nil {
