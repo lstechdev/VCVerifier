@@ -64,7 +64,11 @@ func StartSIOPSameDevice(c *gin.Context) {
 		protocol = "http"
 	}
 
-	redirect := verifier.GetVerifier().StartSameDeviceFlow(c.Request.Host, protocol, state, redirectPath)
+	redirect, err := verifier.GetVerifier().StartSameDeviceFlow(c.Request.Host, protocol, state, redirectPath)
+	if err != nil {
+		c.AbortWithStatusJSON(500, ErrorMessage{err.Error(), "Was not able to start the same device flow."})
+		return
+	}
 	c.Redirect(302, redirect)
 }
 
@@ -128,5 +132,10 @@ func VerifierAPIStartSIOP(c *gin.Context) {
 	if c.Request.TLS == nil {
 		protocol = "http"
 	}
-	c.String(http.StatusOK, verifier.GetVerifier().StartSiopFlow(c.Request.Host, protocol, callback, state))
+	connectionString, err := verifier.GetVerifier().StartSiopFlow(c.Request.Host, protocol, callback, state)
+	if err != nil {
+		c.AbortWithStatusJSON(500, ErrorMessage{err.Error(), "Was not able to generate the connection string."})
+		return
+	}
+	c.String(http.StatusOK, connectionString)
 }

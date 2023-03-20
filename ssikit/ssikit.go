@@ -47,6 +47,10 @@ type verificationResponse struct {
 	Results []verificationResult `json:"results"`
 }
 
+type SSIKit interface {
+	VerifyVC(policies []Policy, verifiableCredential map[string]interface{}) (result bool, err error)
+}
+
 /**
 *   Create a new SSIKit client from the configuration
 **/
