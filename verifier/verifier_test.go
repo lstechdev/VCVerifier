@@ -129,7 +129,7 @@ func TestInitSiopFlow(t *testing.T) {
 		logging.Log().Info("TestInitSiopFlow +++++++++++++++++ Running test: ", tc.testName)
 		sessionCache := mockSessionCache{sessions: map[string]loginSession{}, errorToThrow: tc.sessionCacheError}
 		nonceGenerator := mockNonceGenerator{staticValues: []string{"randomState", "randomNonce"}}
-		verifier := Verifier{did: "did:key:verifier", scope: tc.scopeConfig, sessionCache: &sessionCache, nonceGenerator: &nonceGenerator}
+		verifier := SsiKitVerifier{did: "did:key:verifier", scope: tc.scopeConfig, sessionCache: &sessionCache, nonceGenerator: &nonceGenerator}
 		authReq, err := verifier.initSiopFlow(tc.testHost, tc.testProtocol, tc.testAddress, tc.testSessionId)
 		verifyInitTest(t, tc, authReq, err, sessionCache, false)
 	}
@@ -146,7 +146,7 @@ func TestStartSiopFlow(t *testing.T) {
 
 		sessionCache := mockSessionCache{sessions: map[string]loginSession{}, errorToThrow: tc.sessionCacheError}
 		nonceGenerator := mockNonceGenerator{staticValues: []string{"randomState", "randomNonce"}}
-		verifier := Verifier{did: "did:key:verifier", scope: tc.scopeConfig, sessionCache: &sessionCache, nonceGenerator: &nonceGenerator}
+		verifier := SsiKitVerifier{did: "did:key:verifier", scope: tc.scopeConfig, sessionCache: &sessionCache, nonceGenerator: &nonceGenerator}
 		authReq, err := verifier.StartSiopFlow(tc.testHost, tc.testProtocol, tc.testAddress, tc.testSessionId)
 		verifyInitTest(t, tc, authReq, err, sessionCache, false)
 	}
@@ -212,7 +212,7 @@ func TestStartSameDeviceFlow(t *testing.T) {
 		logging.Log().Info("TestSameDeviceFlow +++++++++++++++++ Running test: ", tc.testName)
 		sessionCache := mockSessionCache{sessions: map[string]loginSession{}, errorToThrow: tc.sessionCacheError}
 		nonceGenerator := mockNonceGenerator{staticValues: []string{"randomState", "randomNonce"}}
-		verifier := Verifier{did: "did:key:verifier", scope: tc.scopeConfig, sessionCache: &sessionCache, nonceGenerator: &nonceGenerator}
+		verifier := SsiKitVerifier{did: "did:key:verifier", scope: tc.scopeConfig, sessionCache: &sessionCache, nonceGenerator: &nonceGenerator}
 		authReq, err := verifier.StartSameDeviceFlow(tc.testHost, tc.testProtocol, tc.testSessionId, tc.testAddress)
 		verifyInitTest(t, tc, authReq, err, sessionCache, true)
 	}
@@ -321,7 +321,7 @@ func TestAuthenticationResponse(t *testing.T) {
 		testKey, _ := jwk.New(ecdsKey)
 
 		nonceGenerator := mockNonceGenerator{staticValues: []string{"authCode"}}
-		verifier := Verifier{did: "did:key:verifier", signingKey: testKey, tokenCache: &tokenCache, sessionCache: &sessionCache, nonceGenerator: &nonceGenerator, ssiKitClient: &mockSsiKit{tc.verificationResult, tc.verificationError}}
+		verifier := SsiKitVerifier{did: "did:key:verifier", signingKey: testKey, tokenCache: &tokenCache, sessionCache: &sessionCache, nonceGenerator: &nonceGenerator, ssiKitClient: &mockSsiKit{tc.verificationResult, tc.verificationError}}
 
 		sameDeviceResponse, err := verifier.AuthenticationResponse(tc.requestedState, tc.testVC, tc.testHolder)
 		if err != tc.expectedError {
@@ -381,6 +381,7 @@ func getRequest(request string) *url.URL {
 }
 
 func TestInitVerifier(t *testing.T) {
+
 	logging.Configure(true, "DEBUG", true, []string{})
 
 	type test struct {
@@ -424,7 +425,7 @@ func TestGetJWKS(t *testing.T) {
 	ecdsKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	testKey, _ := jwk.New(ecdsKey)
 
-	verifier := Verifier{signingKey: testKey}
+	verifier := SsiKitVerifier{signingKey: testKey}
 
 	jwks := verifier.GetJWKS()
 
@@ -492,7 +493,7 @@ func TestGetToken(t *testing.T) {
 		logging.Log().Info("TestGetToken +++++++++++++++++ Running test: ", tc.testName)
 
 		tokenCache := mockTokenCache{tokens: tc.tokenSession}
-		verifier := Verifier{tokenCache: &tokenCache, signingKey: testKey, clock: mockClock{}, tokenSigner: mockTokenSigner{tc.signingError}}
+		verifier := SsiKitVerifier{tokenCache: &tokenCache, signingKey: testKey, clock: mockClock{}, tokenSigner: mockTokenSigner{tc.signingError}}
 		jwtString, expiration, err := verifier.GetToken(tc.testGrantType, tc.testCode, tc.testRedirectUri)
 
 		if err != tc.expectedError {
