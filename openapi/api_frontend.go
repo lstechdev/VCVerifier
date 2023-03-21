@@ -11,25 +11,33 @@ package openapi
 
 import (
 	"net/http"
-
-	verifier "wistefan/VCVerifier/verifier"
+	"wistefan/VCVerifier/verifier"
 
 	"github.com/gin-gonic/gin"
 )
+
+var frontendVerifier verifier.Verifier
+
+func getFrontendVerifier() verifier.Verifier {
+	if frontendVerifier == nil {
+		frontendVerifier = verifier.GetVerifier()
+	}
+	return frontendVerifier
+}
 
 // VerifierPageDisplayQRSIOP - Presents a qr as starting point for the auth process
 func VerifierPageDisplayQRSIOP(c *gin.Context) {
 
 	state, stateExists := c.GetQuery("state")
 	if !stateExists {
-		c.AbortWithStatusJSON(400, ErrorMessage{"NoStateProvided", "A state has to be provided as query-parameter."})
+		c.AbortWithStatusJSON(400, ErrorMessageNoState)
 		// early exit
 		return
 	}
 
 	callback, callbackExists := c.GetQuery("client_callback")
 	if !callbackExists {
-		c.AbortWithStatusJSON(400, ErrorMessage{"NoCallbackProvided", "A callback address has to be provided as query-parameter."})
+		c.AbortWithStatusJSON(400, ErrorMessageNoCallback)
 		// early exit
 		return
 	}
@@ -37,10 +45,10 @@ func VerifierPageDisplayQRSIOP(c *gin.Context) {
 	if c.Request.TLS == nil {
 		protocol = "http"
 	}
-
-	qr, err := verifier.GetVerifier().ReturnLoginQR(c.Request.Host, protocol, callback, state)
+	qr, err := getFrontendVerifier().ReturnLoginQR(c.Request.Host, protocol, callback, state)
 	if err != nil {
-		c.AbortWithStatusJSON(500, ErrorMessage{"QrGenerationError", err.Error()})
+		c.AbortWithStatusJSON(500, ErrorMessage{"qr_generation_error", err.Error()})
+		return
 	}
 	c.HTML(http.StatusOK, "verifier_present_qr.html", gin.H{"qrcode": qr})
 }

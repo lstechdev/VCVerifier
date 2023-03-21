@@ -152,6 +152,9 @@ type SameDeviceResponse struct {
 * Global singelton access to the verifier
 **/
 func GetVerifier() Verifier {
+	if verifier == nil {
+		logging.Log().Error("Verifier is not initialized.")
+	}
 	return verifier
 }
 

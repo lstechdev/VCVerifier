@@ -20,7 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var apiVerifier = verifier.GetVerifier()
+var apiVerifier verifier.Verifier
 
 var ErrorMessagNoGrantType = ErrorMessage{"no_grant_type_provided", "Token requests require a grant_type."}
 var ErrorMessageNoCode = ErrorMessage{"no_code_provided", "Token requests require a code."}
@@ -31,6 +31,13 @@ var ErrorMessageNoCallback = ErrorMessage{"NoCallbackProvided", "A callback addr
 var ErrorMessageUnableToDecodeToken = ErrorMessage{"invalid_token", "Token could not be decoded."}
 var ErrorMessageUnableToDecodeCredential = ErrorMessage{"invalid_token", "Could not read the credential(s) inside the token."}
 var ErrorMessageUnableToDecodeHolder = ErrorMessage{"invalid_token", "Could not read the holder inside the token."}
+
+func getApiVerifier() verifier.Verifier {
+	if apiVerifier == nil {
+		apiVerifier = verifier.GetVerifier()
+	}
+	return apiVerifier
+}
 
 // GetToken - Token endpoint to exchange the authorization code with the actual JWT.
 func GetToken(c *gin.Context) {
@@ -54,7 +61,7 @@ func GetToken(c *gin.Context) {
 		c.AbortWithStatusJSON(400, ErrorMessageNoRedircetUri)
 		return
 	}
-	jwt, expiration, err := apiVerifier.GetToken(grantType, code, redirectUri)
+	jwt, expiration, err := getApiVerifier().GetToken(grantType, code, redirectUri)
 
 	if err != nil {
 		c.AbortWithStatusJSON(403, ErrorMessage{Summary: err.Error()})
@@ -82,7 +89,7 @@ func StartSIOPSameDevice(c *gin.Context) {
 		protocol = "http"
 	}
 
-	redirect, err := apiVerifier.StartSameDeviceFlow(c.Request.Host, protocol, state, redirectPath)
+	redirect, err := getApiVerifier().StartSameDeviceFlow(c.Request.Host, protocol, state, redirectPath)
 	if err != nil {
 		logging.Log().Warnf("Error starting the same-device flow. Err: %v", err)
 		c.AbortWithStatusJSON(500, ErrorMessage{err.Error(), "Was not able to start the same device flow."})
@@ -133,7 +140,7 @@ func VerifierAPIAuthenticationResponse(c *gin.Context) {
 		return
 	}
 
-	sameDeviceResponse, err := apiVerifier.AuthenticationResponse(state, rawCredentials, holder.Id)
+	sameDeviceResponse, err := getApiVerifier().AuthenticationResponse(state, rawCredentials, holder.Id)
 	if err != nil {
 		c.AbortWithStatusJSON(400, ErrorMessage{Summary: err.Error()})
 		return
@@ -169,7 +176,7 @@ func VerifierAPIStartSIOP(c *gin.Context) {
 	if c.Request.TLS == nil {
 		protocol = "http"
 	}
-	connectionString, err := apiVerifier.StartSiopFlow(c.Request.Host, protocol, callback, state)
+	connectionString, err := getApiVerifier().StartSiopFlow(c.Request.Host, protocol, callback, state)
 	if err != nil {
 		c.AbortWithStatusJSON(500, ErrorMessage{err.Error(), "Was not able to generate the connection string."})
 		return

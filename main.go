@@ -9,7 +9,7 @@ import (
 	logging "wistefan/VCVerifier/logging"
 	api "wistefan/VCVerifier/openapi"
 	ssi "wistefan/VCVerifier/ssikit"
-	verifier "wistefan/VCVerifier/verifier"
+	"wistefan/VCVerifier/verifier"
 
 	"github.com/foolin/goview/supports/ginview"
 	"github.com/gin-gonic/gin"
