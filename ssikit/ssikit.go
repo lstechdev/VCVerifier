@@ -13,6 +13,9 @@ import (
 
 const verificationPath = "/v1/verify"
 
+var ErrorSSIKitNoResponse = errors.New("no_response_from_ssikit")
+var ErrorNoAuditorConfigured = errors.New("no_auditor_configured")
+
 // http client to be used
 var httpClient = client.HttpClient()
 
@@ -59,7 +62,7 @@ type SSIKit interface {
 **/
 func NewSSIKitClient(config *configModel.SSIKit) (client *SSIKitClient, err error) {
 	if config.AuditorURL == "" {
-		return client, errors.New("no_auditor_configured")
+		return client, ErrorNoAuditorConfigured
 	}
 	return &SSIKitClient{config.AuditorURL}, err
 }
@@ -89,9 +92,13 @@ func (s *SSIKitClient) VerifyVC(policies []Policy, verifiableCredential map[stri
 	verificationHttpResponse, err := httpClient.Do(verificationHttpRequest)
 
 	// evaluate the results
-	if err != nil || verificationHttpResponse == nil {
+	if err != nil {
 		logging.Log().Warnf("Did not receive a valid verification response. Err: %v", err)
 		return false, err
+	}
+	if verificationHttpResponse == nil {
+		logging.Log().Warn("Did not receive any response from ssikit.")
+		return false, ErrorSSIKitNoResponse
 	}
 	if verificationHttpResponse.StatusCode != 200 {
 		logging.Log().Infof("Did not receive an ok from the verifier. Was %s", logging.PrettyPrintObject(verificationHttpResponse))
