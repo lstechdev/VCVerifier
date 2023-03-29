@@ -319,9 +319,9 @@ func TestAuthenticationResponse(t *testing.T) {
 		httpClient = mockHttpClient{tc.callbackError, nil}
 		ecdsKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 		testKey, _ := jwk.New(ecdsKey)
-
+		jwk.AssignKeyID(testKey)
 		nonceGenerator := mockNonceGenerator{staticValues: []string{"authCode"}}
-		verifier := SsiKitVerifier{did: "did:key:verifier", signingKey: testKey, tokenCache: &tokenCache, sessionCache: &sessionCache, nonceGenerator: &nonceGenerator, ssiKitClient: &mockSsiKit{tc.verificationResult, tc.verificationError}}
+		verifier := SsiKitVerifier{did: "did:key:verifier", signingKey: testKey, tokenCache: &tokenCache, sessionCache: &sessionCache, nonceGenerator: &nonceGenerator, ssiKitClient: &mockSsiKit{tc.verificationResult, tc.verificationError}, clock: mockClock{}}
 
 		sameDeviceResponse, err := verifier.AuthenticationResponse(tc.requestedState, tc.testVC, tc.testHolder)
 		if err != tc.expectedError {

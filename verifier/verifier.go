@@ -410,18 +410,12 @@ func callbackToRequestor(loginSession loginSession, authorizationCode string) er
 	q.Add("code", authorizationCode)
 	callbackRequest.URL.RawQuery = q.Encode()
 
-	res, err := httpClient.Do(callbackRequest)
+	_, err = httpClient.Do(callbackRequest)
 	if err != nil {
 		logging.Log().Warnf("Was not able to notify requestor %s. Err: %v", loginSession.callback, err)
 		return err
 	}
-	if res.StatusCode > 200 || res.StatusCode < 299 {
-		logging.Log().Debugf("Successfully called back.")
-		return nil
-	} else {
-		logging.Log().Warnf("Received an unsuccessful response: %v:%v", res.StatusCode, res.Body)
-		return errors.New("callback_failed")
-	}
+	return nil
 }
 
 // helper method to extract the hostname from a url
