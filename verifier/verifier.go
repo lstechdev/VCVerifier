@@ -5,7 +5,6 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -184,6 +183,7 @@ func InitVerifier(verifierConfig *configModel.Verifier, ssiKitClient ssikit.SSIK
 		logging.Log().Errorf("Was not able to initiate a signing key. Err: %v", err)
 		return err
 	}
+	logging.Log().Warnf("Initiated key %s.", logging.PrettyPrintObject(key))
 	verifier = &SsiKitVerifier{verifierConfig.Did, verifierConfig.TirAddress, verifierConfig.RequestScope, policies, key, ssiKitClient, sessionCache, tokenCache, &randomGenerator{}, realClock{}, jwtTokenSigner{}}
 
 	logging.Log().Debug("Successfully initalized the verifier")
@@ -260,7 +260,6 @@ func (v *SsiKitVerifier) GetToken(grantType string, authorizationCode string, re
 		logging.Log().Infof("Redirect uri does not match for authorization %s. Was %s but is expected %s.", authorizationCode, redirectUri, tokenSession.redirect_uri)
 		return jwtString, expiration, ErrorRedirectUriMismatch
 	}
-
 	jwtBytes, err := v.tokenSigner.Sign(tokenSession.token, jwa.ES256, v.signingKey)
 	if err != nil {
 		logging.Log().Warnf("Was not able to sign the token. Err: %v", err)
@@ -321,6 +320,7 @@ func (v *SsiKitVerifier) AuthenticationResponse(state string, verifiableCredenti
 	authorizationCode := v.nonceGenerator.GenerateNonce()
 	// store for retrieval by token endpoint
 	err = v.tokenCache.Add(authorizationCode, tokenStore, cache.DefaultExpiration)
+	logging.Log().Infof("Stored token for %s.", authorizationCode)
 	if err != nil {
 		logging.Log().Warnf("Was not able to store the token %s in cache.", logging.PrettyPrintObject(tokenStore))
 		return sameDevice, err
@@ -352,16 +352,12 @@ func (v *SsiKitVerifier) initSiopFlow(host string, protocol string, callback str
 
 // generate a jwt, containing the credential and mandatory information as defined by the dsba-convergence
 func (v *SsiKitVerifier) generateJWT(verifiableCredentials []map[string]interface{}, holder string, audience string) (generatedJwt jwt.Token, err error) {
-	credentialString, err := json.Marshal(verifiableCredentials[0])
-	if err != nil {
-		logging.Log().Warnf("Was not able to marshal the credential. Err: %v", err)
-		return generatedJwt, err
-	}
-	jwtBuilder := jwt.NewBuilder().Issuer(v.did).Claim("client_id", v.did).Subject(holder).Audience([]string{audience}).Claim("kid", v.signingKey.KeyID())
+
+	jwtBuilder := jwt.NewBuilder().Issuer(v.did).Claim("client_id", v.did).Subject(holder).Audience([]string{audience}).Claim("kid", v.signingKey.KeyID()).Expiration(v.clock.Now().Add(time.Minute * 30))
 	if v.scope != "" {
 		jwtBuilder.Claim("scope", v.scope)
 	}
-	jwtBuilder.Claim("verifiableCredential", credentialString)
+	jwtBuilder.Claim("verifiableCredential", verifiableCredentials[0])
 
 	token, err := jwtBuilder.Build()
 	if err != nil {
@@ -404,6 +400,7 @@ func (v *SsiKitVerifier) createAuthenticationRequest(base string, redirect_uri s
 // call back to the original initiator of the login-session, providing an authorization_code for token retrieval
 func callbackToRequestor(loginSession loginSession, authorizationCode string) error {
 	callbackRequest, err := http.NewRequest("GET", loginSession.callback, nil)
+	logging.Log().Infof("Try to callback %s", loginSession.callback)
 	if err != nil {
 		logging.Log().Warnf("Was not able to create callback request to %s. Err: %v", loginSession.callback, err)
 		return err
@@ -413,11 +410,18 @@ func callbackToRequestor(loginSession loginSession, authorizationCode string) er
 	q.Add("code", authorizationCode)
 	callbackRequest.URL.RawQuery = q.Encode()
 
-	_, err = httpClient.Do(callbackRequest)
+	res, err := httpClient.Do(callbackRequest)
 	if err != nil {
 		logging.Log().Warnf("Was not able to notify requestor %s. Err: %v", loginSession.callback, err)
+		return err
 	}
-	return err
+	if res.StatusCode > 200 || res.StatusCode < 299 {
+		logging.Log().Debugf("Successfully called back.")
+		return nil
+	} else {
+		logging.Log().Warnf("Received an unsuccessful response: %v:%v", res.StatusCode, res.Body)
+		return errors.New("callback_failed")
+	}
 }
 
 // helper method to extract the hostname from a url
@@ -433,10 +437,18 @@ func getHostName(urlString string) (host string, err error) {
 // Initialize the private key of the verifier. Might need to be persisted in future iterations.
 func initPrivateKey() (key jwk.Key, err error) {
 	newKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+
 	if err != nil {
 		return nil, err
 	}
-	return jwk.New(newKey)
+	key, err = jwk.New(newKey)
+	if err != nil {
+		return nil, err
+	}
+	if err != jwk.AssignKeyID(key) {
+		return nil, err
+	}
+	return key, err
 }
 
 // verify the configuration

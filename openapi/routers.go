@@ -58,12 +58,6 @@ func Index(c *gin.Context) {
 }
 
 var routes = Routes{
-	{
-		"Index",
-		http.MethodGet,
-		"/",
-		Index,
-	},
 
 	{
 		"GetToken",
@@ -87,9 +81,16 @@ var routes = Routes{
 	},
 
 	{
+		"GetVerifierAPIAuthenticationResponse",
+		http.MethodGet,
+		"/api/v1/authentication_response",
+		GetVerifierAPIAuthenticationResponse,
+	},
+
+	{
 		"VerifierAPIJWKS",
 		http.MethodGet,
-		"/.well-known/jwks_uri",
+		"/.well-known/jwks",
 		VerifierAPIJWKS,
 	},
 

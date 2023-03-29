@@ -41,11 +41,8 @@ func VerifierPageDisplayQRSIOP(c *gin.Context) {
 		// early exit
 		return
 	}
-	protocol := "https"
-	if c.Request.TLS == nil {
-		protocol = "http"
-	}
-	qr, err := getFrontendVerifier().ReturnLoginQR(c.Request.Host, protocol, callback, state)
+
+	qr, err := getFrontendVerifier().ReturnLoginQR(c.Request.Host, "https", callback, state)
 	if err != nil {
 		c.AbortWithStatusJSON(500, ErrorMessage{"qr_generation_error", err.Error()})
 		return

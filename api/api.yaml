@@ -82,7 +82,19 @@ paths:
       responses:
         '204':  
           description: Ok when it worked
-  
+    get:
+      tags:
+        - api
+      parameters:
+        - $ref: '#/components/parameters/QueryState'
+        - $ref: '#/components/parameters/VpToken'
+        - $ref: '#/components/parameters/PresentationSubmission'
+      operationId: GetVerifierAPIAuthenticationResponse
+      summary: Stores the credential for the given session
+      responses:
+        '204':  
+          description: Ok when it worked
+        
   /token:
     post:
       tags:
@@ -108,7 +120,7 @@ paths:
             application/json:
               schema: 
                 $ref: '#/components/schemas/ErrorMessage'
-  /.well-known/jwks_uri:
+  /.well-known/jwks:
     get: 
       tags:
         - api
@@ -182,6 +194,20 @@ components:
       schema:
         type: string
         example: https://my-verifier.com/verifier/api/v1/authenticationresponse
+    VpToken:
+      name: vp_token
+      description: base64URLEncoded VerifiablePresentation
+      in: query
+      required: true
+      schema: 
+        type: string
+    PresentationSubmission:
+      name: presentation_submission
+      description: base64URLEncoded PresentationSubmission as specified by https://identity.foundation/presentation-exchange/#presentation-submission
+      in: query
+      required: true
+      schema:
+        type: string
   schemas:
     CredentialsType:
       type: array

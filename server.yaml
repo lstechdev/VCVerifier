@@ -7,10 +7,6 @@ server:
 verifier: 
     tirAddress: https://tir.de
     did: did:key:myverifier
-logging:
-    level: DEBUG
-    jsonLogging: true
-    logRequests: true
 
 ssiKit:
     auditorURL: http://my-auditor

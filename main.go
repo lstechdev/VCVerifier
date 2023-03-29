@@ -12,6 +12,7 @@ import (
 	"wistefan/VCVerifier/verifier"
 
 	"github.com/foolin/goview/supports/ginview"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/gookit/config/v2"
 	"github.com/gookit/config/v2/yaml"
@@ -55,6 +56,17 @@ func main() {
 	verifier.InitVerifier(&verifierConfig, ssiKitClient)
 
 	router := getRouter()
+
+	// health check
+	router.GET("/health", HealthReq)
+
+	router.Use(cors.New(cors.Config{
+		// we need to allow all, since we do not know the potential origin of a wallet
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"POST", "GET"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowCredentials: true,
+	}))
 
 	//new template engine
 	router.HTMLRender = ginview.Default()
