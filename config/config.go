@@ -49,5 +49,4 @@ type Verifier struct {
 	SessionExpiry int `mapstructure:"sessionExpiry" default:"30"`
 	// scope to be used in the authentication request
 	RequestScope string `mapstructure:"requestScope"`
-	UseTLS       bool   `mapstructure:"useTls" default:"true"`
 }

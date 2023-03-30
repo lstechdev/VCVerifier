@@ -36,6 +36,55 @@ The following actions occur in the interaction:
 
 ## Deployment
 
+### Container
+
+The VCVerifier is provided as a container and can be run via ```docker run -p 8080:8080 quay.io/fiware/vcverifier```.
+
+
+### Configuration
+
+The configuration has to be provided via config-file. The file is either loaded from the default location at ```./server.yaml``` or from a location configured via the environment-variable ```CONFIG_FILE```. See the following yaml for documentation and default values:
+
+```yaml
+# all configurations related to serving the endpoints
+server:
+    # port to bin to
+    port: 8080
+    # folder to load the template pages from
+    templateDir: "views/"
+    # directory to load static content from
+    staticDir: "views/static/"
+# logging configuration
+logging:
+    # the log level, accepted options are DEBUG, INFO, WARN and ERROR
+    level: "INFO"
+    # should the log output be in structured json-format
+    jsonLogging: true
+    # should the verifier log all incoming requests 
+    logRequests: true
+    # a list of paths that should be excluded from the request logging. Can f.e. be used to omit continuous health-checks
+    pathsToSkip:
+
+# configuration directly connected to the functionality 
+verifier: 
+    # did to be used by the verifier.
+    did:
+    # address of the (ebsi-compliant) trusted-issuers-registry to be used for verifying the issuer of a received credential
+    tirAddress:
+    # Expiry(in seconds) of an authentication session. After that, a new flow needs to be initiated.
+    sessionExpiry: 30
+    # scope(e.g. type of credential) to be requested from the wallet. if not configured, not specific scope will be requested. 
+
+ssiKit:
+    auditorURL: http://my-auditor
+
+```
+
+### WaltID SSIKit
+
+In order to properly work, a connection to the WaltID-SSIKit needs to be provided. For information about the deployment of SSIKit, check the [official documentation](https://github.com/walt-id/waltid-ssikit) or use the [helm-chart](https://github.com/i4Trust/helm-charts/tree/main/charts/vcwaltid). 
+
+
 ## Testing
 
 ## Development
