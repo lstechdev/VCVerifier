@@ -9,6 +9,22 @@ VCVerifier provides the necessary endpoints(see [API](./api/api.yaml)) to offer 
 
 ## Contents
 
+* [Background](#background)
+    * [Overview](#overview)
+* [Install](#install)
+    * [Container](#container)
+    * [Kubernetes](#kubernetes)
+    * [Local Setup](#local-setup)
+    * [Configuration](#configuration)
+        * [Templating](#templating)
+    * [WaltID SSIKit](#waltid-ssikit)
+* [Usage](#usage)
+    * [Frontend-Integration](#frontend-integration)
+    * [REST-Example](#rest-example)
+* [API](#api)
+    * [Open Issues](#open-issues)
+* [Testing](#testing)
+* [License](#license)
 
 ## Background
 
@@ -16,7 +32,7 @@ VCVerifier provides the necessary endpoints(see [API](./api/api.yaml)) to offer 
 This characteristics make [VerifiableCredentials](https://www.w3.org/TR/vc-data-model/) a good option to be used for authentication and authorization, as a replacement of other credentials types, like the traditional username/password. The [SIOP-2](https://openid.net/specs/openid-connect-self-issued-v2-1_0.html#name-cross-device-self-issued-op)/[OIDC4VP](https://openid.net/specs/openid-4-verifiable-presentations-1_0.html#request_scope) standards define a flow to request and present such credentials as an extension to the well-established [OpenID Connect](https://openid.net/connect/).
 The VCVerifier provides the necessary endpoints required for a `Relying Party`(as used in the [SIOP-2 spec](https://openid.net/specs/openid-connect-self-issued-v2-1_0.html#name-abbreviations)) to participate in the authentication flows. It verifies the credentials by using [WaltID SSIkit](https://walt.id/ssi-kit) as a downstream component to provide Verfiable Credentials specific functionality and return a signed [JWT](https://www.rfc-editor.org/rfc/rfc7519), containing the credential as a claim, to be used for further interaction by the participant.
 
-## Overview
+### Overview
 
 The following diagram shows an example of how the VCVerifier would be placed inside a system, using VerifiableCredentials for authentication and authorization. It pictures a Human-2-Machine flow, where a certain user interacts with a frontend and uses its dedicated Wallet(for example installed on a mobile phone) to participate in the SIOP-2/OIDC4VP flow.
 
@@ -34,7 +50,7 @@ The following actions occur in the interaction:
 8. Authorization-Layer requests the JWKS from the VCVerifier(this can happen asynchronously, not in the sequential flow of the diagram).
 9. Authorization-Layer verifies the JWT(using the retrieved JWKS) and handles authorization based on its contents. 
 
-## Deployment
+## Install
 
 ### Container
 
@@ -103,10 +119,6 @@ The login-page, provided at ```/api/v1/loginQR```, can be configured by providin
 
 In order to properly work, a connection to the WaltID-SSIKit needs to be provided. For information about the deployment of SSIKit, check the [official documentation](https://github.com/walt-id/waltid-ssikit) or use the [helm-chart](https://github.com/i4Trust/helm-charts/tree/main/charts/vcwaltid). 
 
-## Testing
-
-Functionality of the verifier is tested via parameterized Unit-Tests, following golang-bestpractices. In addition, the verifier is integrated into the [vc-integrationtest](https://github.com/wistefan/vc-integrationtest), involving all components used in a typical, VerifiableCredentials based, scenario. 
-
 ## Usage
 
 The VCVerifier provides support for integration in frontend-applications(e.g. typical H2M-interactin) or plain api-usage(mostly M2M). 
@@ -162,7 +174,11 @@ which will be answered with(demo jwt, will be signed in reality):
     }
 ```
 
-## Open issues
+## API
+
+The API implements enpoints defined in [OIDC4VP](https://openid.net/specs/openid-4-verifiable-presentations-1_0.html#name-terminology) and [SIOP-2](https://openid.net/specs/openid-connect-self-issued-v2-1_0.html). The OpenAPI Specification of the implemented endpoints can be found at: [api/api.yaml](api/api.yaml).
+
+### Open issues
 
 The VCVerifier does currently not support all functionalities defined in the connected standards(e.g. [OIDC4VP](https://openid.net/specs/openid-4-verifiable-presentations-1_0.html#name-terminology) and [SIOP-2](https://openid.net/specs/openid-connect-self-issued-v2-1_0.html)). Users should be aware of the following points:
 
@@ -171,3 +187,14 @@ The VCVerifier does currently not support all functionalities defined in the con
 * requests to the authentication-response endpoint do accept "presentation_submissions", but do not evaluate them
 * even thought the vp_token can contain multiple credentials and all of them will be verified, just the first one will be included in the JWT
 * no verifier-metadata endpoint is implemented
+
+## Testing
+
+Functionality of the verifier is tested via parameterized Unit-Tests, following golang-bestpractices. In addition, the verifier is integrated into the [vc-integrationtest](https://github.com/wistefan/vc-integrationtest), involving all components used in a typical, VerifiableCredentials based, scenario. 
+
+
+## License
+
+VCVerifier is licensed under the Apache License, Version 2.0. See LICENSE for the full license text.
+
+© 2023 FIWARE Foundation e.V.
