@@ -208,7 +208,3 @@ func VerifierAPIStartSIOP(c *gin.Context) {
 	}
 	c.String(http.StatusOK, connectionString)
 }
-
-type holder struct {
-	Id string `json:"id"`
-}

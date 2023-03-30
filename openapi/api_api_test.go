@@ -204,7 +204,7 @@ func TestVerifierAPIAuthenticationResponse(t *testing.T) {
 	}
 
 	tests := []test{
-		{"If a same-device flow is authenticated, a valid redirect should be returned.", true, "my-state", getValidVPToken(), nil, verifier.SameDeviceResponse{"http://my-verifier.org", "my-code", "my-session-id"}, 302, "http://my-verifier.org?state=my-session-id&code=my-code", ErrorMessage{}},
+		{"If a same-device flow is authenticated, a valid redirect should be returned.", true, "my-state", getValidVPToken(), nil, verifier.SameDeviceResponse{RedirectTarget: "http://my-verifier.org", Code: "my-code", SessionId: "my-session-id"}, 302, "http://my-verifier.org?state=my-session-id&code=my-code", ErrorMessage{}},
 		{"If a cross-device flow is authenticated, a simple ok should be returned.", false, "my-state", getValidVPToken(), nil, verifier.SameDeviceResponse{}, 200, "", ErrorMessage{}},
 		{"If the same-device flow responds an error, a 400 should be returend", true, "my-state", getValidVPToken(), errors.New("verification_error"), verifier.SameDeviceResponse{}, 400, "", ErrorMessage{Summary: "verification_error"}},
 		{"If no state is provided, a 400 should be returned.", true, "", getValidVPToken(), nil, verifier.SameDeviceResponse{}, 400, "", ErrorMessageNoState},
