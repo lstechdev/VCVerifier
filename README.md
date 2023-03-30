@@ -44,6 +44,16 @@ The VCVerifier is provided as a container and can be run via ```docker run -p 80
 
 To ease the deployment on [Kubernetes](https://kubernetes.io/) environments, the helm-chart [i4trust/vcverfier](https://github.com/i4Trust/helm-charts/tree/main/charts/vcverifier) can be used. 
 
+### Local setup
+
+Since the VCVerifier requires WaltID, a Trusted Issuers Registry and someone to issuer credentials, a local setup is not directly integrated into this repository. However, the [vc-integrationtest](https://github.com/wistefan/vc-integrationtest) repository provides an extensive setup of various components participating in the flows. It can be used to run a local setup, either for trying-out or as a basis for further development. Run it via:
+```shell
+    git clone git@github.com:wistefan/vc-integrationtest.git
+    cd vc-integrationtest/
+    mvn clean integration-test -Pdev
+```
+See the documentation in that repo for more information.
+
 ### Configuration
 
 The configuration has to be provided via config-file. The file is either loaded from the default location at ```./server.yaml``` or from a location configured via the environment-variable ```CONFIG_FILE```. See the following yaml for documentation and default values:
