@@ -5,8 +5,7 @@ VCVerifier provides the necessary endpoints(see [API](./api/api.yaml)) to offer 
 [![FIWARE Security](https://nexus.lab.fiware.org/repository/raw/public/badges/chapters/security.svg)](https://www.fiware.org/developers/catalogue/)
 [![License badge](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Container Repository on Quay](https://img.shields.io/badge/quay.io-fiware%2Fvcverifier-grey?logo=red%20hat&labelColor=EE0000)](https://quay.io/repository/fiware/vcverifier)
-[![Coverage Status](https://coveralls.io/repos/github/FIWARE/VCVerifier/badge.svg?branch=main)](https://coveralls.io/github/FIWARE/VCVerifier?branch=main)
-[![Test](https://github.com/FIWARE/VCVerifier/actions/workflows/test.yaml/badge.svg)](https://github.com/FIWARE/VCVerifier/actions/workflows/test.yaml)
+[![Coverage Status](https://coveralls.io/repos/github/FIWARE/VCVerifier/badge.svg?branch=main)](https://coveralls.io/github/FIWARE/VCVerifier?branch=main)[![Test](https://github.com/FIWARE/VCVerifier/actions/workflows/test.yaml/badge.svg)](https://github.com/FIWARE/VCVerifier/actions/workflows/test.yaml)
 [![CI](https://github.com/FIWARE/VCVerifier/actions/workflows/release.yml/badge.svg)](https://github.com/FIWARE/VCVerifier/actions/workflows/release.yml)
 
 ## Contents
