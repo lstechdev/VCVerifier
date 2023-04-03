@@ -1,4 +1,4 @@
-FROM golang:1.18-alpine AS build
+FROM golang:1.19-alpine AS build
 
 WORKDIR /go/src/app
 COPY ./ ./
@@ -6,16 +6,13 @@ COPY ./ ./
 RUN apk add build-base
 
 RUN go get -d -v ./...
-RUN go generate ./ent
 RUN go build -v .
 
-FROM golang:1.18-alpine
+FROM golang:1.19-alpine
 
 WORKDIR /go/src/app
-COPY --from=build /go/src/app/back/views /go/src/app/back/views
-COPY --from=build /go/src/app/back/www /go/src/app/back/www
-COPY --from=build /go/src/app/configs /go/src/app/configs
-COPY --from=build /go/src/app/vcverifier /go/src/app/vcverifier
-COPY --from=build /go/src/app/vault/templates /go/src/app/vault/templates
+COPY --from=build /go/src/app/views /go/src/app/views
+COPY --from=build /go/src/app/VCVerifier /go/src/app/VCVerifier
+COPY --from=build /go/src/app/server.yaml /go/src/app/server.yaml
 
-CMD ["./vcverifier"]
+CMD ["./VCVerifier"]
