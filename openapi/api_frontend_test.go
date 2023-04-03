@@ -22,6 +22,7 @@ func TestVerifierPageDisplayQRSIOP(t *testing.T) {
 		testName           string
 		testState          string
 		testCallback       string
+		testRedirect       string
 		testAddress        string
 		mockQR             string
 		mockError          error
@@ -30,10 +31,12 @@ func TestVerifierPageDisplayQRSIOP(t *testing.T) {
 	}
 
 	tests := []test{
-		{"If all parameters are present, a siop flow should be started.", "my-state", "http://my-callback.org", "http://my-verifier.org", "openid://mockConnectionString", nil, 200, ErrorMessage{}},
-		{"If no state is present, a 400 should be returned.", "", "http://my-callback.org", "http://my-verifier.org", "openid://mockConnectionString", nil, 400, ErrorMessageNoState},
-		{"If no callback is present, a 400 should be returned.", "my-state", "", "http://my-verifier.org", "openid://mockConnectionString", nil, 400, ErrorMessageNoCallback},
-		{"If the verifier cannot start the flow, a 500 should be returend.", "my-state", "http://my-callback.org", "http://my-verifier.org", "openid://mockConnectionString", errors.New("verifier_failure"), 500, ErrorMessageNoState},
+		{"If a callback is present, a siop flow should be started.", "my-state", "http://my-callback.org", "", "http://my-verifier.org", "openid://mockConnectionString", nil, 200, ErrorMessage{}},
+		{"If a redirect is present, a siop flow should be started.", "my-state", "", "http://my-redirect.org", "http://my-verifier.org", "openid://mockConnectionString", nil, 200, ErrorMessage{}},
+		{"If no state is present, a 400 should be returned.", "", "http://my-callback.org", "", "http://my-verifier.org", "openid://mockConnectionString", nil, 400, ErrorMessageNoState},
+		{"If no callback and no redirect is present, a 400 should be returned.", "my-state", "", "", "http://my-verifier.org", "openid://mockConnectionString", nil, 400, ErrorMessageNoCallback},
+		{"If callback and redirect are present, a 400 should be returned.", "my-state", "http://my-callback.org", "http://my-redirect.org", "http://my-verifier.org", "openid://mockConnectionString", nil, 400, ErrorMessageNoCallback},
+		{"If the verifier cannot start the flow, a 500 should be returend.", "my-state", "", "http://my-callback.org", "http://my-verifier.org", "openid://mockConnectionString", errors.New("verifier_failure"), 500, ErrorMessageNoState},
 	}
 
 	for _, tc := range tests {
@@ -53,6 +56,9 @@ func TestVerifierPageDisplayQRSIOP(t *testing.T) {
 		}
 		if tc.testCallback != "" {
 			testParameters = append(testParameters, "client_callback="+tc.testCallback)
+		}
+		if tc.testRedirect != "" {
+			testParameters = append(testParameters, "redirect_uri="+tc.testRedirect)
 		}
 
 		testContext.Request, _ = http.NewRequest("GET", tc.testAddress+"/?"+strings.Join(testParameters, "&"), nil)

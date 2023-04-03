@@ -36,13 +36,15 @@ func VerifierPageDisplayQRSIOP(c *gin.Context) {
 	}
 
 	callback, callbackExists := c.GetQuery("client_callback")
-	if !callbackExists {
+	redirectUri, redirectUriExists := c.GetQuery("redirect_uri")
+
+	if (!callbackExists && !redirectUriExists) || (callbackExists && redirectUriExists) {
 		c.AbortWithStatusJSON(400, ErrorMessageNoCallback)
 		// early exit
 		return
 	}
 
-	qr, err := getFrontendVerifier().ReturnLoginQR(c.Request.Host, "https", callback, state)
+	qr, err := getFrontendVerifier().ReturnLoginQR(c.Request.Host, "https", callback, redirectUri, state)
 	if err != nil {
 		c.AbortWithStatusJSON(500, ErrorMessage{"qr_generation_error", err.Error()})
 		return

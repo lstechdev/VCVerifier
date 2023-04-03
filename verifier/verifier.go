@@ -39,12 +39,12 @@ var ErrorRedirectUriMismatch = errors.New("redirect_uri_does_not_match")
 
 // verifier interface
 type Verifier interface {
-	ReturnLoginQR(host string, protocol string, callback string, sessionId string) (qr string, err error)
+	ReturnLoginQR(host string, protocol string, callback string, redirectUri string, sessionId string) (qr string, err error)
 	StartSiopFlow(host string, protocol string, callback string, sessionId string) (connectionString string, err error)
 	StartSameDeviceFlow(host string, protocol string, sessionId string, redirectPath string) (authenticationRequest string, err error)
 	GetToken(grantType string, authorizationCode string, redirectUri string) (jwtString string, expiration int64, err error)
 	GetJWKS() jwk.Set
-	AuthenticationResponse(state string, verifiableCredentials []map[string]interface{}, holder string) (sameDevice SameDeviceResponse, err error)
+	AuthenticationResponse(state string, verifiableCredentials []map[string]interface{}, holder string) (sameDevice RedirectResponse, err error)
 }
 
 // implementation of the verifier, using waltId ssikit as a validation backend.
@@ -123,10 +123,10 @@ func (r *randomGenerator) GenerateNonce() string {
 
 // struct to represent a running login session
 type loginSession struct {
-	// is it using the same-device flow?
-	sameDevice bool
 	// callback to be notfied after success
 	callback string
+	// redirect uri to be redirected after the flow
+	redirectUri string
 	// sessionId to be included in the notification
 	sessionId string
 }
@@ -138,7 +138,7 @@ type tokenStore struct {
 }
 
 // Response structure for successful same-device authentications
-type SameDeviceResponse struct {
+type RedirectResponse struct {
 	// the redirect target to be informed
 	RedirectTarget string
 	// code of the siop flow
@@ -193,10 +193,10 @@ func InitVerifier(verifierConfig *configModel.Verifier, ssiKitClient ssikit.SSIK
 /**
 *   Initializes the cross-device login flow and returns all neccessary information as a qr-code
 **/
-func (v *SsiKitVerifier) ReturnLoginQR(host string, protocol string, callback string, sessionId string) (qr string, err error) {
+func (v *SsiKitVerifier) ReturnLoginQR(host string, protocol string, callback string, redirectUri string, sessionId string) (qr string, err error) {
 
 	logging.Log().Debugf("Generate a login qr for %s.", callback)
-	authenticationRequest, err := v.initSiopFlow(host, protocol, callback, sessionId)
+	authenticationRequest, err := v.initSiopFlow(host, protocol, callback, redirectUri, sessionId)
 
 	if err != nil {
 		return qr, err
@@ -215,7 +215,7 @@ func (v *SsiKitVerifier) ReturnLoginQR(host string, protocol string, callback st
 func (v *SsiKitVerifier) StartSiopFlow(host string, protocol string, callback string, sessionId string) (connectionString string, err error) {
 	logging.Log().Debugf("Start a plain siop-flow fro %s.", callback)
 
-	return v.initSiopFlow(host, protocol, callback, sessionId)
+	return v.initSiopFlow(host, protocol, callback, "", sessionId)
 }
 
 /**
@@ -225,7 +225,7 @@ func (v *SsiKitVerifier) StartSameDeviceFlow(host string, protocol string, sessi
 	logging.Log().Debugf("Initiate samedevice flow for %s.", host)
 	state := v.nonceGenerator.GenerateNonce()
 
-	loginSession := loginSession{true, fmt.Sprintf("%s://%s%s", protocol, host, redirectPath), sessionId}
+	loginSession := loginSession{"", fmt.Sprintf("%s://%s%s", protocol, host, redirectPath), sessionId}
 	err = v.sessionCache.Add(state, loginSession, cache.DefaultExpiration)
 	if err != nil {
 		logging.Log().Warnf("Was not able to store the login session %s in cache. Err: %v", logging.PrettyPrintObject(loginSession), err)
@@ -284,7 +284,7 @@ func (v *SsiKitVerifier) GetJWKS() jwk.Set {
 * Receive credentials and verify them in the context of an already present login-session. Will return either an error if failed, a sameDevice response to be used for
 * redirection or notify the original initiator(in case of a cross-device flow)
 **/
-func (v *SsiKitVerifier) AuthenticationResponse(state string, verifiableCredentials []map[string]interface{}, holder string) (sameDevice SameDeviceResponse, err error) {
+func (v *SsiKitVerifier) AuthenticationResponse(state string, verifiableCredentials []map[string]interface{}, holder string) (sameDevice RedirectResponse, err error) {
 
 	logging.Log().Debugf("Authenticate credential for session %s", state)
 
@@ -307,8 +307,13 @@ func (v *SsiKitVerifier) AuthenticationResponse(state string, verifiableCredenti
 		}
 	}
 
-	// we ignore the error here, since the only consequence is that sub will be empty.
-	hostname, _ := getHostName(loginSession.callback)
+	var hostname string
+	if loginSession.callback != "" {
+		// we ignore the error here, since the only consequence is that sub will be empty.
+		hostname, _ = getHostName(loginSession.callback)
+	} else {
+		hostname, _ = getHostName(loginSession.redirectUri)
+	}
 
 	token, err := v.generateJWT(verifiableCredentials, holder, hostname)
 	if err != nil {
@@ -325,24 +330,25 @@ func (v *SsiKitVerifier) AuthenticationResponse(state string, verifiableCredenti
 		logging.Log().Warnf("Was not able to store the token %s in cache.", logging.PrettyPrintObject(tokenStore))
 		return sameDevice, err
 	}
-	if loginSession.sameDevice {
-		return SameDeviceResponse{loginSession.callback, authorizationCode, loginSession.sessionId}, err
+	if loginSession.redirectUri != "" {
+		return RedirectResponse{loginSession.redirectUri, authorizationCode, loginSession.sessionId}, err
 	} else {
 		return sameDevice, callbackToRequestor(loginSession, authorizationCode)
 	}
 }
 
 // initializes the cross-device siop flow
-func (v *SsiKitVerifier) initSiopFlow(host string, protocol string, callback string, sessionId string) (authenticationRequest string, err error) {
+func (v *SsiKitVerifier) initSiopFlow(host string, protocol string, callback string, applicationRedirectUri string, sessionId string) (authenticationRequest string, err error) {
 	state := v.nonceGenerator.GenerateNonce()
 
-	loginSession := loginSession{false, callback, sessionId}
+	loginSession := loginSession{callback, applicationRedirectUri, sessionId}
 	err = v.sessionCache.Add(state, loginSession, cache.DefaultExpiration)
 
 	if err != nil {
 		logging.Log().Warnf("Was not able to store the login session %s in cache.", logging.PrettyPrintObject(loginSession))
 		return authenticationRequest, err
 	}
+
 	redirectUri := fmt.Sprintf("%s://%s/api/v1/authentication_response", protocol, host)
 	authenticationRequest = v.createAuthenticationRequest("openid://", redirectUri, state)
 

@@ -27,7 +27,7 @@ var ErrorMessageNoCode = ErrorMessage{"no_code_provided", "Token requests requir
 var ErrorMessageNoRedircetUri = ErrorMessage{"no_redirect_uri_provided", "Token requests require a redirect_uri."}
 var ErrorMessageNoState = ErrorMessage{"no_state_provided", "Authentication requires a state provided as query parameter."}
 var ErrorMessageNoToken = ErrorMessage{"no_token_provided", "Authentication requires a token provided as a form parameter."}
-var ErrorMessageNoCallback = ErrorMessage{"NoCallbackProvided", "A callback address has to be provided as query-parameter."}
+var ErrorMessageNoCallback = ErrorMessage{"NoCallbackProvidedOrRedirec", "Either a callback address or a redirect uri has to be provided as query-parameter."}
 var ErrorMessageUnableToDecodeToken = ErrorMessage{"invalid_token", "Token could not be decoded."}
 var ErrorMessageUnableToDecodeCredential = ErrorMessage{"invalid_token", "Could not read the credential(s) inside the token."}
 var ErrorMessageUnableToDecodeHolder = ErrorMessage{"invalid_token", "Could not read the holder inside the token."}
@@ -163,14 +163,14 @@ func handleAuthenticationResponse(c *gin.Context, state string, vpToken string) 
 		return
 	}
 
-	sameDeviceResponse, err := getApiVerifier().AuthenticationResponse(state, rawCredentials, holder)
+	redirectResponse, err := getApiVerifier().AuthenticationResponse(state, rawCredentials, holder)
 	if err != nil {
 		logging.Log().Warnf("Was not able to get fullfil the authentication response. Err: %v", err)
 		c.AbortWithStatusJSON(400, ErrorMessage{Summary: err.Error()})
 		return
 	}
-	if sameDeviceResponse != (verifier.SameDeviceResponse{}) {
-		c.Redirect(302, fmt.Sprintf("%s?state=%s&code=%s", sameDeviceResponse.RedirectTarget, sameDeviceResponse.SessionId, sameDeviceResponse.Code))
+	if redirectResponse != (verifier.RedirectResponse{}) {
+		c.Redirect(302, fmt.Sprintf("%s?state=%s&code=%s", redirectResponse.RedirectTarget, redirectResponse.SessionId, redirectResponse.Code))
 		return
 	}
 	logging.Log().Debugf("Successfully authenticated %s.", state)

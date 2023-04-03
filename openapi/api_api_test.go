@@ -23,12 +23,12 @@ type mockVerifier struct {
 	mockConnectionString string
 	mockAuthRequest      string
 	mockJWKS             jwk.Set
-	mockSameDevice       verifier.SameDeviceResponse
+	mockRedirect         verifier.RedirectResponse
 	mockExpiration       int64
 	mockError            error
 }
 
-func (mV *mockVerifier) ReturnLoginQR(host string, protocol string, callback string, sessionId string) (qr string, err error) {
+func (mV *mockVerifier) ReturnLoginQR(host string, protocol string, callback string, redircetUri string, sessionId string) (qr string, err error) {
 	return mV.mockQR, mV.mockError
 }
 func (mV *mockVerifier) StartSiopFlow(host string, protocol string, callback string, sessionId string) (connectionString string, err error) {
@@ -43,8 +43,8 @@ func (mV *mockVerifier) GetToken(grantType string, authorizationCode string, red
 func (mV *mockVerifier) GetJWKS() jwk.Set {
 	return mV.mockJWKS
 }
-func (mV *mockVerifier) AuthenticationResponse(state string, verifiableCredentials []map[string]interface{}, holder string) (sameDevice verifier.SameDeviceResponse, err error) {
-	return mV.mockSameDevice, mV.mockError
+func (mV *mockVerifier) AuthenticationResponse(state string, verifiableCredentials []map[string]interface{}, holder string) (sameDevice verifier.RedirectResponse, err error) {
+	return mV.mockRedirect, mV.mockError
 }
 
 func TestGetToken(t *testing.T) {
@@ -192,25 +192,25 @@ func TestVerifierAPIAuthenticationResponse(t *testing.T) {
 	logging.Configure(true, "DEBUG", true, []string{})
 
 	type test struct {
-		testName               string
-		sameDevice             bool
-		testState              string
-		testVPToken            string
-		mockError              error
-		mockSameDeviceResponse verifier.SameDeviceResponse
-		expectedStatusCode     int
-		expectedRedirect       string
-		expectedError          ErrorMessage
+		testName           string
+		sameDevice         bool
+		testState          string
+		testVPToken        string
+		mockError          error
+		mockRedirect       verifier.RedirectResponse
+		expectedStatusCode int
+		expectedRedirect   string
+		expectedError      ErrorMessage
 	}
 
 	tests := []test{
-		{"If a same-device flow is authenticated, a valid redirect should be returned.", true, "my-state", getValidVPToken(), nil, verifier.SameDeviceResponse{RedirectTarget: "http://my-verifier.org", Code: "my-code", SessionId: "my-session-id"}, 302, "http://my-verifier.org?state=my-session-id&code=my-code", ErrorMessage{}},
-		{"If a cross-device flow is authenticated, a simple ok should be returned.", false, "my-state", getValidVPToken(), nil, verifier.SameDeviceResponse{}, 200, "", ErrorMessage{}},
-		{"If the same-device flow responds an error, a 400 should be returend", true, "my-state", getValidVPToken(), errors.New("verification_error"), verifier.SameDeviceResponse{}, 400, "", ErrorMessage{Summary: "verification_error"}},
-		{"If no state is provided, a 400 should be returned.", true, "", getValidVPToken(), nil, verifier.SameDeviceResponse{}, 400, "", ErrorMessageNoState},
-		{"If an no token is provided, a 400 should be returned.", true, "my-state", "", nil, verifier.SameDeviceResponse{}, 400, "", ErrorMessageNoToken},
-		{"If a token with invalid credentials is provided, a 400 should be returned.", true, "my-state", getNoVCVPToken(), nil, verifier.SameDeviceResponse{}, 400, "", ErrorMessageUnableToDecodeCredential},
-		{"If a token with an invalid holder is provided, a 400 should be returned.", true, "my-state", getNoHolderVPToken(), nil, verifier.SameDeviceResponse{}, 400, "", ErrorMessageUnableToDecodeHolder},
+		{"If a same-device flow is authenticated, a valid redirect should be returned.", true, "my-state", getValidVPToken(), nil, verifier.RedirectResponse{RedirectTarget: "http://my-verifier.org", Code: "my-code", SessionId: "my-session-id"}, 302, "http://my-verifier.org?state=my-session-id&code=my-code", ErrorMessage{}},
+		{"If a cross-device flow is authenticated, a simple ok should be returned.", false, "my-state", getValidVPToken(), nil, verifier.RedirectResponse{}, 200, "", ErrorMessage{}},
+		{"If the same-device flow responds an error, a 400 should be returend", true, "my-state", getValidVPToken(), errors.New("verification_error"), verifier.RedirectResponse{}, 400, "", ErrorMessage{Summary: "verification_error"}},
+		{"If no state is provided, a 400 should be returned.", true, "", getValidVPToken(), nil, verifier.RedirectResponse{}, 400, "", ErrorMessageNoState},
+		{"If an no token is provided, a 400 should be returned.", true, "my-state", "", nil, verifier.RedirectResponse{}, 400, "", ErrorMessageNoToken},
+		{"If a token with invalid credentials is provided, a 400 should be returned.", true, "my-state", getNoVCVPToken(), nil, verifier.RedirectResponse{}, 400, "", ErrorMessageUnableToDecodeCredential},
+		{"If a token with an invalid holder is provided, a 400 should be returned.", true, "my-state", getNoHolderVPToken(), nil, verifier.RedirectResponse{}, 400, "", ErrorMessageUnableToDecodeHolder},
 	}
 
 	for _, tc := range tests {
@@ -219,7 +219,7 @@ func TestVerifierAPIAuthenticationResponse(t *testing.T) {
 
 		recorder := httptest.NewRecorder()
 		testContext, _ := gin.CreateTestContext(recorder)
-		apiVerifier = &mockVerifier{mockSameDevice: tc.mockSameDeviceResponse, mockError: tc.mockError}
+		apiVerifier = &mockVerifier{mockRedirect: tc.mockRedirect, mockError: tc.mockError}
 
 		formArray := []string{}
 
