@@ -3,12 +3,12 @@ package openapi
 import (
 	"encoding/json"
 	"errors"
+	"fiware/VCVerifier/logging"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"wistefan/VCVerifier/logging"
 
 	"github.com/foolin/goview/supports/ginview"
 	"github.com/gin-gonic/gin"

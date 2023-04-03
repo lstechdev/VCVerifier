@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"wistefan/VCVerifier/logging"
-	verifier "wistefan/VCVerifier/verifier"
+	"fiware/VCVerifier/logging"
+	verifier "fiware/VCVerifier/verifier"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lestrrat-go/jwx/jwk"

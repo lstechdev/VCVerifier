@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	configModel "wistefan/VCVerifier/config"
-	logging "wistefan/VCVerifier/logging"
-	"wistefan/VCVerifier/ssikit"
+	configModel "fiware/VCVerifier/config"
+	logging "fiware/VCVerifier/logging"
+	"fiware/VCVerifier/ssikit"
 
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jwk"

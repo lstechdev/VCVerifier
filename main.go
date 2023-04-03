@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"os"
 
-	configModel "wistefan/VCVerifier/config"
-	logging "wistefan/VCVerifier/logging"
-	api "wistefan/VCVerifier/openapi"
-	ssi "wistefan/VCVerifier/ssikit"
-	"wistefan/VCVerifier/verifier"
+	configModel "fiware/VCVerifier/config"
+	logging "fiware/VCVerifier/logging"
+	api "fiware/VCVerifier/openapi"
+	ssi "fiware/VCVerifier/ssikit"
+	"fiware/VCVerifier/verifier"
 
 	"github.com/foolin/goview/supports/ginview"
 	"github.com/gin-contrib/cors"

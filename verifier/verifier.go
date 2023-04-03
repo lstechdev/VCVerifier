@@ -6,18 +6,18 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	configModel "fiware/VCVerifier/config"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"time"
-	configModel "wistefan/VCVerifier/config"
 
-	logging "wistefan/VCVerifier/logging"
+	logging "fiware/VCVerifier/logging"
 
 	client "github.com/fiware/dsba-pdp/http"
 
-	"wistefan/VCVerifier/ssikit"
+	"fiware/VCVerifier/ssikit"
 
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jwk"

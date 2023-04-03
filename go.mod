@@ -1,4 +1,4 @@
-module wistefan/VCVerifier
+module fiware/VCVerifier
 
 go 1.19
 

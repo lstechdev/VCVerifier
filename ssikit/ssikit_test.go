@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	configModel "fiware/VCVerifier/config"
+	"fiware/VCVerifier/logging"
 	"io"
 	"net/http"
 	"net/url"
 	"testing"
-	configModel "wistefan/VCVerifier/config"
-	"wistefan/VCVerifier/logging"
 )
 
 func TestNewSSIKitClient(t *testing.T) {
