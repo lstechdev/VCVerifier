@@ -1,4 +1,4 @@
-module fiware/VCVerifier
+module github.com/fiware/VCVerifier
 
 go 1.19
 

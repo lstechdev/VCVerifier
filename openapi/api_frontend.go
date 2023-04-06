@@ -10,8 +10,9 @@
 package openapi
 
 import (
-	"fiware/VCVerifier/verifier"
 	"net/http"
+
+	"github.com/fiware/VCVerifier/verifier"
 
 	"github.com/gin-gonic/gin"
 )
