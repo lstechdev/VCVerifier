@@ -12,10 +12,11 @@ package openapi
 import (
 	"encoding/base64"
 	"encoding/json"
-	"fiware/VCVerifier/logging"
-	"fiware/VCVerifier/verifier"
 	"fmt"
 	"net/http"
+
+	"github.com/fiware/VCVerifier/logging"
+	"github.com/fiware/VCVerifier/verifier"
 
 	"github.com/gin-gonic/gin"
 )
