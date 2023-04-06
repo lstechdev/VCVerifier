@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	configModel "fiware/VCVerifier/config"
-	"fiware/VCVerifier/logging"
 	"net/http"
+
+	configModel "github.com/fiware/VCVerifier/config"
+	"github.com/fiware/VCVerifier/logging"
 
 	client "github.com/fiware/dsba-pdp/http"
 )

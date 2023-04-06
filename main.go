@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"os"
 
-	configModel "fiware/VCVerifier/config"
-	logging "fiware/VCVerifier/logging"
-	api "fiware/VCVerifier/openapi"
-	ssi "fiware/VCVerifier/ssikit"
-	"fiware/VCVerifier/verifier"
+	configModel "github.com/fiware/VCVerifier/config"
+	logging "github.com/fiware/VCVerifier/logging"
+	api "github.com/fiware/VCVerifier/openapi"
+	ssi "github.com/fiware/VCVerifier/ssikit"
+	"github.com/fiware/VCVerifier/verifier"
 
 	"github.com/foolin/goview/supports/ginview"
 	"github.com/gin-contrib/cors"
