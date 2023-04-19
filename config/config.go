@@ -4,9 +4,10 @@ package config
 
 // general structure of the configuration file
 type Configuration struct {
-	Server   *Server   `mapstructure:"server"`
-	Verifier *Verifier `mapstructure:"verifier"`
-	SSIKit   *SSIKit   `mapstructure:"ssiKit"`
+	Server   Server   `mapstructure:"server"`
+	Verifier Verifier `mapstructure:"verifier"`
+	SSIKit   SSIKit   `mapstructure:"ssiKit"`
+	Logging  Logging  `mapstructure:"logging"`
 }
 
 // configuration to be used by the ssiKit configuration
@@ -23,8 +24,6 @@ type Server struct {
 	TemplateDir string `mapstructure:"templateDir" default:"views/"`
 	// directory of static files to be provided, f.e. to be used inside the templates
 	StaticDir string `mapstructure:"staticDir" default:"views/static/"`
-	// logging configuration
-	Logging *Logging `mapstructure:"logging"`
 }
 
 // logging config

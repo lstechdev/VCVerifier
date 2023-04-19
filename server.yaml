@@ -1,9 +1,9 @@
 server:
     port: 8080
-    logging:
-        jsonLogging: true
-        logRequests: true
 
+logging:
+    jsonLogging: true
+    logRequests: true
 verifier: 
     tirAddress: https://tir.de
     did: did:key:myverifier

@@ -14,46 +14,38 @@ import (
 	"github.com/foolin/goview/supports/ginview"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/gookit/config/v2"
-	"github.com/gookit/config/v2/yaml"
 	"github.com/penglongli/gin-metrics/ginmetrics"
 )
 
 // default config file location - can be overwritten by envvar
 var configFile string = "server.yaml"
 
-// config objects
-var serverConfig configModel.Server
-var loggingConfig configModel.Logging
-var ssiKitConfig configModel.SSIKit
-var verifierConfig configModel.Verifier
-
 /**
 * Startup method to run the gin-server.
  */
 func main() {
 
-	readConfig()
+	configuration, err := configModel.ReadConfig(configFile)
+	if err != nil {
+		panic(err)
+	}
 
 	logging.Configure(
-		loggingConfig.JsonLogging,
-		loggingConfig.Level,
-		loggingConfig.LogRequests,
-		loggingConfig.PathsToSkip)
+		configuration.Logging.JsonLogging,
+		configuration.Logging.Level,
+		configuration.Logging.LogRequests,
+		configuration.Logging.PathsToSkip)
 
 	logger := logging.Log()
 
-	logger.Infof("Logging config is: %s", logging.PrettyPrintObject(loggingConfig))
-	logger.Infof("Server config is: %s", logging.PrettyPrintObject(serverConfig))
-	logger.Infof("SSIKit config is: %s", logging.PrettyPrintObject(ssiKitConfig))
-	logger.Infof("Verifier config is: %s", logging.PrettyPrintObject(verifierConfig))
+	logger.Infof("Configuration is: %s", logging.PrettyPrintObject(configuration))
 
-	ssiKitClient, err := ssi.NewSSIKitClient(&ssiKitConfig)
+	ssiKitClient, err := ssi.NewSSIKitClient(&configuration.SSIKit)
 	if err != nil {
 		logger.Errorf("Was not able to get an ssiKit client. Err: %v", err)
 		return
 	}
-	verifier.InitVerifier(&verifierConfig, ssiKitClient)
+	verifier.InitVerifier(&configuration.Verifier, ssiKitClient)
 
 	router := getRouter()
 
@@ -71,16 +63,16 @@ func main() {
 	//new template engine
 	router.HTMLRender = ginview.Default()
 	// static files for the frontend
-	router.Static("/static", serverConfig.StaticDir)
+	router.Static("/static", configuration.Server.StaticDir)
 
 	// initiate metrics
 	metrics := ginmetrics.GetMonitor()
 	metrics.SetMetricPath("/metrics")
 	metrics.Use(router)
 
-	router.Run(fmt.Sprintf("0.0.0.0:%v", serverConfig.Port))
+	router.Run(fmt.Sprintf("0.0.0.0:%v", configuration.Server.Port))
 
-	logger.Infof("Started router at %v", serverConfig.Port)
+	logger.Infof("Started router at %v", configuration.Server.Port)
 }
 
 // initiate the router
@@ -106,29 +98,6 @@ func getRouter() *gin.Engine {
 	}
 
 	return router
-}
-
-// read the config from the config file
-func readConfig() {
-	config.WithOptions(config.ParseDefault)
-	config.AddDriver(yaml.Driver)
-	err := config.LoadFiles(configFile)
-
-	if err != nil {
-		panic(err)
-	}
-
-	serverConfig = configModel.Server{}
-	config.BindStruct("server", &serverConfig)
-
-	loggingConfig = configModel.Logging{}
-	config.BindStruct("logging", &loggingConfig)
-
-	ssiKitConfig = configModel.SSIKit{}
-	config.BindStruct("ssiKit", &ssiKitConfig)
-
-	verifierConfig = configModel.Verifier{}
-	config.BindStruct("verifier", &verifierConfig)
 }
 
 // allow override of the config-file on init. Everything else happens on main to improve testability
