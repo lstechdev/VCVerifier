@@ -48,4 +48,15 @@ type Verifier struct {
 	SessionExpiry int `mapstructure:"sessionExpiry" default:"30"`
 	// scope to be used in the authentication request
 	RequestScope string `mapstructure:"requestScope"`
+
+	PolicyConfig Policies `mapstructure:"policies"`
 }
+
+type Policies struct {
+	DefaultPolicies                 PolicyMap            `mapstructure:"default"`
+	CertificateTypeSpecificPolicies map[string]PolicyMap `mapstructure:"certificateTypeSpecific"`
+}
+
+type PolicyMap map[string]PolicyConfigParameters
+
+type PolicyConfigParameters map[string]interface{}

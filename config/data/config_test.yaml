@@ -13,6 +13,13 @@ verifier:
   did: "did:key:somekey"
   tirAddress: "https://test.dev/trusted_issuer/v3/issuers/"
   sessionExpiry: 30
-
+  policies:
+    default:
+      SignaturePolicy: {}
+      TrustedIssuerRegistryPolicy:
+        registryAddress: "waltId.com"
+    certificateTypeSpecific:
+      "gx:compliance":
+         ValidFromBeforePolicy: {}
 ssiKit:
   auditorURL: http://waltid:7003
