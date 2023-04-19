@@ -34,7 +34,7 @@ type Policy struct {
 // TrustedIssuerRegistry Policy Argument - has to be provided to waltId
 type TirArgument struct {
 	RegistryAddress string `json:"registryAddress"`
-	IssuerType      string `json:"IssuerType"`
+	IssuerType      string `json:"issuerType"`
 }
 
 // request structure for validating VCs at waltId
