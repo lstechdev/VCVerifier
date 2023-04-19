@@ -176,7 +176,7 @@ func InitVerifier(verifierConfig *configModel.Verifier, ssiKitClient ssikit.SSIK
 		{Policy: "IssuedDateBeforePolicy"},
 		{Policy: "ValidFromBeforePolicy"},
 		{Policy: "ExpirationDateAfterPolicy"},
-		{Policy: "EbsiTrustedIssuerRegistryPolicy", Argument: &ssikit.TirArgument{RegistryAddress: verifierConfig.TirAddress}},
+		{Policy: "EbsiTrustedIssuerRegistryPolicy", Argument: &ssikit.TirArgument{RegistryAddress: verifierConfig.TirAddress, IssuerType: "Undefined"}},
 	}
 
 	key, err := initPrivateKey()
