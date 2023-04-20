@@ -45,14 +45,19 @@ type verificationRequest struct {
 
 // result of the individual policy
 type verificationResult struct {
-	Valid         bool            `json:"valid"`
-	PolicyResults map[string]bool `json:"policyResults"`
+	Result        bool                 `json:"result"`
+	Valid         bool                 `json:"valid"`
+	PolicyResults map[string]isSuccess `json:"policyResults"`
 }
 
 // response structure from the verification request
 type verificationResponse struct {
 	Valid   bool                 `json:"valid"`
 	Results []verificationResult `json:"results"`
+}
+
+type isSuccess struct {
+	IsSuccess bool `json:"isSuccess"`
 }
 
 type SSIKit interface {
