@@ -18,7 +18,7 @@ verifier:
       SignaturePolicy: {}
       TrustedIssuerRegistryPolicy:
         registryAddress: "waltId.com"
-    certificateTypeSpecific:
+    credentialTypeSpecific:
       "gx:compliance":
          ValidFromBeforePolicy: {}
 ssiKit:

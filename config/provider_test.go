@@ -31,6 +31,19 @@ func Test_ReadConfig(t *testing.T) {
 					TirAddress:    "https://test.dev/trusted_issuer/v3/issuers/",
 					SessionExpiry: 30,
 					RequestScope:  "",
+					PolicyConfig: Policies{
+						DefaultPolicies: PolicyMap{
+							"SignaturePolicy": {},
+							"TrustedIssuerRegistryPolicy": {
+								"registryAddress": "waltId.com",
+							},
+						},
+						CredentialTypeSpecificPolicies: map[string]PolicyMap{
+							"gx:compliance": {
+								"ValidFromBeforePolicy": {},
+							},
+						},
+					},
 				}, SSIKit: SSIKit{
 					AuditorURL: "http://waltid:7003",
 				},

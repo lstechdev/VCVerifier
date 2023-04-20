@@ -219,6 +219,22 @@ func TestStartSameDeviceFlow(t *testing.T) {
 
 }
 
+type mockExternalSsiKit struct {
+	verificationResults []bool
+	verificationError   error
+}
+
+func (msk *mockExternalSsiKit) VerifyVC(verifiableCredential VerifiableCredential) (result bool, err error) {
+	if msk.verificationError != nil {
+		return result, msk.verificationError
+	}
+	result = msk.verificationResults[0]
+	copy(msk.verificationResults[0:], msk.verificationResults[1:])
+	msk.verificationResults[len(msk.verificationResults)-1] = false
+	msk.verificationResults = msk.verificationResults[:len(msk.verificationResults)-1]
+	return
+}
+
 type mockSsiKit struct {
 	verificationResults []bool
 	verificationError   error
@@ -321,7 +337,7 @@ func TestAuthenticationResponse(t *testing.T) {
 		testKey, _ := jwk.New(ecdsKey)
 		jwk.AssignKeyID(testKey)
 		nonceGenerator := mockNonceGenerator{staticValues: []string{"authCode"}}
-		verifier := SsiKitVerifier{did: "did:key:verifier", signingKey: testKey, tokenCache: &tokenCache, sessionCache: &sessionCache, nonceGenerator: &nonceGenerator, ssiKitClient: &mockSsiKit{tc.verificationResult, tc.verificationError}, clock: mockClock{}}
+		verifier := SsiKitVerifier{did: "did:key:verifier", signingKey: testKey, tokenCache: &tokenCache, sessionCache: &sessionCache, nonceGenerator: &nonceGenerator, verificationServices: []ExternalVerificationService{&mockExternalSsiKit{tc.verificationResult, tc.verificationError}}, clock: mockClock{}}
 
 		sameDeviceResponse, err := verifier.AuthenticationResponse(tc.requestedState, tc.testVC, tc.testHolder)
 		if err != tc.expectedError {

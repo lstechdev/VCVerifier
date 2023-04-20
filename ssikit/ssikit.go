@@ -31,6 +31,15 @@ type Policy struct {
 	Argument *TirArgument `json:"argument,omitempty"`
 }
 
+func CreatePolicy(name string, arguments map[string]interface{}) (policy Policy) {
+	policy = Policy{name, nil}
+	if len(arguments) > 0 {
+		policy.Argument = &TirArgument{}
+		// FIXME do we need to model the arguments or is a map ok?
+	}
+	return
+}
+
 // TrustedIssuerRegistry Policy Argument - has to be provided to waltId
 type TirArgument struct {
 	RegistryAddress string `json:"registryAddress"`
