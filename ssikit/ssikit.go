@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	configModel "github.com/fiware/VCVerifier/config"
@@ -31,20 +32,20 @@ type Policy struct {
 	Argument *TirArgument `json:"argument,omitempty"`
 }
 
+// Create a policy as defined by waltId FIXME filter out policies that are not covered by waltId
 func CreatePolicy(name string, arguments map[string]interface{}) (policy Policy) {
 	policy = Policy{name, nil}
 	if len(arguments) > 0 {
 		policy.Argument = &TirArgument{}
-		// FIXME do we need to model the arguments or is a map ok?
+		for name, value := range arguments {
+			(*policy.Argument)[name] = fmt.Sprintf("%v", value)
+		}
 	}
 	return
 }
 
 // TrustedIssuerRegistry Policy Argument - has to be provided to waltId
-type TirArgument struct {
-	RegistryAddress string `json:"registryAddress"`
-	IssuerType      string `json:"issuerType"`
-}
+type TirArgument map[string]string
 
 // request structure for validating VCs at waltId
 type verificationRequest struct {

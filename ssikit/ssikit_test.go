@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"reflect"
 	"testing"
 
 	configModel "github.com/fiware/VCVerifier/config"
@@ -126,5 +127,49 @@ func getVC(id string) map[string]interface{} {
 			"id":     id,
 			"target": "did:ebsi:packetdelivery",
 		},
+	}
+}
+
+func TestCreatePolicy(t *testing.T) {
+	type args struct {
+		name      string
+		arguments map[string]interface{}
+	}
+	tests := []struct {
+		name       string
+		args       args
+		wantPolicy Policy
+	}{
+		{
+			"Policy without arguments",
+			args{
+				"testPolicy",
+				map[string]interface{}{},
+			},
+			Policy{
+				"testPolicy",
+				nil,
+			},
+		},
+		{
+			"Policy with arguments",
+			args{
+				"testPolicy",
+				map[string]interface{}{
+					"arg1":"something",
+				},
+			},
+			Policy{
+				"testPolicy",
+				&TirArgument{"arg1":"something"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if gotPolicy := CreatePolicy(tt.args.name, tt.args.arguments); !reflect.DeepEqual(gotPolicy, tt.wantPolicy) {
+				t.Errorf("CreatePolicy() = %v, want %v", gotPolicy, tt.wantPolicy)
+			}
+		})
 	}
 }
