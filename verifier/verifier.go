@@ -13,6 +13,7 @@ import (
 	"time"
 
 	configModel "github.com/fiware/VCVerifier/config"
+	"golang.org/x/exp/maps"
 
 	logging "github.com/fiware/VCVerifier/logging"
 
@@ -48,6 +49,48 @@ type Verifier interface {
 	AuthenticationResponse(state string, verifiableCredentials []map[string]interface{}, holder string) (sameDevice SameDeviceResponse, err error)
 }
 
+type ExternalVerificationService interface {
+	// Verifies the given VC. FIXME Currently a positiv result is returned even when no policy was checked
+	VerifyVC(verifiableCredential VerifiableCredential) (result bool, err error)
+}
+
+type SsiKitExternalVerifier struct {
+	policies                   PolicyMap
+	credentialSpecificPolicies map[string]PolicyMap
+	// client for connection waltId
+	ssiKitClient ssikit.SSIKit
+}
+
+type PolicyMap map[string]ssikit.Policy
+
+func InitSsiKitExternalVerifier(verifierConfig *configModel.Verifier, ssiKitClient ssikit.SSIKit) (verifier SsiKitExternalVerifier, err error) {
+	defaultPolicies := PolicyMap{}
+	for policyName, arguments := range verifierConfig.PolicyConfig.DefaultPolicies {
+		defaultPolicies[policyName] = ssikit.CreatePolicy(policyName, arguments)
+	}
+	credentialSpecificPolicies := map[string]PolicyMap{}
+	for i, j := range verifierConfig.PolicyConfig.CredentialTypeSpecificPolicies {
+		credentialSpecificPolicies[i] = PolicyMap{}
+		for policyName, arguments := range j {
+			defaultPolicies[policyName] = ssikit.CreatePolicy(policyName, arguments)
+		}
+	}
+	return SsiKitExternalVerifier{defaultPolicies, credentialSpecificPolicies, ssiKitClient}, nil
+}
+
+func (v *SsiKitExternalVerifier) VerifyVC(verifiableCredential VerifiableCredential) (result bool, err error) {
+	usedPolicies := PolicyMap{}
+	for name, policy := range v.policies {
+		usedPolicies[name] = policy
+	}
+	if policies, ok := v.credentialSpecificPolicies[verifiableCredential.GetCredentialType()]; ok {
+		for name, policy := range policies {
+			usedPolicies[name] = policy
+		}
+	}
+	return v.ssiKitClient.VerifyVC(maps.Values(usedPolicies), verifiableCredential.GetRawData())
+}
+
 // implementation of the verifier, using waltId ssikit as a validation backend.
 type SsiKitVerifier struct {
 	// did of the verifier
@@ -56,12 +99,8 @@ type SsiKitVerifier struct {
 	tirAddress string
 	// optional scope of credentials to be requested
 	scope string
-	// array of policies to be verified - currently statically filled on init
-	policies []ssikit.Policy
 	// key to sign the jwt's with
 	signingKey jwk.Key
-	// client for connection waltId
-	ssiKitClient ssikit.SSIKit
 	// cache to be used for in-progress authentication sessions
 	sessionCache Cache
 	// cache to be used for jwt retrieval
@@ -72,6 +111,8 @@ type SsiKitVerifier struct {
 	clock Clock
 	// provides the capabilities to signt the jwt
 	tokenSigner TokenSigner
+
+	verificationServices []ExternalVerificationService
 }
 
 // allow singleton access to the verifier
@@ -171,13 +212,12 @@ func InitVerifier(verifierConfig *configModel.Verifier, ssiKitClient ssikit.SSIK
 	sessionCache := cache.New(time.Duration(verifierConfig.SessionExpiry)*time.Second, time.Duration(2*verifierConfig.SessionExpiry)*time.Second)
 	tokenCache := cache.New(time.Duration(verifierConfig.SessionExpiry)*time.Second, time.Duration(2*verifierConfig.SessionExpiry)*time.Second)
 
-	policies := []ssikit.Policy{
-		{Policy: "SignaturePolicy"},
-		{Policy: "IssuedDateBeforePolicy"},
-		{Policy: "ValidFromBeforePolicy"},
-		{Policy: "ExpirationDateAfterPolicy"},
-		{Policy: "TrustedIssuerRegistryPolicy", Argument: &ssikit.TirArgument{RegistryAddress: verifierConfig.TirAddress}},
+	externalSsiKitVerifier, err := InitSsiKitExternalVerifier(verifierConfig, ssiKitClient)
+	if err != nil {
+		logging.Log().Errorf("Was not able to initiate a external verifier. Err: %v", err)
+		return err
 	}
+
 
 	key, err := initPrivateKey()
 	if err != nil {
@@ -185,7 +225,7 @@ func InitVerifier(verifierConfig *configModel.Verifier, ssiKitClient ssikit.SSIK
 		return err
 	}
 	logging.Log().Warnf("Initiated key %s.", logging.PrettyPrintObject(key))
-	verifier = &SsiKitVerifier{verifierConfig.Did, verifierConfig.TirAddress, verifierConfig.RequestScope, policies, key, ssiKitClient, sessionCache, tokenCache, &randomGenerator{}, realClock{}, jwtTokenSigner{}}
+	verifier = &SsiKitVerifier{verifierConfig.Did, verifierConfig.TirAddress, verifierConfig.RequestScope, key, sessionCache, tokenCache, &randomGenerator{}, realClock{}, jwtTokenSigner{}, []ExternalVerificationService{&externalSsiKitVerifier}}
 
 	logging.Log().Debug("Successfully initalized the verifier")
 	return
@@ -297,14 +337,22 @@ func (v *SsiKitVerifier) AuthenticationResponse(state string, verifiableCredenti
 	loginSession := loginSessionInterface.(loginSession)
 
 	for _, vc := range verifiableCredentials {
-		result, err := v.ssiKitClient.VerifyVC(v.policies, vc)
+		mappedCredential, err := MapVerifiableCredential(vc)
 		if err != nil {
-			logging.Log().Warnf("Failed to verify credential %s. Err: %v", logging.PrettyPrintObject(vc), err)
+			logging.Log().Warnf("Failed to map credential %s. Err: %v", logging.PrettyPrintObject(vc), err)
 			return sameDevice, err
 		}
-		if !result {
-			logging.Log().Infof("VC %s is not valid.", logging.PrettyPrintObject(vc))
-			return sameDevice, ErrorInvalidVC
+		//FIXME make it an error if no policy was checked at all( possible misconfiguration)
+		for _, verificationService := range v.verificationServices {
+			result, err := verificationService.VerifyVC(mappedCredential)
+			if err != nil {
+				logging.Log().Warnf("Failed to verify credential %s. Err: %v", logging.PrettyPrintObject(vc), err)
+				return sameDevice, err
+			}
+			if !result {
+				logging.Log().Infof("VC %s is not valid.", logging.PrettyPrintObject(vc))
+				return sameDevice, ErrorInvalidVC
+			}
 		}
 	}
 
