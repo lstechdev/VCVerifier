@@ -4,25 +4,30 @@ import "github.com/mitchellh/mapstructure"
 
 // Subset of the structure of a Verifiable Credential
 type VerifiableCredential struct {
-	id                string            `mapstructure:"id"`
-	types             []string          `mapstructure:"type"`
-	credentialSubject CredentialSubject `mapstructure:"credentialSubject"`
+	Id                string            `mapstructure:"id"`
+	Types             []string          `mapstructure:"type"`
+	Issuer            string            `mapstructure:"issuer"`
+	CredentialSubject CredentialSubject `mapstructure:"credentialSubject"`
 	// The unaltered complete credential
-	raw               map[string]interface{}
+	Raw map[string]interface{}
 }
 
 // Subset of the structure of a CredentialSubject inside a Verifiable Credential
 type CredentialSubject struct {
-	id          string `mapstructure:"id"`
-	subjectType string `mapstructure:"type"`
+	Id          string `mapstructure:"id"`
+	SubjectType string `mapstructure:"type"`
 }
 
 func (vc VerifiableCredential) GetCredentialType() string {
-	return vc.credentialSubject.subjectType
+	return vc.CredentialSubject.SubjectType
 }
 
 func (vc VerifiableCredential) GetRawData() map[string]interface{} {
-	return vc.raw
+	return vc.Raw
+}
+
+func (vc VerifiableCredential) GetIssuer() string {
+	return vc.Issuer
 }
 
 func MapVerifiableCredential(raw map[string]interface{}) (VerifiableCredential, error) {
@@ -38,6 +43,6 @@ func MapVerifiableCredential(raw map[string]interface{}) (VerifiableCredential, 
 	if err := decoder.Decode(raw); err != nil {
 		return VerifiableCredential{}, err
 	}
-	data.raw = raw
+	data.Raw = raw
 	return data, nil
 }
