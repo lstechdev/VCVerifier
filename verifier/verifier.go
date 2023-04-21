@@ -48,20 +48,21 @@ type Verifier interface {
 	AuthenticationResponse(state string, verifiableCredentials []map[string]interface{}, holder string) (sameDevice SameDeviceResponse, err error)
 }
 
-// implementation of the verifier, using waltId ssikit as a validation backend.
-type SsiKitVerifier struct {
+type ExternalVerificationService interface {
+	// Verifies the given VC. FIXME Currently a positiv result is returned even when no policy was checked
+	VerifyVC(verifiableCredential VerifiableCredential) (result bool, err error)
+}
+
+// implementation of the verifier, using waltId ssikit and gaia-x compliance issuers registry as a validation backends.
+type CredentialVerifier struct {
 	// did of the verifier
 	did string
 	// trusted-issuers-registry to be used for verification
 	tirAddress string
 	// optional scope of credentials to be requested
 	scope string
-	// array of policies to be verified - currently statically filled on init
-	policies []ssikit.Policy
 	// key to sign the jwt's with
 	signingKey jwk.Key
-	// client for connection waltId
-	ssiKitClient ssikit.SSIKit
 	// cache to be used for in-progress authentication sessions
 	sessionCache Cache
 	// cache to be used for jwt retrieval
@@ -72,6 +73,8 @@ type SsiKitVerifier struct {
 	clock Clock
 	// provides the capabilities to signt the jwt
 	tokenSigner TokenSigner
+	// Verification services to be used on the credentials
+	verificationServices []ExternalVerificationService
 }
 
 // allow singleton access to the verifier
@@ -171,13 +174,12 @@ func InitVerifier(verifierConfig *configModel.Verifier, ssiKitClient ssikit.SSIK
 	sessionCache := cache.New(time.Duration(verifierConfig.SessionExpiry)*time.Second, time.Duration(2*verifierConfig.SessionExpiry)*time.Second)
 	tokenCache := cache.New(time.Duration(verifierConfig.SessionExpiry)*time.Second, time.Duration(2*verifierConfig.SessionExpiry)*time.Second)
 
-	policies := []ssikit.Policy{
-		{Policy: "SignaturePolicy"},
-		{Policy: "IssuedDateBeforePolicy"},
-		{Policy: "ValidFromBeforePolicy"},
-		{Policy: "ExpirationDateAfterPolicy"},
-		{Policy: "TrustedIssuerRegistryPolicy", Argument: &ssikit.TirArgument{RegistryAddress: verifierConfig.TirAddress}},
+	externalSsiKitVerifier, err := InitSsiKitExternalVerifier(verifierConfig, ssiKitClient)
+	if err != nil {
+		logging.Log().Errorf("Was not able to initiate a external verifier. Err: %v", err)
+		return err
 	}
+	externalGaiaXVerifier := InitGaiaXRegistryVerifier(verifierConfig)
 
 	key, err := initPrivateKey()
 	if err != nil {
@@ -185,7 +187,21 @@ func InitVerifier(verifierConfig *configModel.Verifier, ssiKitClient ssikit.SSIK
 		return err
 	}
 	logging.Log().Warnf("Initiated key %s.", logging.PrettyPrintObject(key))
-	verifier = &SsiKitVerifier{verifierConfig.Did, verifierConfig.TirAddress, verifierConfig.RequestScope, policies, key, ssiKitClient, sessionCache, tokenCache, &randomGenerator{}, realClock{}, jwtTokenSigner{}}
+	verifier = &CredentialVerifier{
+		verifierConfig.Did,
+		verifierConfig.TirAddress,
+		verifierConfig.RequestScope,
+		key,
+		sessionCache,
+		tokenCache,
+		&randomGenerator{},
+		realClock{},
+		jwtTokenSigner{},
+		[]ExternalVerificationService{
+			&externalSsiKitVerifier,
+			&externalGaiaXVerifier,
+		},
+	}
 
 	logging.Log().Debug("Successfully initalized the verifier")
 	return
@@ -194,7 +210,7 @@ func InitVerifier(verifierConfig *configModel.Verifier, ssiKitClient ssikit.SSIK
 /**
 *   Initializes the cross-device login flow and returns all neccessary information as a qr-code
 **/
-func (v *SsiKitVerifier) ReturnLoginQR(host string, protocol string, callback string, sessionId string) (qr string, err error) {
+func (v *CredentialVerifier) ReturnLoginQR(host string, protocol string, callback string, sessionId string) (qr string, err error) {
 
 	logging.Log().Debugf("Generate a login qr for %s.", callback)
 	authenticationRequest, err := v.initSiopFlow(host, protocol, callback, sessionId)
@@ -213,7 +229,7 @@ func (v *SsiKitVerifier) ReturnLoginQR(host string, protocol string, callback st
 /**
 * Starts a siop-flow and returns the required connection information
 **/
-func (v *SsiKitVerifier) StartSiopFlow(host string, protocol string, callback string, sessionId string) (connectionString string, err error) {
+func (v *CredentialVerifier) StartSiopFlow(host string, protocol string, callback string, sessionId string) (connectionString string, err error) {
 	logging.Log().Debugf("Start a plain siop-flow fro %s.", callback)
 
 	return v.initSiopFlow(host, protocol, callback, sessionId)
@@ -222,7 +238,7 @@ func (v *SsiKitVerifier) StartSiopFlow(host string, protocol string, callback st
 /**
 * Starts a same-device siop-flow and returns the required redirection information
 **/
-func (v *SsiKitVerifier) StartSameDeviceFlow(host string, protocol string, sessionId string, redirectPath string) (authenticationRequest string, err error) {
+func (v *CredentialVerifier) StartSameDeviceFlow(host string, protocol string, sessionId string, redirectPath string) (authenticationRequest string, err error) {
 	logging.Log().Debugf("Initiate samedevice flow for %s.", host)
 	state := v.nonceGenerator.GenerateNonce()
 
@@ -242,7 +258,7 @@ func (v *SsiKitVerifier) StartSameDeviceFlow(host string, protocol string, sessi
 /**
 *   Returns an already generated jwt from the cache to properly authorized requests. Every token will only be returend once.
 **/
-func (v *SsiKitVerifier) GetToken(grantType string, authorizationCode string, redirectUri string) (jwtString string, expiration int64, err error) {
+func (v *CredentialVerifier) GetToken(grantType string, authorizationCode string, redirectUri string) (jwtString string, expiration int64, err error) {
 
 	if grantType != "authorization_code" {
 		return jwtString, expiration, ErrorWrongGrantType
@@ -274,7 +290,7 @@ func (v *SsiKitVerifier) GetToken(grantType string, authorizationCode string, re
 /**
 * Return the JWKS used by the verifier to allow jwt verification
 **/
-func (v *SsiKitVerifier) GetJWKS() jwk.Set {
+func (v *CredentialVerifier) GetJWKS() jwk.Set {
 	jwks := jwk.NewSet()
 	publicKey, _ := v.signingKey.PublicKey()
 	jwks.Add(publicKey)
@@ -285,7 +301,7 @@ func (v *SsiKitVerifier) GetJWKS() jwk.Set {
 * Receive credentials and verify them in the context of an already present login-session. Will return either an error if failed, a sameDevice response to be used for
 * redirection or notify the original initiator(in case of a cross-device flow)
 **/
-func (v *SsiKitVerifier) AuthenticationResponse(state string, verifiableCredentials []map[string]interface{}, holder string) (sameDevice SameDeviceResponse, err error) {
+func (v *CredentialVerifier) AuthenticationResponse(state string, verifiableCredentials []map[string]interface{}, holder string) (sameDevice SameDeviceResponse, err error) {
 
 	logging.Log().Debugf("Authenticate credential for session %s", state)
 
@@ -297,14 +313,22 @@ func (v *SsiKitVerifier) AuthenticationResponse(state string, verifiableCredenti
 	loginSession := loginSessionInterface.(loginSession)
 
 	for _, vc := range verifiableCredentials {
-		result, err := v.ssiKitClient.VerifyVC(v.policies, vc)
+		mappedCredential, err := MapVerifiableCredential(vc)
 		if err != nil {
-			logging.Log().Warnf("Failed to verify credential %s. Err: %v", logging.PrettyPrintObject(vc), err)
+			logging.Log().Warnf("Failed to map credential %s. Err: %v", logging.PrettyPrintObject(vc), err)
 			return sameDevice, err
 		}
-		if !result {
-			logging.Log().Infof("VC %s is not valid.", logging.PrettyPrintObject(vc))
-			return sameDevice, ErrorInvalidVC
+		//FIXME make it an error if no policy was checked at all( possible misconfiguration)
+		for _, verificationService := range v.verificationServices {
+			result, err := verificationService.VerifyVC(mappedCredential)
+			if err != nil {
+				logging.Log().Warnf("Failed to verify credential %s. Err: %v", logging.PrettyPrintObject(vc), err)
+				return sameDevice, err
+			}
+			if !result {
+				logging.Log().Infof("VC %s is not valid.", logging.PrettyPrintObject(vc))
+				return sameDevice, ErrorInvalidVC
+			}
 		}
 	}
 
@@ -334,7 +358,7 @@ func (v *SsiKitVerifier) AuthenticationResponse(state string, verifiableCredenti
 }
 
 // initializes the cross-device siop flow
-func (v *SsiKitVerifier) initSiopFlow(host string, protocol string, callback string, sessionId string) (authenticationRequest string, err error) {
+func (v *CredentialVerifier) initSiopFlow(host string, protocol string, callback string, sessionId string) (authenticationRequest string, err error) {
 	state := v.nonceGenerator.GenerateNonce()
 
 	loginSession := loginSession{false, callback, sessionId}
@@ -352,7 +376,7 @@ func (v *SsiKitVerifier) initSiopFlow(host string, protocol string, callback str
 }
 
 // generate a jwt, containing the credential and mandatory information as defined by the dsba-convergence
-func (v *SsiKitVerifier) generateJWT(verifiableCredentials []map[string]interface{}, holder string, audience string) (generatedJwt jwt.Token, err error) {
+func (v *CredentialVerifier) generateJWT(verifiableCredentials []map[string]interface{}, holder string, audience string) (generatedJwt jwt.Token, err error) {
 
 	jwtBuilder := jwt.NewBuilder().Issuer(v.did).Claim("client_id", v.did).Subject(holder).Audience([]string{audience}).Claim("kid", v.signingKey.KeyID()).Expiration(v.clock.Now().Add(time.Minute * 30))
 	if v.scope != "" {
@@ -370,7 +394,7 @@ func (v *SsiKitVerifier) generateJWT(verifiableCredentials []map[string]interfac
 }
 
 // creates an authenticationRequest string from the given parameters
-func (v *SsiKitVerifier) createAuthenticationRequest(base string, redirect_uri string, state string) string {
+func (v *CredentialVerifier) createAuthenticationRequest(base string, redirect_uri string, state string) string {
 
 	// We use a template to generate the final string
 	template := "{{base}}?response_type=vp_token" +

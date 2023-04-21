@@ -7,6 +7,20 @@ logging:
 verifier: 
     tirAddress: https://tir.de
     did: did:key:myverifier
-
+    policies:
+        default:
+            SignaturePolicy: {}
+            IssuedDateBeforePolicy: {}
+            ValidFromBeforePolicy: {}
+            ExpirationDateAfterPolicy: {}
+            TrustedIssuerRegistryPolicy:
+                registryAddress: https://tir.de
+        credentialTypeSpecific:
+            "gx:compliance":
+                GaiaXComplianceIssuer:
+                    registryAddress: https://registry.gaia-x.fiware.dev/development/api/complianceIssuers
 ssiKit:
     auditorURL: http://my-auditor
+    
+    
+    
