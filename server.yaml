@@ -15,5 +15,12 @@ verifier:
             ExpirationDateAfterPolicy: {}
             TrustedIssuerRegistryPolicy:
                 registryAddress: https://tir.de
+        credentialTypeSpecific:
+            "gx:compliance":
+                GaiaXComplianceIssuer:
+                    registryAddress: https://registry.gaia-x.fiware.dev/development/api/complianceIssuers
 ssiKit:
     auditorURL: http://my-auditor
+    
+    
+    
