@@ -4,12 +4,11 @@ import "github.com/mitchellh/mapstructure"
 
 // Subset of the structure of a Verifiable Credential
 type VerifiableCredential struct {
-	Id                string            `mapstructure:"id"`
-	Types             []string          `mapstructure:"type"`
-	Issuer            string            `mapstructure:"issuer"`
-	CredentialSubject CredentialSubject `mapstructure:"credentialSubject"`
-	// The unaltered complete credential
-	Raw map[string]interface{}
+	Id                string                 `mapstructure:"id"`
+	Types             []string               `mapstructure:"type"`
+	Issuer            string                 `mapstructure:"issuer"`
+	CredentialSubject CredentialSubject      `mapstructure:"credentialSubject"`
+	Raw               map[string]interface{} // The unaltered complete credential
 }
 
 // Subset of the structure of a CredentialSubject inside a Verifiable Credential

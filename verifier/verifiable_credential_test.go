@@ -45,7 +45,8 @@ func TestMapVerifiableCredential(t *testing.T) {
 					"VerifiableCredential",
 					"CustomerCredential",
 				},
-				Raw: exampleCredential,
+				Issuer: "did:key:verifier",
+				Raw:    exampleCredential,
 				CredentialSubject: CredentialSubject{
 					Id:          "someId",
 					SubjectType: "gx:compliance",

@@ -8,7 +8,7 @@ import (
 	"github.com/fiware/VCVerifier/logging"
 )
 
-var ErrorRegistryNoResponse = errors.New("no_response_from_gaiax_registry")
+var ErrorRegistry = errors.New("gaiax_registry_failed_to_answer_properly")
 
 type RegistryClient interface {
 	// Get the list of DIDs of the trustable issuers
@@ -19,7 +19,7 @@ type GaiaXRegistryClient struct {
 	endpoint string
 }
 
-func InitGaiaXRegistryVerifier(url string) RegistryClient{
+func InitGaiaXRegistryVerifier(url string) RegistryClient {
 	return &GaiaXRegistryClient{url}
 }
 
@@ -33,24 +33,24 @@ func (rc *GaiaXRegistryClient) GetComplianceIssuers() ([]string, error) {
 	}
 	if response == nil {
 		logging.Log().Warn("Did not receive any response from gaia-x registry.")
-		return []string{}, ErrorRegistryNoResponse
+		return []string{}, ErrorRegistry
 	}
 	if response.StatusCode != 200 {
-		logging.Log().Infof("Did not receive an ok from the registry. Was %s", logging.PrettyPrintObject(response))
-		return []string{}, err
+		logging.Log().Warnf("Did not receive an ok from the registry. Was %s", logging.PrettyPrintObject(response))
+		return []string{}, ErrorRegistry
 	}
 	if response.Body == nil {
-		logging.Log().Info("Received an empty body for the issuers list.")
-		return []string{}, err
+		logging.Log().Warn("Received an empty body for the issuers list.")
+		return []string{}, ErrorRegistry
 	}
 	var issuers []string
 
 	err = json.NewDecoder(response.Body).Decode(&issuers)
 	if err != nil {
-		logging.Log().Warn("Was not able to decode the issuers list.")
+		logging.Log().Warnf("Was not able to decode the issuers list. Was %s", logging.PrettyPrintObject(response))
 		return []string{}, err
 	}
-	logging.Log().Info("%d issuer dids received.", len(issuers))
+	logging.Log().Infof("%d issuer dids received.", len(issuers))
 	logging.Log().Debugf("Issuers are %v", logging.PrettyPrintObject(issuers))
 	return issuers, nil
 }
