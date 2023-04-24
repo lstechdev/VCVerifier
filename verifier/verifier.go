@@ -397,7 +397,7 @@ func verifyChain(vcs []VerifiableCredential) (bool, error) {
 	}
 
 	// Make sure that the compliance credential is issued for the given credential
-	if legalEntity.Id != compliance.CredentialSubject.Id {
+	if legalEntity.CredentialSubject.Id != compliance.CredentialSubject.Id {
 		return false, fmt.Errorf("Compliance credential was not issued for the presented legal entity. Compliance VC subject id %s, legal VC id %s", compliance.CredentialSubject.Id, legalEntity.Id)
 	}
 	// Natural participientVC must be issued by the legal participient VC
