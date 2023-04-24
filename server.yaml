@@ -13,14 +13,12 @@ verifier:
             IssuedDateBeforePolicy: {}
             ValidFromBeforePolicy: {}
             ExpirationDateAfterPolicy: {}
-            TrustedIssuerRegistryPolicy:
+            EbsiTrustedIssuerRegistryPolicy:
                 registryAddress: https://tir.de
+                issuerType: Undefined
         credentialTypeSpecific:
             "gx:compliance":
                 GaiaXComplianceIssuer:
                     registryAddress: https://registry.gaia-x.fiware.dev/development/api/complianceIssuers
 ssiKit:
     auditorURL: http://my-auditor
-    
-    
-    
