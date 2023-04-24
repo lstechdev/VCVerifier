@@ -64,9 +64,8 @@ func TestGaiaXRegistryClient_GetComplianceIssuers(t *testing.T) {
 			}))
 			defer server.Close()
 
-			rc := &GaiaXRegistryClient{
-				endpoint: server.URL,
-			}
+			rc := InitGaiaXRegistryVerifier(server.URL)
+
 			got, err := rc.GetComplianceIssuers()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GaiaXRegistryClient.GetComplianceIssuers() error = %v, wantErr %v", err, tt.wantErr)

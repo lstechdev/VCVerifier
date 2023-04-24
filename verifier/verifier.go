@@ -312,24 +312,40 @@ func (v *CredentialVerifier) AuthenticationResponse(state string, verifiableCred
 	}
 	loginSession := loginSessionInterface.(loginSession)
 
+	mappedCredentials := []VerifiableCredential{}
 	for _, vc := range verifiableCredentials {
 		mappedCredential, err := MapVerifiableCredential(vc)
 		if err != nil {
 			logging.Log().Warnf("Failed to map credential %s. Err: %v", logging.PrettyPrintObject(vc), err)
 			return sameDevice, err
 		}
+		mappedCredentials = append(mappedCredentials, mappedCredential)
+	}
+
+	for _, mappedCredential := range mappedCredentials {
 		//FIXME make it an error if no policy was checked at all( possible misconfiguration)
 		for _, verificationService := range v.verificationServices {
 			result, err := verificationService.VerifyVC(mappedCredential)
 			if err != nil {
-				logging.Log().Warnf("Failed to verify credential %s. Err: %v", logging.PrettyPrintObject(vc), err)
+				logging.Log().Warnf("Failed to verify credential %s. Err: %v", logging.PrettyPrintObject(mappedCredential), err)
 				return sameDevice, err
 			}
 			if !result {
-				logging.Log().Infof("VC %s is not valid.", logging.PrettyPrintObject(vc))
+				logging.Log().Infof("VC %s is not valid.", logging.PrettyPrintObject(mappedCredential))
 				return sameDevice, ErrorInvalidVC
 			}
 		}
+	}
+
+	// TODO extract into separate policy
+	result, err := verifyChain(mappedCredentials)
+	if err != nil {
+		logging.Log().Warnf("Failed to verify credentials %s. Err: %v", logging.PrettyPrintObject(mappedCredentials), err)
+		return sameDevice, err
+	}
+	if !result {
+		logging.Log().Infof("VCs %s have invalid trust chain.", logging.PrettyPrintObject(mappedCredentials))
+		return sameDevice, ErrorInvalidVC
 	}
 
 	// we ignore the error here, since the only consequence is that sub will be empty.
@@ -357,6 +373,40 @@ func (v *CredentialVerifier) AuthenticationResponse(state string, verifiableCred
 	}
 }
 
+// TODO Use more generic approach to validate that every credential is issued by a party that we trust
+func verifyChain(vcs []VerifiableCredential) (bool, error) {
+	if len(vcs) != 3 {
+		// TODO Simplification to be removed/replaced
+		return true, nil
+	}
+
+	var legalEntity VerifiableCredential
+	var naturalEntity VerifiableCredential
+	var compliance VerifiableCredential
+
+	for _, vc := range vcs {
+		if vc.GetCredentialType() == "gx:LegalParticipant" {
+			legalEntity = vc
+		}
+		if vc.GetCredentialType() == "gx:compliance" {
+			compliance = vc
+		}
+		if vc.GetCredentialType() == "gx:NaturalParticipant" {
+			naturalEntity = vc
+		}
+	}
+
+	// Make sure that the compliance credential is issued for the given credential
+	if legalEntity.Id != compliance.CredentialSubject.Id {
+		return false, fmt.Errorf("Compliance credential was not issued for the presented legal entity. Compliance VC subject id %s, legal VC id %s", compliance.CredentialSubject.Id, legalEntity.Id)
+	}
+	// Natural participientVC must be issued by the legal participient VC
+	if legalEntity.CredentialSubject.Id != naturalEntity.Issuer {
+		return false, fmt.Errorf("Compliance credential was not issued for the presented legal entity. Compliance VC id %s, natural VC issuer %s", compliance.Id, naturalEntity.Issuer)
+	}
+	return true, nil
+}
+
 // initializes the cross-device siop flow
 func (v *CredentialVerifier) initSiopFlow(host string, protocol string, callback string, sessionId string) (authenticationRequest string, err error) {
 	state := v.nonceGenerator.GenerateNonce()
@@ -382,7 +432,11 @@ func (v *CredentialVerifier) generateJWT(verifiableCredentials []map[string]inte
 	if v.scope != "" {
 		jwtBuilder.Claim("scope", v.scope)
 	}
-	jwtBuilder.Claim("verifiableCredential", verifiableCredentials[0])
+	if len(verifiableCredentials) > 1 {
+		jwtBuilder.Claim("verifiablePresentation", verifiableCredentials)
+	} else {
+		jwtBuilder.Claim("verifiableCredential", verifiableCredentials[0])
+	}
 
 	token, err := jwtBuilder.Build()
 	if err != nil {

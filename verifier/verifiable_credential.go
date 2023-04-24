@@ -4,11 +4,16 @@ import "github.com/mitchellh/mapstructure"
 
 // Subset of the structure of a Verifiable Credential
 type VerifiableCredential struct {
-	Id                string                 `mapstructure:"id"`
-	Types             []string               `mapstructure:"type"`
-	Issuer            string                 `mapstructure:"issuer"`
-	CredentialSubject CredentialSubject      `mapstructure:"credentialSubject"`
-	Raw               map[string]interface{} // The unaltered complete credential
+	MappableVerifiableCredential
+	raw map[string]interface{} // The unaltered complete credential
+}
+
+// TODO Issue fix to mapstructure to enable combination of "DecoderConfig.ErrorUnset" and an unmapped/untagged field
+type MappableVerifiableCredential struct {
+	Id                string            `mapstructure:"id"`
+	Types             []string          `mapstructure:"type"`
+	Issuer            string            `mapstructure:"issuer"`
+	CredentialSubject CredentialSubject `mapstructure:"credentialSubject"`
 }
 
 // Subset of the structure of a CredentialSubject inside a Verifiable Credential
@@ -22,7 +27,7 @@ func (vc VerifiableCredential) GetCredentialType() string {
 }
 
 func (vc VerifiableCredential) GetRawData() map[string]interface{} {
-	return vc.Raw
+	return vc.raw
 }
 
 func (vc VerifiableCredential) GetIssuer() string {
@@ -30,10 +35,13 @@ func (vc VerifiableCredential) GetIssuer() string {
 }
 
 func MapVerifiableCredential(raw map[string]interface{}) (VerifiableCredential, error) {
-	var data VerifiableCredential
+	var data MappableVerifiableCredential
+
 	config := &mapstructure.DecoderConfig{
-		ErrorUnused: false,
-		Result:      &data,
+		ErrorUnused:          false,
+		Result:               &data,
+		ErrorUnset:           true,
+		IgnoreUntaggedFields: true,
 	}
 	decoder, err := mapstructure.NewDecoder(config)
 	if err != nil {
@@ -42,6 +50,5 @@ func MapVerifiableCredential(raw map[string]interface{}) (VerifiableCredential, 
 	if err := decoder.Decode(raw); err != nil {
 		return VerifiableCredential{}, err
 	}
-	data.Raw = raw
-	return data, nil
+	return VerifiableCredential{data, raw}, nil
 }

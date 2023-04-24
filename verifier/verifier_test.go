@@ -386,6 +386,7 @@ func getVC(id string) map[string]interface{} {
 		"expirationDate": "2032-11-23T15:23:13Z",
 		"credentialSubject": map[string]interface{}{
 			"id":     id,
+			"type":   "gx:NaturalParticipent",
 			"target": "did:ebsi:packetdelivery",
 		},
 	}

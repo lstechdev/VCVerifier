@@ -40,19 +40,27 @@ func TestMapVerifiableCredential(t *testing.T) {
 			"ValidCertificate",
 			args{exampleCredential},
 			VerifiableCredential{
-				Id: "https://happypets.fiware.io/credential/25159389-8dd17b796ac0",
-				Types: []string{
-					"VerifiableCredential",
-					"CustomerCredential",
+				MappableVerifiableCredential{
+					Id: "https://happypets.fiware.io/credential/25159389-8dd17b796ac0",
+					Types: []string{
+						"VerifiableCredential",
+						"CustomerCredential",
+					},
+					Issuer: "did:key:verifier",
+					CredentialSubject: CredentialSubject{
+						Id:          "someId",
+						SubjectType: "gx:compliance",
+					},
 				},
-				Issuer: "did:key:verifier",
-				Raw:    exampleCredential,
-				CredentialSubject: CredentialSubject{
-					Id:          "someId",
-					SubjectType: "gx:compliance",
-				},
+				exampleCredential,
 			},
 			false,
+		},
+		{
+			"InvalidCertificate",
+			args{map[string]interface{}{"someThing": "else"}},
+			VerifiableCredential{},
+			true,
 		},
 	}
 	for _, tt := range tests {
