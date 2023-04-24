@@ -25,6 +25,27 @@ var exampleCredential = map[string]interface{}{
 		"type":   "gx:compliance",
 	},
 }
+var exampleCredentialArraySubject = map[string]interface{}{
+	"@context": []string{
+		"https://www.w3.org/2018/credentials/v1",
+		"https://happypets.fiware.io/2022/credentials/employee/v1",
+	},
+	"id": "https://happypets.fiware.io/credential/25159389-8dd17b796ac0",
+	"type": []string{
+		"VerifiableCredential",
+		"CustomerCredential",
+	},
+	"issuer":         "did:key:verifier",
+	"issuanceDate":   "2022-11-23T15:23:13Z",
+	"validFrom":      "2022-11-23T15:23:13Z",
+	"expirationDate": "2032-11-23T15:23:13Z",
+	"credentialSubject": []map[string]interface{}{{
+		"id":     "someId",
+		"target": "did:ebsi:packetdelivery",
+		"type":   "gx:compliance",
+	},
+	},
+}
 
 func TestMapVerifiableCredential(t *testing.T) {
 	type args struct {
@@ -53,6 +74,26 @@ func TestMapVerifiableCredential(t *testing.T) {
 					},
 				},
 				exampleCredential,
+			},
+			false,
+		},
+		{
+			"ValidCertificateArraySubject",
+			args{exampleCredentialArraySubject},
+			VerifiableCredential{
+				MappableVerifiableCredential{
+					Id: "https://happypets.fiware.io/credential/25159389-8dd17b796ac0",
+					Types: []string{
+						"VerifiableCredential",
+						"CustomerCredential",
+					},
+					Issuer: "did:key:verifier",
+					CredentialSubject: CredentialSubject{
+						Id:          "someId",
+						SubjectType: "gx:compliance",
+					},
+				},
+				exampleCredentialArraySubject,
 			},
 			false,
 		},

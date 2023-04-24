@@ -1,6 +1,10 @@
 package verifier
 
-import "github.com/mitchellh/mapstructure"
+import (
+	"reflect"
+
+	"github.com/mitchellh/mapstructure"
+)
 
 // Subset of the structure of a Verifiable Credential
 type VerifiableCredential struct {
@@ -37,11 +41,23 @@ func (vc VerifiableCredential) GetIssuer() string {
 func MapVerifiableCredential(raw map[string]interface{}) (VerifiableCredential, error) {
 	var data MappableVerifiableCredential
 
+	credentialSubjectArrayDecoder := func(from, to reflect.Type, data interface{}) (interface{}, error) {
+		if to != reflect.TypeOf((*CredentialSubject)(nil)).Elem() {
+			return data, nil
+		}
+		if reflect.TypeOf(data).Kind() != reflect.Slice {
+			return data, nil
+		}
+
+		return data.([]map[string]interface{})[0], nil
+	}
+
 	config := &mapstructure.DecoderConfig{
 		ErrorUnused:          false,
 		Result:               &data,
 		ErrorUnset:           true,
 		IgnoreUntaggedFields: true,
+		DecodeHook:           credentialSubjectArrayDecoder,
 	}
 	decoder, err := mapstructure.NewDecoder(config)
 	if err != nil {
