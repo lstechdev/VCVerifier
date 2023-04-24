@@ -3,6 +3,8 @@ package verifier
 import (
 	"reflect"
 	"testing"
+
+	json2 "encoding/json"
 )
 
 var exampleCredential = map[string]interface{}{
@@ -39,12 +41,56 @@ var exampleCredentialArraySubject = map[string]interface{}{
 	"issuanceDate":   "2022-11-23T15:23:13Z",
 	"validFrom":      "2022-11-23T15:23:13Z",
 	"expirationDate": "2032-11-23T15:23:13Z",
-	"credentialSubject": []map[string]interface{}{{
+	"credentialSubject": []interface{}{map[string]interface{}{
 		"id":     "someId",
 		"target": "did:ebsi:packetdelivery",
 		"type":   "gx:compliance",
 	},
 	},
+}
+
+func getVCFromJson() map[string]interface{} {
+	jsonStr := `{
+		"@context": [
+		  "https://www.w3.org/2018/credentials/v1",
+		  "http://gx-registry-development:3000/development/api/trusted-shape-registry/v1/shapes/jsonld/trustframework#"
+		],
+		"type": [
+		  "VerifiableCredential"
+		],
+		"id": "https://storage.gaia-x.eu/credential-offers/b3e0a068-4bf8-4796-932e-2fa83043e203",
+		"issuer": "did:web:compliance.lab.gaia-x.eu:development",
+		"issuanceDate": "2023-04-24T13:09:41.885Z",
+		"expirationDate": "2023-07-23T13:09:41.885Z",
+		"credentialSubject": [
+		  {
+			"type": "gx:compliance",
+			"id": "did:web:raw.githubusercontent.com:egavard:payload-sign:master",
+			"integrity": "sha256-9fc56e0099742e57d467156c4526ba723981b2e91eb0ccf6b725ec65b968fcc8"
+		  }
+		],
+		"proof": {
+		  "type": "JsonWebSignature2020",
+		  "created": "2023-04-24T13:09:42.564Z",
+		  "proofPurpose": "assertionMethod",
+		  "jws": "eyJhbGciOiJQUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..FqKjKBWDrfYnFxbZ1TbJYBir0mwy_dya0yO2EGATlHJHD8m9G6fuiKXGYiCnEwGbe81jGKYWzUuq43if8klpszJ8EXmqIVMBHBJWymIrHD9bD4-P4uhx6TqZdkRXvvLUUkjpvOc_JdrntOCIpxNN68yV7NqKHKdRV_rbp4wIstdbCuyZdlAuGHuIow9iEOIfS4-9hdunDh-LBYcI7Mb6NePaKi48tJmO2HDiN3ysYJ15yQ-Pb5dfJtaQCq2o2QJ9ayu2kV4SQHoobMJrBESskQLdLGW_LIPFMRMiRQhE4vYytm61nuFcCTNc9ZHNVzWwOupSpYW3w0YjXQ_xZxH0TQ",
+		  "verificationMethod": "did:web:compliance.lab.gaia-x.eu:development"
+		}
+	  }`
+	x := map[string]interface{}{}
+
+	json2.Unmarshal([]byte(jsonStr), &x)
+	return x
+}
+
+func TestCompliance(t *testing.T) {
+	_, err := MapVerifiableCredential(getVCFromJson())
+
+	if err != nil {
+		t.Errorf("MapVerifiableCredential() error = %v", err)
+		return
+	}
+
 }
 
 func TestMapVerifiableCredential(t *testing.T) {

@@ -49,7 +49,7 @@ func MapVerifiableCredential(raw map[string]interface{}) (VerifiableCredential, 
 			return data, nil
 		}
 
-		return data.([]map[string]interface{})[0], nil
+		return data.([]interface{})[0], nil
 	}
 
 	config := &mapstructure.DecoderConfig{
