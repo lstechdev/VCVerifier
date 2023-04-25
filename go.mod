@@ -10,6 +10,7 @@ require (
 	github.com/hellofresh/health-go/v5 v5.0.0
 	github.com/lestrrat-go/jwx v1.2.25
 	github.com/patrickmn/go-cache v2.1.0+incompatible
+	golang.org/x/exp v0.0.0-20220909182711-5c715a9e8561
 )
 
 require (
