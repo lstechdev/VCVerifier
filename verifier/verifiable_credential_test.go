@@ -49,7 +49,8 @@ var exampleCredentialArraySubject = map[string]interface{}{
 	},
 }
 
-func getVCFromJson() map[string]interface{} {
+// Uses generated credential from https://compliance.lab.gaia-x.eu/development/docs/#/credential-offer/CommonController_issueVC
+func getComplianceVCFromJson() map[string]interface{} {
 	jsonStr := `{
 		"@context": [
 		  "https://www.w3.org/2018/credentials/v1",
@@ -83,14 +84,14 @@ func getVCFromJson() map[string]interface{} {
 	return x
 }
 
-func TestCompliance(t *testing.T) {
-	_, err := MapVerifiableCredential(getVCFromJson())
+
+func TestActualComplianceCredential(t *testing.T) {
+	_, err := MapVerifiableCredential(getComplianceVCFromJson())
 
 	if err != nil {
 		t.Errorf("MapVerifiableCredential() error = %v", err)
 		return
 	}
-
 }
 
 func TestMapVerifiableCredential(t *testing.T) {

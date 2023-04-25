@@ -3,6 +3,7 @@ package verifier
 import (
 	"reflect"
 
+	logging "github.com/fiware/VCVerifier/logging"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -48,8 +49,13 @@ func MapVerifiableCredential(raw map[string]interface{}) (VerifiableCredential, 
 		if reflect.TypeOf(data).Kind() != reflect.Slice {
 			return data, nil
 		}
-
-		return data.([]interface{})[0], nil
+		vcArray := data.([]interface{})
+		if len(vcArray) > 0{
+			logging.Log().Warn("Found more than one credential subject. Will only use/validate first one.")
+			return vcArray[0], nil
+		}else{
+			return []interface{}{},nil
+		}
 	}
 
 	config := &mapstructure.DecoderConfig{
