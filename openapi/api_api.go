@@ -166,7 +166,7 @@ func handleAuthenticationResponse(c *gin.Context, state string, vpToken string) 
 
 	sameDeviceResponse, err := getApiVerifier().AuthenticationResponse(state, rawCredentials, holder)
 	if err != nil {
-		logging.Log().Warnf("Was not able to get fullfil the authentication response. Err: %v", err)
+		logging.Log().Warnf("Was not able to fullfil the authentication response. Err: %v", err)
 		c.AbortWithStatusJSON(400, ErrorMessage{Summary: err.Error()})
 		return
 	}

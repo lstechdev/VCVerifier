@@ -27,6 +27,40 @@ var exampleCredential = map[string]interface{}{
 		"type":   "gx:compliance",
 	},
 }
+
+var exampleEmptySubjectCredential = map[string]interface{}{
+	"@context": []string{
+		"https://www.w3.org/2018/credentials/v1",
+		"https://happypets.fiware.io/2022/credentials/employee/v1",
+	},
+	"id": "https://happypets.fiware.io/credential/25159389-8dd17b796ac0",
+	"type": []string{
+		"VerifiableCredential",
+		"CustomerCredential",
+	},
+	"issuer":            "did:key:verifier",
+	"issuanceDate":      "2022-11-23T15:23:13Z",
+	"validFrom":         "2022-11-23T15:23:13Z",
+	"expirationDate":    "2032-11-23T15:23:13Z",
+	"credentialSubject": map[string]interface{}{},
+}
+
+var exampleNoIdCredential = map[string]interface{}{
+	"@context": []string{
+		"https://www.w3.org/2018/credentials/v1",
+		"https://happypets.fiware.io/2022/credentials/employee/v1",
+	},
+	"type": []string{
+		"VerifiableCredential",
+		"CustomerCredential",
+	},
+	"issuer":            "did:key:verifier",
+	"issuanceDate":      "2022-11-23T15:23:13Z",
+	"validFrom":         "2022-11-23T15:23:13Z",
+	"expirationDate":    "2032-11-23T15:23:13Z",
+	"credentialSubject": map[string]interface{}{},
+}
+
 var exampleCredentialArraySubject = map[string]interface{}{
 	"@context": []string{
 		"https://www.w3.org/2018/credentials/v1",
@@ -84,7 +118,6 @@ func getComplianceVCFromJson() map[string]interface{} {
 	return x
 }
 
-
 func TestActualComplianceCredential(t *testing.T) {
 	_, err := MapVerifiableCredential(getComplianceVCFromJson())
 
@@ -105,7 +138,7 @@ func TestMapVerifiableCredential(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			"ValidCertificate",
+			"ValidCredential",
 			args{exampleCredential},
 			VerifiableCredential{
 				MappableVerifiableCredential{
@@ -121,6 +154,23 @@ func TestMapVerifiableCredential(t *testing.T) {
 					},
 				},
 				exampleCredential,
+			},
+			false,
+		},
+		{
+			"ValidCredentialWithEmptySubject",
+			args{exampleEmptySubjectCredential},
+			VerifiableCredential{
+				MappableVerifiableCredential{
+					Id: "https://happypets.fiware.io/credential/25159389-8dd17b796ac0",
+					Types: []string{
+						"VerifiableCredential",
+						"CustomerCredential",
+					},
+					Issuer:            "did:key:verifier",
+					CredentialSubject: CredentialSubject{},
+				},
+				exampleEmptySubjectCredential,
 			},
 			false,
 		},
@@ -145,8 +195,14 @@ func TestMapVerifiableCredential(t *testing.T) {
 			false,
 		},
 		{
-			"InvalidCertificate",
+			"InvalidCredential",
 			args{map[string]interface{}{"someThing": "else"}},
+			VerifiableCredential{},
+			true,
+		},
+		{
+			"NoIdCredential",
+			args{exampleNoIdCredential},
 			VerifiableCredential{},
 			true,
 		},
