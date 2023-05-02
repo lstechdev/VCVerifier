@@ -1,10 +1,12 @@
 package verifier
 
 import (
+	"errors"
 	"reflect"
 
 	logging "github.com/fiware/VCVerifier/logging"
 	"github.com/mitchellh/mapstructure"
+	"golang.org/x/exp/slices"
 )
 
 // Subset of the structure of a Verifiable Credential
@@ -27,6 +29,10 @@ type CredentialSubject struct {
 	SubjectType string `mapstructure:"type"`
 }
 
+func optionalFields() []string {
+	return []string{"credentialSubject.id", "credentialSubject.type"}
+}
+
 func (vc VerifiableCredential) GetCredentialType() string {
 	return vc.CredentialSubject.SubjectType
 }
@@ -41,6 +47,7 @@ func (vc VerifiableCredential) GetIssuer() string {
 
 func MapVerifiableCredential(raw map[string]interface{}) (VerifiableCredential, error) {
 	var data MappableVerifiableCredential
+	var metaData mapstructure.Metadata
 
 	credentialSubjectArrayDecoder := func(from, to reflect.Type, data interface{}) (interface{}, error) {
 		if to != reflect.TypeOf((*CredentialSubject)(nil)).Elem() {
@@ -50,18 +57,19 @@ func MapVerifiableCredential(raw map[string]interface{}) (VerifiableCredential, 
 			return data, nil
 		}
 		vcArray := data.([]interface{})
-		if len(vcArray) > 0{
+		if len(vcArray) > 0 {
 			logging.Log().Warn("Found more than one credential subject. Will only use/validate first one.")
 			return vcArray[0], nil
-		}else{
-			return []interface{}{},nil
+		} else {
+			return []interface{}{}, nil
 		}
 	}
 
 	config := &mapstructure.DecoderConfig{
 		ErrorUnused:          false,
 		Result:               &data,
-		ErrorUnset:           true,
+		Metadata:             &metaData,
+		ErrorUnset:           false,
 		IgnoreUntaggedFields: true,
 		DecodeHook:           credentialSubjectArrayDecoder,
 	}
@@ -72,5 +80,12 @@ func MapVerifiableCredential(raw map[string]interface{}) (VerifiableCredential, 
 	if err := decoder.Decode(raw); err != nil {
 		return VerifiableCredential{}, err
 	}
+
+	for _, unsetField := range metaData.Unset {
+		if !slices.Contains(optionalFields(), unsetField) {
+			return VerifiableCredential{}, errors.New("unset_field")
+		}
+	}
+
 	return VerifiableCredential{data, raw}, nil
 }
