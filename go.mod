@@ -16,6 +16,8 @@ require (
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.2.0 // indirect
+	github.com/bxcodec/gotcha v1.0.0-beta.8 // indirect
+	github.com/bxcodec/httpcache v1.0.0-beta.3 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0 // indirect
 	github.com/fatih/color v1.14.1 // indirect

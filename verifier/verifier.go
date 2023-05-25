@@ -48,9 +48,9 @@ type Verifier interface {
 	AuthenticationResponse(state string, verifiableCredentials []map[string]interface{}, holder string) (sameDevice SameDeviceResponse, err error)
 }
 
-type ExternalVerificationService interface {
+type VerificationService interface {
 	// Verifies the given VC. FIXME Currently a positiv result is returned even when no policy was checked
-	VerifyVC(verifiableCredential VerifiableCredential) (result bool, err error)
+	VerifyVC(verifiableCredential VerifiableCredential, verificationContext VerificationContext) (result bool, err error)
 }
 
 // implementation of the verifier, using waltId ssikit and gaia-x compliance issuers registry as a validation backends.
@@ -73,8 +73,10 @@ type CredentialVerifier struct {
 	clock Clock
 	// provides the capabilities to signt the jwt
 	tokenSigner TokenSigner
+	// provide the configuration to be used with the credentials
+	credentialsConfig CredentialsConfig
 	// Verification services to be used on the credentials
-	verificationServices []ExternalVerificationService
+	verificationServices []VerificationService
 }
 
 // allow singleton access to the verifier
@@ -85,14 +87,23 @@ var httpClient = client.HttpClient()
 
 // interfaces and default implementations
 
-type Cache interface {
-	Add(k string, x interface{}, d time.Duration) error
-	Get(k string) (interface{}, bool)
-	Delete(k string)
-}
-
 type Clock interface {
 	Now() time.Time
+}
+
+type VerificationContext interface{}
+
+type TrustRegistriesVerificationContext struct {
+	trustedIssuersLists           []string
+	trustedParticipantsRegistries []string
+}
+
+func (trvc TrustRegistriesVerificationContext) GetTrustedIssuersLists() []string {
+	return trvc.trustedIssuersLists
+}
+
+func (trvc TrustRegistriesVerificationContext) GetTrustedParticipantLists() []string {
+	return trvc.trustedParticipantsRegistries
 }
 
 type realClock struct{}
@@ -164,7 +175,7 @@ func GetVerifier() Verifier {
 /**
 * Initialize the verifier and all its components from the configuration
 **/
-func InitVerifier(verifierConfig *configModel.Verifier, ssiKitClient ssikit.SSIKit) (err error) {
+func InitVerifier(verifierConfig *configModel.Verifier, repoConfig *configModel.ConfigRepo, ssiKitClient ssikit.SSIKit) (err error) {
 
 	err = verifyConfig(verifierConfig)
 	if err != nil {
@@ -174,12 +185,19 @@ func InitVerifier(verifierConfig *configModel.Verifier, ssiKitClient ssikit.SSIK
 	sessionCache := cache.New(time.Duration(verifierConfig.SessionExpiry)*time.Second, time.Duration(2*verifierConfig.SessionExpiry)*time.Second)
 	tokenCache := cache.New(time.Duration(verifierConfig.SessionExpiry)*time.Second, time.Duration(2*verifierConfig.SessionExpiry)*time.Second)
 
-	externalSsiKitVerifier, err := InitSsiKitExternalVerifier(verifierConfig, ssiKitClient)
+	externalSsiKitVerifier, err := InitSsiKitExternalVerificationService(verifierConfig, ssiKitClient)
 	if err != nil {
 		logging.Log().Errorf("Was not able to initiate a external verifier. Err: %v", err)
 		return err
 	}
-	externalGaiaXVerifier := InitGaiaXRegistryVerifier(verifierConfig)
+	externalGaiaXVerifier := InitGaiaXRegistryVerificationService(verifierConfig)
+
+	credentialsConfig, err := InitServiceBackedCredentialsConfig(repoConfig)
+	if err != nil {
+		logging.Log().Errorf("Was not able to initiate the credentials config. Err: %v", err)
+	}
+
+	trustedParticipantsVerificationService := TrustedParticipantVerificationService{}
 
 	key, err := initPrivateKey()
 	if err != nil {
@@ -197,9 +215,11 @@ func InitVerifier(verifierConfig *configModel.Verifier, ssiKitClient ssikit.SSIK
 		&randomGenerator{},
 		realClock{},
 		jwtTokenSigner{},
-		[]ExternalVerificationService{
+		credentialsConfig,
+		[]VerificationService{
 			&externalSsiKitVerifier,
 			&externalGaiaXVerifier,
+			&trustedParticipantsVerificationService,
 		},
 	}
 
@@ -325,7 +345,7 @@ func (v *CredentialVerifier) AuthenticationResponse(state string, verifiableCred
 	for _, mappedCredential := range mappedCredentials {
 		//FIXME make it an error if no policy was checked at all( possible misconfiguration)
 		for _, verificationService := range v.verificationServices {
-			result, err := verificationService.VerifyVC(mappedCredential)
+			result, err := verificationService.VerifyVC(mappedCredential, TrustRegistriesVerificationContext{})
 			if err != nil {
 				logging.Log().Warnf("Failed to verify credential %s. Err: %v", logging.PrettyPrintObject(mappedCredential), err)
 				return sameDevice, err

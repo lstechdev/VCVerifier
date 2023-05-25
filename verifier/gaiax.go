@@ -13,16 +13,16 @@ import (
 const gaiaxCompliancePolicy = "GaiaXComplianceIssuer"
 const registryUrlPropertyName = "registryAddress"
 
-type GaiaXRegistryVerifier struct {
+type GaiaXRegistryVerificationService struct {
 	validateAll               bool
 	credentialTypesToValidate []string
 	// client for gaiax registry connection
 	gaiaxRegistryClient gaiax.RegistryClient
 }
 
-func InitGaiaXRegistryVerifier(verifierConfig *configModel.Verifier) GaiaXRegistryVerifier {
+func InitGaiaXRegistryVerificationService(verifierConfig *configModel.Verifier) GaiaXRegistryVerificationService {
 	var url string
-	verifier := GaiaXRegistryVerifier{credentialTypesToValidate: []string{}}
+	verifier := GaiaXRegistryVerificationService{credentialTypesToValidate: []string{}}
 
 	for policyName, arguments := range verifierConfig.PolicyConfig.DefaultPolicies {
 		if policyName == gaiaxCompliancePolicy {
@@ -39,12 +39,12 @@ func InitGaiaXRegistryVerifier(verifierConfig *configModel.Verifier) GaiaXRegist
 		}
 	}
 	if len(url) > 0 {
-		verifier.gaiaxRegistryClient = gaiax.InitGaiaXRegistryVerifier(url)
+		verifier.gaiaxRegistryClient = gaiax.InitGaiaXRegistryVerificationService(url)
 	}
 	return verifier
 }
 
-func (v *GaiaXRegistryVerifier) VerifyVC(verifiableCredential VerifiableCredential) (result bool, err error) {
+func (v *GaiaXRegistryVerificationService) VerifyVC(verifiableCredential VerifiableCredential, verificationContext VerificationContext) (result bool, err error) {
 	if v.validateAll || slices.Contains(v.credentialTypesToValidate, verifiableCredential.GetCredentialType()) {
 		issuerDids, err := v.gaiaxRegistryClient.GetComplianceIssuers()
 		if err != nil {

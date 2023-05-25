@@ -19,7 +19,7 @@ type GaiaXRegistryClient struct {
 	endpoint string
 }
 
-func InitGaiaXRegistryVerifier(url string) RegistryClient {
+func InitGaiaXRegistryVerificationService(url string) RegistryClient {
 	return &GaiaXRegistryClient{url}
 }
 

@@ -224,7 +224,7 @@ type mockExternalSsiKit struct {
 	verificationError   error
 }
 
-func (msk *mockExternalSsiKit) VerifyVC(verifiableCredential VerifiableCredential) (result bool, err error) {
+func (msk *mockExternalSsiKit) VerifyVC(verifiableCredential VerifiableCredential, verificationContext VerificationContext) (result bool, err error) {
 	if msk.verificationError != nil {
 		return result, msk.verificationError
 	}
@@ -337,7 +337,7 @@ func TestAuthenticationResponse(t *testing.T) {
 		testKey, _ := jwk.New(ecdsKey)
 		jwk.AssignKeyID(testKey)
 		nonceGenerator := mockNonceGenerator{staticValues: []string{"authCode"}}
-		verifier := CredentialVerifier{did: "did:key:verifier", signingKey: testKey, tokenCache: &tokenCache, sessionCache: &sessionCache, nonceGenerator: &nonceGenerator, verificationServices: []ExternalVerificationService{&mockExternalSsiKit{tc.verificationResult, tc.verificationError}}, clock: mockClock{}}
+		verifier := CredentialVerifier{did: "did:key:verifier", signingKey: testKey, tokenCache: &tokenCache, sessionCache: &sessionCache, nonceGenerator: &nonceGenerator, verificationServices: []VerificationService{&mockExternalSsiKit{tc.verificationResult, tc.verificationError}}, clock: mockClock{}}
 
 		sameDeviceResponse, err := verifier.AuthenticationResponse(tc.requestedState, tc.testVC, tc.testHolder)
 		if err != tc.expectedError {
@@ -418,7 +418,7 @@ func TestInitVerifier(t *testing.T) {
 		verifier = nil
 		logging.Log().Info("TestInitVerifier +++++++++++++++++ Running test: ", tc.testName)
 
-		err := InitVerifier(&tc.testConfig, &mockSsiKit{})
+		err := InitVerifier(&tc.testConfig, &configModel.ConfigRepo{}, &mockSsiKit{})
 		if tc.expectedError != err {
 			t.Errorf("%s - Expected error %v but was %v.", tc.testName, tc.expectedError, err)
 		}
