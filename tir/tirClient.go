@@ -20,10 +20,15 @@ type HttpClient interface {
 	Get(url string) (resp *http.Response, err error)
 }
 
+type TirClient interface {
+	IsTrustedParticipant(tirEndpoints []string, did string) (trusted bool)
+	GetTrustedIssuer(tirEndpoints []string, did string) (exists bool, trustedIssuer TrustedIssuer, err error)
+}
+
 /**
 * A client to retrieve infromation from EBSI-compatible TrustedIssuerRegistry APIs.
  */
-type TirClient struct {
+type TirHttpClient struct {
 	client HttpClient
 }
 
@@ -46,7 +51,26 @@ type IssuerAttribute struct {
 	RootTao    string `json:"rootTao"`
 }
 
-func NewTirClient() (client TirClient, err error) {
+/**
+* Configuration of a credentialType, its validity time and the claims allowed to be issued
+ */
+type Credential struct {
+	ValidFor        TimeRange `json:"validFor"`
+	CredentialsType string    `json:"credentialsType"`
+	Claims          []Claim   `json:"claims"`
+}
+
+type TimeRange struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+}
+
+type Claim struct {
+	Name          string        `json:"name"`
+	AllowedValues []interface{} `json:"allowedValues"`
+}
+
+func NewTirHttpClient() (client TirClient, err error) {
 
 	httpClient := &http.Client{}
 	_, err = httpcache.NewWithInmemoryCache(httpClient, true, time.Second*60)
@@ -54,10 +78,10 @@ func NewTirClient() (client TirClient, err error) {
 		logging.Log().Errorf("Was not able to inject the cach to the client. Err: %v", err)
 		return
 	}
-	return TirClient{httpClient}, err
+	return TirHttpClient{httpClient}, err
 }
 
-func (tc TirClient) IsTrustedParticipant(tirEndpoints []string, did string) (trusted bool) {
+func (tc TirHttpClient) IsTrustedParticipant(tirEndpoints []string, did string) (trusted bool) {
 
 	for _, tirEndpoint := range tirEndpoints {
 		logging.Log().Debugf("Check if a participant %s is trusted through %s.", did, tirEndpoint)
@@ -69,7 +93,7 @@ func (tc TirClient) IsTrustedParticipant(tirEndpoints []string, did string) (tru
 	return false
 }
 
-func (tc TirClient) GetTrustedIssuer(tirEndpoints []string, did string) (exists bool, trustedIssuer TrustedIssuer, err error) {
+func (tc TirHttpClient) GetTrustedIssuer(tirEndpoints []string, did string) (exists bool, trustedIssuer TrustedIssuer, err error) {
 	for _, tirEndpoint := range tirEndpoints {
 		resp, err := tc.requestIssuer(tirEndpoint, did)
 		if err != nil {
@@ -105,7 +129,7 @@ func parseTirResponse(resp http.Response) (trustedIssuer TrustedIssuer, err erro
 	return trustedIssuer, err
 }
 
-func (tc TirClient) issuerExists(tirEndpoint string, did string) (trusted bool) {
+func (tc TirHttpClient) issuerExists(tirEndpoint string, did string) (trusted bool) {
 	resp, err := tc.requestIssuer(tirEndpoint, did)
 	if err != nil {
 		return false
@@ -114,7 +138,7 @@ func (tc TirClient) issuerExists(tirEndpoint string, did string) (trusted bool) 
 	return resp.StatusCode == 200
 }
 
-func (tc TirClient) requestIssuer(tirEndpoint string, did string) (response *http.Response, err error) {
+func (tc TirHttpClient) requestIssuer(tirEndpoint string, did string) (response *http.Response, err error) {
 	resp, err := tc.client.Get(tirEndpoint + "/" + did)
 	if err != nil {
 		logging.Log().Warnf("Was not able to get the issuer %s from %s. Err: %v", did, tirEndpoint, err)

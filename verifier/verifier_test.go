@@ -125,13 +125,14 @@ func TestInitSiopFlow(t *testing.T) {
 
 	tests := getInitSiopTests()
 	for _, tc := range tests {
-
-		logging.Log().Info("TestInitSiopFlow +++++++++++++++++ Running test: ", tc.testName)
-		sessionCache := mockSessionCache{sessions: map[string]loginSession{}, errorToThrow: tc.sessionCacheError}
-		nonceGenerator := mockNonceGenerator{staticValues: []string{"randomState", "randomNonce"}}
-		verifier := CredentialVerifier{did: "did:key:verifier", scope: tc.scopeConfig, sessionCache: &sessionCache, nonceGenerator: &nonceGenerator}
-		authReq, err := verifier.initSiopFlow(tc.testHost, tc.testProtocol, tc.testAddress, tc.testSessionId)
-		verifyInitTest(t, tc, authReq, err, sessionCache, false)
+		t.Run(tc.testName, func(t *testing.T) {
+			logging.Log().Info("TestInitSiopFlow +++++++++++++++++ Running test: ", tc.testName)
+			sessionCache := mockSessionCache{sessions: map[string]loginSession{}, errorToThrow: tc.sessionCacheError}
+			nonceGenerator := mockNonceGenerator{staticValues: []string{"randomState", "randomNonce"}}
+			verifier := CredentialVerifier{did: "did:key:verifier", scope: tc.scopeConfig, sessionCache: &sessionCache, nonceGenerator: &nonceGenerator}
+			authReq, err := verifier.initSiopFlow(tc.testHost, tc.testProtocol, tc.testAddress, tc.testSessionId)
+			verifyInitTest(t, tc, authReq, err, sessionCache, false)
+		})
 	}
 }
 
@@ -142,13 +143,14 @@ func TestStartSiopFlow(t *testing.T) {
 
 	tests := getInitSiopTests()
 	for _, tc := range tests {
-		logging.Log().Info("TestStartSiopFlow +++++++++++++++++ Running test: ", tc.testName)
-
-		sessionCache := mockSessionCache{sessions: map[string]loginSession{}, errorToThrow: tc.sessionCacheError}
-		nonceGenerator := mockNonceGenerator{staticValues: []string{"randomState", "randomNonce"}}
-		verifier := CredentialVerifier{did: "did:key:verifier", scope: tc.scopeConfig, sessionCache: &sessionCache, nonceGenerator: &nonceGenerator}
-		authReq, err := verifier.StartSiopFlow(tc.testHost, tc.testProtocol, tc.testAddress, tc.testSessionId)
-		verifyInitTest(t, tc, authReq, err, sessionCache, false)
+		t.Run(tc.testName, func(t *testing.T) {
+			logging.Log().Info("TestStartSiopFlow +++++++++++++++++ Running test: ", tc.testName)
+			sessionCache := mockSessionCache{sessions: map[string]loginSession{}, errorToThrow: tc.sessionCacheError}
+			nonceGenerator := mockNonceGenerator{staticValues: []string{"randomState", "randomNonce"}}
+			verifier := CredentialVerifier{did: "did:key:verifier", scope: tc.scopeConfig, sessionCache: &sessionCache, nonceGenerator: &nonceGenerator}
+			authReq, err := verifier.StartSiopFlow(tc.testHost, tc.testProtocol, tc.testAddress, tc.testSessionId)
+			verifyInitTest(t, tc, authReq, err, sessionCache, false)
+		})
 	}
 }
 
@@ -208,13 +210,14 @@ func TestStartSameDeviceFlow(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-
-		logging.Log().Info("TestSameDeviceFlow +++++++++++++++++ Running test: ", tc.testName)
-		sessionCache := mockSessionCache{sessions: map[string]loginSession{}, errorToThrow: tc.sessionCacheError}
-		nonceGenerator := mockNonceGenerator{staticValues: []string{"randomState", "randomNonce"}}
-		verifier := CredentialVerifier{did: "did:key:verifier", scope: tc.scopeConfig, sessionCache: &sessionCache, nonceGenerator: &nonceGenerator}
-		authReq, err := verifier.StartSameDeviceFlow(tc.testHost, tc.testProtocol, tc.testSessionId, tc.testAddress)
-		verifyInitTest(t, tc, authReq, err, sessionCache, true)
+		t.Run(tc.testName, func(t *testing.T) {
+			logging.Log().Info("TestSameDeviceFlow +++++++++++++++++ Running test: ", tc.testName)
+			sessionCache := mockSessionCache{sessions: map[string]loginSession{}, errorToThrow: tc.sessionCacheError}
+			nonceGenerator := mockNonceGenerator{staticValues: []string{"randomState", "randomNonce"}}
+			verifier := CredentialVerifier{did: "did:key:verifier", scope: tc.scopeConfig, sessionCache: &sessionCache, nonceGenerator: &nonceGenerator}
+			authReq, err := verifier.StartSameDeviceFlow(tc.testHost, tc.testProtocol, tc.testSessionId, tc.testAddress)
+			verifyInitTest(t, tc, authReq, err, sessionCache, true)
+		})
 	}
 
 }
@@ -321,40 +324,41 @@ func TestAuthenticationResponse(t *testing.T) {
 	}
 
 	for _, tc := range tests {
+		t.Run(tc.testName, func(t *testing.T) {
+			logging.Log().Info("TestAuthenticationResponse +++++++++++++++++ Running test: ", tc.testName)
+			sessionCache := mockSessionCache{sessions: map[string]loginSession{}}
 
-		logging.Log().Info("TestAuthenticationResponse +++++++++++++++++ Running test: ", tc.testName)
-		sessionCache := mockSessionCache{sessions: map[string]loginSession{}}
+			// initialize siop session
+			if tc.testSession != (loginSession{}) {
+				sessionCache.sessions[tc.testState] = tc.testSession
+			}
 
-		// initialize siop session
-		if tc.testSession != (loginSession{}) {
-			sessionCache.sessions[tc.testState] = tc.testSession
-		}
+			tokenCache := mockTokenCache{tokens: map[string]tokenStore{}, errorToThrow: tc.tokenCacheError}
 
-		tokenCache := mockTokenCache{tokens: map[string]tokenStore{}, errorToThrow: tc.tokenCacheError}
+			httpClient = mockHttpClient{tc.callbackError, nil}
+			ecdsKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+			testKey, _ := jwk.New(ecdsKey)
+			jwk.AssignKeyID(testKey)
+			nonceGenerator := mockNonceGenerator{staticValues: []string{"authCode"}}
+			verifier := CredentialVerifier{did: "did:key:verifier", signingKey: testKey, tokenCache: &tokenCache, sessionCache: &sessionCache, nonceGenerator: &nonceGenerator, verificationServices: []VerificationService{&mockExternalSsiKit{tc.verificationResult, tc.verificationError}}, clock: mockClock{}}
 
-		httpClient = mockHttpClient{tc.callbackError, nil}
-		ecdsKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-		testKey, _ := jwk.New(ecdsKey)
-		jwk.AssignKeyID(testKey)
-		nonceGenerator := mockNonceGenerator{staticValues: []string{"authCode"}}
-		verifier := CredentialVerifier{did: "did:key:verifier", signingKey: testKey, tokenCache: &tokenCache, sessionCache: &sessionCache, nonceGenerator: &nonceGenerator, verificationServices: []VerificationService{&mockExternalSsiKit{tc.verificationResult, tc.verificationError}}, clock: mockClock{}}
+			sameDeviceResponse, err := verifier.AuthenticationResponse(tc.requestedState, tc.testVC, tc.testHolder)
+			if err != tc.expectedError {
+				t.Errorf("%s - Expected error %v but was %v.", tc.testName, tc.expectedError, err)
+			}
+			if tc.expectedError != nil {
+				return
+			}
 
-		sameDeviceResponse, err := verifier.AuthenticationResponse(tc.requestedState, tc.testVC, tc.testHolder)
-		if err != tc.expectedError {
-			t.Errorf("%s - Expected error %v but was %v.", tc.testName, tc.expectedError, err)
-		}
-		if tc.expectedError != nil {
-			continue
-		}
+			if tc.sameDevice {
+				verifySameDevice(t, sameDeviceResponse, tokenCache, tc)
+				return
+			}
 
-		if tc.sameDevice {
-			verifySameDevice(t, sameDeviceResponse, tokenCache, tc)
-			continue
-		}
-
-		if *tc.expectedCallback != *lastRequest {
-			t.Errorf("%s - Expected callback %s but was %s.", tc.testName, tc.expectedCallback, lastRequest)
-		}
+			if *tc.expectedCallback != *lastRequest {
+				t.Errorf("%s - Expected callback %s but was %s.", tc.testName, tc.expectedCallback, lastRequest)
+			}
+		})
 
 	}
 }
@@ -414,25 +418,26 @@ func TestInitVerifier(t *testing.T) {
 	}
 
 	for _, tc := range tests {
+		t.Run(tc.testName, func(t *testing.T) {
+			verifier = nil
+			logging.Log().Info("TestInitVerifier +++++++++++++++++ Running test: ", tc.testName)
 
-		verifier = nil
-		logging.Log().Info("TestInitVerifier +++++++++++++++++ Running test: ", tc.testName)
+			err := InitVerifier(&tc.testConfig, &configModel.ConfigRepo{}, &mockSsiKit{})
+			if tc.expectedError != err {
+				t.Errorf("%s - Expected error %v but was %v.", tc.testName, tc.expectedError, err)
+			}
+			if tc.expectedError != nil && GetVerifier() != nil {
+				t.Errorf("%s - When an error happens, no verifier should be created.", tc.testName)
+				return
+			}
+			if tc.expectedError != nil {
+				return
+			}
 
-		err := InitVerifier(&tc.testConfig, &configModel.ConfigRepo{}, &mockSsiKit{})
-		if tc.expectedError != err {
-			t.Errorf("%s - Expected error %v but was %v.", tc.testName, tc.expectedError, err)
-		}
-		if tc.expectedError != nil && GetVerifier() != nil {
-			t.Errorf("%s - When an error happens, no verifier should be created.", tc.testName)
-			continue
-		}
-		if tc.expectedError != nil {
-			continue
-		}
-
-		if GetVerifier() == nil {
-			t.Errorf("%s - Verifier should have been initiated, but is not available.", tc.testName)
-		}
+			if GetVerifier() == nil {
+				t.Errorf("%s - Verifier should have been initiated, but is not available.", tc.testName)
+			}
+		})
 	}
 }
 
@@ -506,36 +511,37 @@ func TestGetToken(t *testing.T) {
 	}
 
 	for _, tc := range tests {
+		t.Run(tc.testName, func(t *testing.T) {
+			logging.Log().Info("TestGetToken +++++++++++++++++ Running test: ", tc.testName)
 
-		logging.Log().Info("TestGetToken +++++++++++++++++ Running test: ", tc.testName)
+			tokenCache := mockTokenCache{tokens: tc.tokenSession}
+			verifier := CredentialVerifier{tokenCache: &tokenCache, signingKey: testKey, clock: mockClock{}, tokenSigner: mockTokenSigner{tc.signingError}}
+			jwtString, expiration, err := verifier.GetToken(tc.testGrantType, tc.testCode, tc.testRedirectUri)
 
-		tokenCache := mockTokenCache{tokens: tc.tokenSession}
-		verifier := CredentialVerifier{tokenCache: &tokenCache, signingKey: testKey, clock: mockClock{}, tokenSigner: mockTokenSigner{tc.signingError}}
-		jwtString, expiration, err := verifier.GetToken(tc.testGrantType, tc.testCode, tc.testRedirectUri)
+			if err != tc.expectedError {
+				t.Errorf("%s - Expected error %v but was %v.", tc.testName, tc.expectedError, err)
+				return
+			}
+			if tc.expectedError != nil {
+				// we successfully verified that it failed.
+				return
+			}
 
-		if err != tc.expectedError {
-			t.Errorf("%s - Expected error %v but was %v.", tc.testName, tc.expectedError, err)
-			continue
-		}
-		if tc.expectedError != nil {
-			// we successfully verified that it failed.
-			continue
-		}
+			returnedToken, err := jwt.Parse([]byte(jwtString), jwt.WithVerify(jwa.ES256, publicKey))
 
-		returnedToken, err := jwt.Parse([]byte(jwtString), jwt.WithVerify(jwa.ES256, publicKey))
-
-		if err != nil {
-			t.Errorf("%s - No valid token signature. Err: %v", tc.testName, err)
-			continue
-		}
-		if logging.PrettyPrintObject(returnedToken) != logging.PrettyPrintObject(tc.expectedJWT) {
-			t.Errorf("%s - Expected jwt %s but was %s.", tc.testName, logging.PrettyPrintObject(tc.expectedJWT), logging.PrettyPrintObject(returnedToken))
-			continue
-		}
-		if expiration != tc.expectedExpiration {
-			t.Errorf("%s - Expected expiration %v but was %v.", tc.testName, tc.expectedExpiration, expiration)
-			continue
-		}
+			if err != nil {
+				t.Errorf("%s - No valid token signature. Err: %v", tc.testName, err)
+				return
+			}
+			if logging.PrettyPrintObject(returnedToken) != logging.PrettyPrintObject(tc.expectedJWT) {
+				t.Errorf("%s - Expected jwt %s but was %s.", tc.testName, logging.PrettyPrintObject(tc.expectedJWT), logging.PrettyPrintObject(returnedToken))
+				return
+			}
+			if expiration != tc.expectedExpiration {
+				t.Errorf("%s - Expected expiration %v but was %v.", tc.testName, tc.expectedExpiration, expiration)
+				return
+			}
+		})
 	}
 }
 

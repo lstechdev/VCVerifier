@@ -13,6 +13,7 @@ import (
 	"time"
 
 	configModel "github.com/fiware/VCVerifier/config"
+	"github.com/fiware/VCVerifier/tir"
 
 	logging "github.com/fiware/VCVerifier/logging"
 
@@ -197,9 +198,16 @@ func InitVerifier(verifierConfig *configModel.Verifier, repoConfig *configModel.
 		logging.Log().Errorf("Was not able to initiate the credentials config. Err: %v", err)
 	}
 
-	trustedParticipantsVerificationService := TrustedParticipantVerificationService{}
+	tirClient, err := tir.NewTirHttpClient()
+	if err != nil {
+		logging.Log().Errorf("Was not able to instantiate the trusted-issuers-registry client. Err: %v", err)
+		return err
+	}
+	trustedParticipantVerificationService := TrustedParticipantVerificationService{tirClient: tirClient}
+	trustedIssuerVerificationService := TrustedIssuerVerificationService{tirClient: tirClient}
 
 	key, err := initPrivateKey()
+
 	if err != nil {
 		logging.Log().Errorf("Was not able to initiate a signing key. Err: %v", err)
 		return err
@@ -219,7 +227,8 @@ func InitVerifier(verifierConfig *configModel.Verifier, repoConfig *configModel.
 		[]VerificationService{
 			&externalSsiKitVerifier,
 			&externalGaiaXVerifier,
-			&trustedParticipantsVerificationService,
+			&trustedParticipantVerificationService,
+			&trustedIssuerVerificationService,
 		},
 	}
 
