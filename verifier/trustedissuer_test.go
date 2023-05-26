@@ -28,7 +28,7 @@ func TestVerifyVC_Issuers(t *testing.T) {
 			tirExists: false, tirResponse: tir.TrustedIssuer{}, tirError: nil, expectedResult: false},
 		{testName: "If the trusted issuer is invalid, the vc should be rejected.",
 			credentialToVerifiy: getVerifiableCredential("test", "claim"), verificationContext: getVerificationContext(),
-			tirExists: false, tirResponse: tir.TrustedIssuer{Attributes: []tir.IssuerAttribute{{Body: "invalidBody"}}}, tirError: nil, expectedResult: false},
+			tirExists: true, tirResponse: tir.TrustedIssuer{Attributes: []tir.IssuerAttribute{{Body: "invalidBody"}}}, tirError: nil, expectedResult: false},
 		{testName: "If no restriction is configured, the vc should be accepted.",
 			credentialToVerifiy: getVerifiableCredential("testClaim", "testValue"), verificationContext: getVerificationContext(),
 			tirExists: true, tirResponse: getTrustedIssuer([]tir.IssuerAttribute{getAttribute(tir.TimeRange{}, "VerifiableCredential", map[string][]interface{}{})}), tirError: nil, expectedResult: true},
