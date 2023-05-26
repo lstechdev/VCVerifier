@@ -426,8 +426,9 @@ func (v *CredentialVerifier) getTrustRegistriesVerificationContext(clientId stri
 		trustedIssuersLists = append(trustedIssuersLists, issuersLists...)
 		trustedParticipantsRegistries = append(trustedParticipantsRegistries, participantsLists...)
 	}
-
-	return TrustRegistriesVerificationContext{trustedIssuersLists: trustedIssuersLists, trustedParticipantsRegistries: trustedParticipantsRegistries}, err
+	context := TrustRegistriesVerificationContext{trustedIssuersLists: trustedIssuersLists, trustedParticipantsRegistries: trustedParticipantsRegistries}
+	logging.Log().Debugf("The verification context is: %s", logging.PrettyPrintObject(context))
+	return context, err
 }
 
 // TODO Use more generic approach to validate that every credential is issued by a party that we trust
