@@ -30,7 +30,6 @@ func Test_ReadConfig(t *testing.T) {
 					Did:           "did:key:somekey",
 					TirAddress:    "https://test.dev/trusted_issuer/v3/issuers/",
 					SessionExpiry: 30,
-					RequestScope:  "",
 					PolicyConfig: Policies{
 						DefaultPolicies: PolicyMap{
 							"SignaturePolicy": {},
@@ -80,7 +79,6 @@ func Test_ReadConfig(t *testing.T) {
 				Verifier: Verifier{Did: "",
 					TirAddress:    "",
 					SessionExpiry: 30,
-					RequestScope:  "",
 				}, SSIKit: SSIKit{
 					AuditorURL: "",
 				},

@@ -47,8 +47,6 @@ type Verifier struct {
 	TirAddress string `mapstructure:"tirAddress"`
 	// expiry of auth sessions
 	SessionExpiry int `mapstructure:"sessionExpiry" default:"30"`
-	// scope to be used in the authentication request
-	RequestScope string `mapstructure:"requestScope"`
 	// policies that shall be checked
 	PolicyConfig Policies `mapstructure:"policies"`
 }

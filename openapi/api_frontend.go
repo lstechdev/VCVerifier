@@ -12,6 +12,7 @@ package openapi
 import (
 	"net/http"
 
+	"github.com/fiware/VCVerifier/logging"
 	"github.com/fiware/VCVerifier/verifier"
 
 	"github.com/gin-gonic/gin"
@@ -43,7 +44,12 @@ func VerifierPageDisplayQRSIOP(c *gin.Context) {
 		return
 	}
 
-	qr, err := getFrontendVerifier().ReturnLoginQR(c.Request.Host, "https", callback, state)
+	clientId, clientIdExists := c.GetQuery("client_id")
+	if !clientIdExists {
+		logging.Log().Infof("Start a login flow for a not specified client.")
+	}
+
+	qr, err := getFrontendVerifier().ReturnLoginQR(c.Request.Host, "https", callback, state, clientId)
 	if err != nil {
 		c.AbortWithStatusJSON(500, ErrorMessage{"qr_generation_error", err.Error()})
 		return
