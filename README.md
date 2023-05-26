@@ -44,6 +44,7 @@ The following actions occur in the interaction:
 1. The user opens the frontend application.
 2. The frontend-application forwards the user to the login-page of VCVerifier
 3. The VCVerifier presents a QR-code, containing the ```openid:```-connection string with all necessary information to start the authentication process. The QR-code is scanned by the user's wallet.
+    1. the Verifier retrieves the Scope-Information from the Config-Service
 4. The user approves the wallet's interaction with the VCVerifier and the VerifiableCredential is presented via the OIDC4VP-flow. 
 5. VCVerifier verifies the credential:
     1. at WaltID-SSIKit with the configured set of policies
