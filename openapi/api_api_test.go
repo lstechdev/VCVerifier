@@ -28,13 +28,13 @@ type mockVerifier struct {
 	mockError            error
 }
 
-func (mV *mockVerifier) ReturnLoginQR(host string, protocol string, callback string, sessionId string) (qr string, err error) {
+func (mV *mockVerifier) ReturnLoginQR(host string, protocol string, callback string, sessionId string, clientId string) (qr string, err error) {
 	return mV.mockQR, mV.mockError
 }
-func (mV *mockVerifier) StartSiopFlow(host string, protocol string, callback string, sessionId string) (connectionString string, err error) {
+func (mV *mockVerifier) StartSiopFlow(host string, protocol string, callback string, sessionId string, clientId string) (connectionString string, err error) {
 	return mV.mockConnectionString, mV.mockError
 }
-func (mV *mockVerifier) StartSameDeviceFlow(host string, protocol string, sessionId string, redirectPath string) (authenticationRequest string, err error) {
+func (mV *mockVerifier) StartSameDeviceFlow(host string, protocol string, sessionId string, redirectPath string, clientId string) (authenticationRequest string, err error) {
 	return mV.mockAuthRequest, mV.mockError
 }
 func (mV *mockVerifier) GetToken(grantType string, authorizationCode string, redirectUri string) (jwtString string, expiration int64, err error) {

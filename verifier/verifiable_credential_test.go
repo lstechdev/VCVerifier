@@ -151,6 +151,7 @@ func TestMapVerifiableCredential(t *testing.T) {
 					CredentialSubject: CredentialSubject{
 						Id:          "someId",
 						SubjectType: "gx:compliance",
+						Claims:      map[string]interface{}{"target": "did:ebsi:packetdelivery"},
 					},
 				},
 				exampleCredential,
@@ -188,6 +189,7 @@ func TestMapVerifiableCredential(t *testing.T) {
 					CredentialSubject: CredentialSubject{
 						Id:          "someId",
 						SubjectType: "gx:compliance",
+						Claims:      map[string]interface{}{"target": "did:ebsi:packetdelivery"},
 					},
 				},
 				exampleCredentialArraySubject,

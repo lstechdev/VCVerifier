@@ -28,7 +28,7 @@ func createConfig(defaultsEnabled, specific bool) *configModel.Verifier {
 	return &conf
 }
 
-func TestGaiaXRegistryVerifier_VerifyVC(t *testing.T) {
+func TestGaiaXRegistryVerificationService_VerifyVC(t *testing.T) {
 	type fields struct {
 		verifierConfig      *configModel.Verifier
 		gaiaxRegistryClient gaiax.RegistryClient
@@ -73,16 +73,16 @@ func TestGaiaXRegistryVerifier_VerifyVC(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			v := InitGaiaXRegistryVerifier(tt.fields.verifierConfig)
+			v := InitGaiaXRegistryVerificationService(tt.fields.verifierConfig)
 			v.gaiaxRegistryClient = tt.fields.gaiaxRegistryClient
 
-			gotResult, err := v.VerifyVC(tt.verifiableCredential)
+			gotResult, err := v.VerifyVC(tt.verifiableCredential, nil)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("GaiaXRegistryVerifier.VerifyVC() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("GaiaXRegistryVerificationService.VerifyVC() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if gotResult != tt.wantResult {
-				t.Errorf("GaiaXRegistryVerifier.VerifyVC() = %v, want %v", gotResult, tt.wantResult)
+				t.Errorf("GaiaXRegistryVerificationService.VerifyVC() = %v, want %v", gotResult, tt.wantResult)
 			}
 		})
 	}

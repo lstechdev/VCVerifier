@@ -21,5 +21,25 @@ verifier:
     credentialTypeSpecific:
       "gx:compliance":
          ValidFromBeforePolicy: {}
+
 ssiKit:
   auditorURL: http://waltid:7003
+
+configRepo:
+  services: 
+    testService: 
+      scope: 
+        - VerifiableCredential
+        - CustomerCredential
+      trustedParticipants:
+        VerifiableCredential: 
+          - https://tir-pdc.gaia-x.fiware.dev
+        CustomerCredential: 
+          - https://tir-pdc.gaia-x.fiware.dev
+      trustedIssuers:
+        VerifiableCredential: 
+          - https://tir-pdc.gaia-x.fiware.dev
+        CustomerCredential: 
+          - https://tir-pdc.gaia-x.fiware.dev
+
+        

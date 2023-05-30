@@ -17,6 +17,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/QueryState'
         - $ref: '#/components/parameters/ClientCallback'
+        - $ref: '#/components/parameters/ClientId'
       operationId: VerifierPageDisplayQRSIOP
       summary: Presents a qr as starting point for the auth process
       description: Returns a rendered html with a QR encoding the login-starting point for the siop flow - e.g. 'openid://?scope=somethign&response_type=rt&response_mode=rm&client_id=ci&redirect_uri=uri&state=state&nonce=nonce'
@@ -40,6 +41,7 @@ paths:
         - api
       parameters:
         - $ref: '#/components/parameters/QueryState'
+        - $ref: '#/components/parameters/ClientId'
       operationId: StartSIOPSameDevice
       summary: Starts the siop flow for credentials hold by the same device
       description: When the credential is already present in the requesting browser, the same-device flow can be used. It creates the login information and then redirects to the /authenticationresponse path.
@@ -71,6 +73,7 @@ paths:
         - api 
       parameters:
         - $ref: '#/components/parameters/QueryState'
+        - $ref: '#/components/parameters/ClientId'
       operationId: VerifierAPIAuthenticationResponse
       summary: Stores the credential for the given session
       requestBody:
@@ -208,6 +211,14 @@ components:
       required: true
       schema:
         type: string
+    ClientId:
+      name: client_id
+      description: The id of the client/service that intents to start the authentication flow. Will be used to retrieve the scope and trust services to be used for verification.
+      in: query
+      required: false 
+      schema: 
+        type: string
+        example: packet-delivery-portal
   schemas:
     CredentialsType:
       type: array

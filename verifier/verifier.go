@@ -10,9 +10,11 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	configModel "github.com/fiware/VCVerifier/config"
+	"github.com/fiware/VCVerifier/tir"
 
 	logging "github.com/fiware/VCVerifier/logging"
 
@@ -29,28 +31,29 @@ import (
 )
 
 var ErrorNoDID = errors.New("no_did_configured")
-var ErrorNoTIR = errors.New("nod_tir_configured")
+var ErrorNoTIR = errors.New("no_tir_configured")
 var ErrorInvalidVC = errors.New("invalid_vc")
 var ErrorNoSuchSession = errors.New("no_such_session")
 var ErrorWrongGrantType = errors.New("wrong_grant_type")
 var ErrorNoSuchCode = errors.New("no_such_code")
 var ErrorRedirectUriMismatch = errors.New("redirect_uri_does_not_match")
+var ErrorVerficationContextSetup = errors.New("no_valid_verification_context")
 
 // Actual implementation of the verfifier functionality
 
 // verifier interface
 type Verifier interface {
-	ReturnLoginQR(host string, protocol string, callback string, sessionId string) (qr string, err error)
-	StartSiopFlow(host string, protocol string, callback string, sessionId string) (connectionString string, err error)
-	StartSameDeviceFlow(host string, protocol string, sessionId string, redirectPath string) (authenticationRequest string, err error)
+	ReturnLoginQR(host string, protocol string, callback string, sessionId string, clientId string) (qr string, err error)
+	StartSiopFlow(host string, protocol string, callback string, sessionId string, clientId string) (connectionString string, err error)
+	StartSameDeviceFlow(host string, protocol string, sessionId string, redirectPath string, clientId string) (authenticationRequest string, err error)
 	GetToken(grantType string, authorizationCode string, redirectUri string) (jwtString string, expiration int64, err error)
 	GetJWKS() jwk.Set
 	AuthenticationResponse(state string, verifiableCredentials []map[string]interface{}, holder string) (sameDevice SameDeviceResponse, err error)
 }
 
-type ExternalVerificationService interface {
+type VerificationService interface {
 	// Verifies the given VC. FIXME Currently a positiv result is returned even when no policy was checked
-	VerifyVC(verifiableCredential VerifiableCredential) (result bool, err error)
+	VerifyVC(verifiableCredential VerifiableCredential, verificationContext VerificationContext) (result bool, err error)
 }
 
 // implementation of the verifier, using waltId ssikit and gaia-x compliance issuers registry as a validation backends.
@@ -59,8 +62,6 @@ type CredentialVerifier struct {
 	did string
 	// trusted-issuers-registry to be used for verification
 	tirAddress string
-	// optional scope of credentials to be requested
-	scope string
 	// key to sign the jwt's with
 	signingKey jwk.Key
 	// cache to be used for in-progress authentication sessions
@@ -73,8 +74,10 @@ type CredentialVerifier struct {
 	clock Clock
 	// provides the capabilities to signt the jwt
 	tokenSigner TokenSigner
+	// provide the configuration to be used with the credentials
+	credentialsConfig CredentialsConfig
 	// Verification services to be used on the credentials
-	verificationServices []ExternalVerificationService
+	verificationServices []VerificationService
 }
 
 // allow singleton access to the verifier
@@ -85,14 +88,23 @@ var httpClient = client.HttpClient()
 
 // interfaces and default implementations
 
-type Cache interface {
-	Add(k string, x interface{}, d time.Duration) error
-	Get(k string) (interface{}, bool)
-	Delete(k string)
-}
-
 type Clock interface {
 	Now() time.Time
+}
+
+type VerificationContext interface{}
+
+type TrustRegistriesVerificationContext struct {
+	trustedIssuersLists           []string
+	trustedParticipantsRegistries []string
+}
+
+func (trvc TrustRegistriesVerificationContext) GetTrustedIssuersLists() []string {
+	return trvc.trustedIssuersLists
+}
+
+func (trvc TrustRegistriesVerificationContext) GetTrustedParticipantLists() []string {
+	return trvc.trustedParticipantsRegistries
 }
 
 type realClock struct{}
@@ -133,6 +145,8 @@ type loginSession struct {
 	callback string
 	// sessionId to be included in the notification
 	sessionId string
+	// clientId provided for the session
+	clientId string
 }
 
 // struct to represent a token, accessible through the token endpoint
@@ -164,7 +178,7 @@ func GetVerifier() Verifier {
 /**
 * Initialize the verifier and all its components from the configuration
 **/
-func InitVerifier(verifierConfig *configModel.Verifier, ssiKitClient ssikit.SSIKit) (err error) {
+func InitVerifier(verifierConfig *configModel.Verifier, repoConfig *configModel.ConfigRepo, ssiKitClient ssikit.SSIKit) (err error) {
 
 	err = verifyConfig(verifierConfig)
 	if err != nil {
@@ -174,14 +188,28 @@ func InitVerifier(verifierConfig *configModel.Verifier, ssiKitClient ssikit.SSIK
 	sessionCache := cache.New(time.Duration(verifierConfig.SessionExpiry)*time.Second, time.Duration(2*verifierConfig.SessionExpiry)*time.Second)
 	tokenCache := cache.New(time.Duration(verifierConfig.SessionExpiry)*time.Second, time.Duration(2*verifierConfig.SessionExpiry)*time.Second)
 
-	externalSsiKitVerifier, err := InitSsiKitExternalVerifier(verifierConfig, ssiKitClient)
+	externalSsiKitVerifier, err := InitSsiKitExternalVerificationService(verifierConfig, ssiKitClient)
 	if err != nil {
 		logging.Log().Errorf("Was not able to initiate a external verifier. Err: %v", err)
 		return err
 	}
-	externalGaiaXVerifier := InitGaiaXRegistryVerifier(verifierConfig)
+	externalGaiaXVerifier := InitGaiaXRegistryVerificationService(verifierConfig)
+
+	credentialsConfig, err := InitServiceBackedCredentialsConfig(repoConfig)
+	if err != nil {
+		logging.Log().Errorf("Was not able to initiate the credentials config. Err: %v", err)
+	}
+
+	tirClient, err := tir.NewTirHttpClient()
+	if err != nil {
+		logging.Log().Errorf("Was not able to instantiate the trusted-issuers-registry client. Err: %v", err)
+		return err
+	}
+	trustedParticipantVerificationService := TrustedParticipantVerificationService{tirClient: tirClient}
+	trustedIssuerVerificationService := TrustedIssuerVerificationService{tirClient: tirClient}
 
 	key, err := initPrivateKey()
+
 	if err != nil {
 		logging.Log().Errorf("Was not able to initiate a signing key. Err: %v", err)
 		return err
@@ -190,16 +218,18 @@ func InitVerifier(verifierConfig *configModel.Verifier, ssiKitClient ssikit.SSIK
 	verifier = &CredentialVerifier{
 		verifierConfig.Did,
 		verifierConfig.TirAddress,
-		verifierConfig.RequestScope,
 		key,
 		sessionCache,
 		tokenCache,
 		&randomGenerator{},
 		realClock{},
 		jwtTokenSigner{},
-		[]ExternalVerificationService{
+		credentialsConfig,
+		[]VerificationService{
 			&externalSsiKitVerifier,
 			&externalGaiaXVerifier,
+			&trustedParticipantVerificationService,
+			&trustedIssuerVerificationService,
 		},
 	}
 
@@ -210,10 +240,10 @@ func InitVerifier(verifierConfig *configModel.Verifier, ssiKitClient ssikit.SSIK
 /**
 *   Initializes the cross-device login flow and returns all neccessary information as a qr-code
 **/
-func (v *CredentialVerifier) ReturnLoginQR(host string, protocol string, callback string, sessionId string) (qr string, err error) {
+func (v *CredentialVerifier) ReturnLoginQR(host string, protocol string, callback string, sessionId string, clientId string) (qr string, err error) {
 
 	logging.Log().Debugf("Generate a login qr for %s.", callback)
-	authenticationRequest, err := v.initSiopFlow(host, protocol, callback, sessionId)
+	authenticationRequest, err := v.initSiopFlow(host, protocol, callback, sessionId, clientId)
 
 	if err != nil {
 		return qr, err
@@ -229,20 +259,20 @@ func (v *CredentialVerifier) ReturnLoginQR(host string, protocol string, callbac
 /**
 * Starts a siop-flow and returns the required connection information
 **/
-func (v *CredentialVerifier) StartSiopFlow(host string, protocol string, callback string, sessionId string) (connectionString string, err error) {
+func (v *CredentialVerifier) StartSiopFlow(host string, protocol string, callback string, sessionId string, clientId string) (connectionString string, err error) {
 	logging.Log().Debugf("Start a plain siop-flow fro %s.", callback)
 
-	return v.initSiopFlow(host, protocol, callback, sessionId)
+	return v.initSiopFlow(host, protocol, callback, sessionId, clientId)
 }
 
 /**
 * Starts a same-device siop-flow and returns the required redirection information
 **/
-func (v *CredentialVerifier) StartSameDeviceFlow(host string, protocol string, sessionId string, redirectPath string) (authenticationRequest string, err error) {
+func (v *CredentialVerifier) StartSameDeviceFlow(host string, protocol string, sessionId string, redirectPath string, clientId string) (authenticationRequest string, err error) {
 	logging.Log().Debugf("Initiate samedevice flow for %s.", host)
 	state := v.nonceGenerator.GenerateNonce()
 
-	loginSession := loginSession{true, fmt.Sprintf("%s://%s%s", protocol, host, redirectPath), sessionId}
+	loginSession := loginSession{true, fmt.Sprintf("%s://%s%s", protocol, host, redirectPath), sessionId, clientId}
 	err = v.sessionCache.Add(state, loginSession, cache.DefaultExpiration)
 	if err != nil {
 		logging.Log().Warnf("Was not able to store the login session %s in cache. Err: %v", logging.PrettyPrintObject(loginSession), err)
@@ -252,7 +282,7 @@ func (v *CredentialVerifier) StartSameDeviceFlow(host string, protocol string, s
 	redirectUri := fmt.Sprintf("%s://%s/api/v1/authentication_response", protocol, host)
 
 	walletUri := protocol + "://" + host + redirectPath
-	return v.createAuthenticationRequest(walletUri, redirectUri, state), err
+	return v.createAuthenticationRequest(walletUri, redirectUri, state, clientId), err
 }
 
 /**
@@ -323,9 +353,14 @@ func (v *CredentialVerifier) AuthenticationResponse(state string, verifiableCred
 	}
 
 	for _, mappedCredential := range mappedCredentials {
+		verificationContext, err := v.getTrustRegistriesVerificationContext(loginSession.clientId, mappedCredential.Types)
+		if err != nil {
+			logging.Log().Warnf("Was not able to create a valid verification context. Credential will be rejected. Err: %v", err)
+			return sameDevice, ErrorVerficationContextSetup
+		}
 		//FIXME make it an error if no policy was checked at all( possible misconfiguration)
 		for _, verificationService := range v.verificationServices {
-			result, err := verificationService.VerifyVC(mappedCredential)
+			result, err := verificationService.VerifyVC(mappedCredential, verificationContext)
 			if err != nil {
 				logging.Log().Warnf("Failed to verify credential %s. Err: %v", logging.PrettyPrintObject(mappedCredential), err)
 				return sameDevice, err
@@ -373,6 +408,28 @@ func (v *CredentialVerifier) AuthenticationResponse(state string, verifiableCred
 	}
 }
 
+func (v *CredentialVerifier) getTrustRegistriesVerificationContext(clientId string, credentialTypes []string) (verificationContext TrustRegistriesVerificationContext, err error) {
+	trustedIssuersLists := []string{}
+	trustedParticipantsRegistries := []string{}
+
+	for _, credentialType := range credentialTypes {
+		issuersLists, err := v.credentialsConfig.GetTrustedIssuersLists(clientId, credentialType)
+		if err != nil {
+			logging.Log().Warnf("Was not able to get valid trusted-issuers-lists for client %s and type %s. Err: %v", clientId, credentialType, err)
+			return verificationContext, err
+		}
+		participantsLists, err := v.credentialsConfig.GetTrustedParticipantLists(clientId, credentialType)
+		if err != nil {
+			logging.Log().Warnf("Was not able to get valid trusted-pariticpants-registries for client %s and type %s. Err: %v", clientId, credentialType, err)
+			return verificationContext, err
+		}
+		trustedIssuersLists = append(trustedIssuersLists, issuersLists...)
+		trustedParticipantsRegistries = append(trustedParticipantsRegistries, participantsLists...)
+	}
+	context := TrustRegistriesVerificationContext{trustedIssuersLists: trustedIssuersLists, trustedParticipantsRegistries: trustedParticipantsRegistries}
+	return context, err
+}
+
 // TODO Use more generic approach to validate that every credential is issued by a party that we trust
 func verifyChain(vcs []VerifiableCredential) (bool, error) {
 	if len(vcs) != 3 {
@@ -408,10 +465,10 @@ func verifyChain(vcs []VerifiableCredential) (bool, error) {
 }
 
 // initializes the cross-device siop flow
-func (v *CredentialVerifier) initSiopFlow(host string, protocol string, callback string, sessionId string) (authenticationRequest string, err error) {
+func (v *CredentialVerifier) initSiopFlow(host string, protocol string, callback string, sessionId string, clientId string) (authenticationRequest string, err error) {
 	state := v.nonceGenerator.GenerateNonce()
 
-	loginSession := loginSession{false, callback, sessionId}
+	loginSession := loginSession{false, callback, sessionId, clientId}
 	err = v.sessionCache.Add(state, loginSession, cache.DefaultExpiration)
 
 	if err != nil {
@@ -419,7 +476,7 @@ func (v *CredentialVerifier) initSiopFlow(host string, protocol string, callback
 		return authenticationRequest, err
 	}
 	redirectUri := fmt.Sprintf("%s://%s/api/v1/authentication_response", protocol, host)
-	authenticationRequest = v.createAuthenticationRequest("openid://", redirectUri, state)
+	authenticationRequest = v.createAuthenticationRequest("openid://", redirectUri, state, clientId)
 
 	logging.Log().Debugf("Authentication request is %s.", authenticationRequest)
 	return authenticationRequest, err
@@ -429,9 +486,7 @@ func (v *CredentialVerifier) initSiopFlow(host string, protocol string, callback
 func (v *CredentialVerifier) generateJWT(verifiableCredentials []map[string]interface{}, holder string, audience string) (generatedJwt jwt.Token, err error) {
 
 	jwtBuilder := jwt.NewBuilder().Issuer(v.did).Claim("client_id", v.did).Subject(holder).Audience([]string{audience}).Claim("kid", v.signingKey.KeyID()).Expiration(v.clock.Now().Add(time.Minute * 30))
-	if v.scope != "" {
-		jwtBuilder.Claim("scope", v.scope)
-	}
+
 	if len(verifiableCredentials) > 1 {
 		jwtBuilder.Claim("verifiablePresentation", verifiableCredentials)
 	} else {
@@ -448,7 +503,7 @@ func (v *CredentialVerifier) generateJWT(verifiableCredentials []map[string]inte
 }
 
 // creates an authenticationRequest string from the given parameters
-func (v *CredentialVerifier) createAuthenticationRequest(base string, redirect_uri string, state string) string {
+func (v *CredentialVerifier) createAuthenticationRequest(base string, redirect_uri string, state string, clientId string) string {
 
 	// We use a template to generate the final string
 	template := "{{base}}?response_type=vp_token" +
@@ -458,14 +513,21 @@ func (v *CredentialVerifier) createAuthenticationRequest(base string, redirect_u
 		"&state={{state}}" +
 		"&nonce={{nonce}}"
 
-	if v.scope != "" {
-		template = template + "&scope={{scope}}"
+	var scope string
+	if clientId != "" {
+		typesToBeRequested, err := v.credentialsConfig.GetScope(clientId)
+		if err != nil {
+			logging.Log().Warnf("Was not able to get the scope to be requested for client %s. Err: %v", clientId, err)
+		} else {
+			template = template + "&scope={{scope}}"
+			scope = strings.Join(typesToBeRequested, ",")
+		}
 	}
 
 	t := fasttemplate.New(template, "{{", "}}")
 	authRequest := t.ExecuteString(map[string]interface{}{
 		"base":         base,
-		"scope":        v.scope,
+		"scope":        scope,
 		"client_id":    v.did,
 		"redirect_uri": redirect_uri,
 		"state":        state,

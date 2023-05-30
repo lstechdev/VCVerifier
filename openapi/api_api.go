@@ -90,7 +90,12 @@ func StartSIOPSameDevice(c *gin.Context) {
 		protocol = "http"
 	}
 
-	redirect, err := getApiVerifier().StartSameDeviceFlow(c.Request.Host, protocol, state, redirectPath)
+	clientId, clientIdExists := c.GetQuery("client_id")
+	if !clientIdExists {
+		logging.Log().Infof("Start a login flow for a not specified client.")
+	}
+
+	redirect, err := getApiVerifier().StartSameDeviceFlow(c.Request.Host, protocol, state, redirectPath, clientId)
 	if err != nil {
 		logging.Log().Warnf("Error starting the same-device flow. Err: %v", err)
 		c.AbortWithStatusJSON(500, ErrorMessage{err.Error(), "Was not able to start the same device flow."})
@@ -202,7 +207,12 @@ func VerifierAPIStartSIOP(c *gin.Context) {
 	if c.Request.TLS == nil {
 		protocol = "http"
 	}
-	connectionString, err := getApiVerifier().StartSiopFlow(c.Request.Host, protocol, callback, state)
+	clientId, clientIdExists := c.GetQuery("client_id")
+	if !clientIdExists {
+		logging.Log().Infof("Start a login flow for a not specified client.")
+	}
+
+	connectionString, err := getApiVerifier().StartSiopFlow(c.Request.Host, protocol, callback, state, clientId)
 	if err != nil {
 		c.AbortWithStatusJSON(500, ErrorMessage{err.Error(), "Was not able to generate the connection string."})
 		return
