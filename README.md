@@ -44,8 +44,13 @@ The following actions occur in the interaction:
 1. The user opens the frontend application.
 2. The frontend-application forwards the user to the login-page of VCVerifier
 3. The VCVerifier presents a QR-code, containing the ```openid:```-connection string with all necessary information to start the authentication process. The QR-code is scanned by the user's wallet.
+    1. the Verifier retrieves the Scope-Information from the Config-Service
 4. The user approves the wallet's interaction with the VCVerifier and the VerifiableCredential is presented via the OIDC4VP-flow. 
-5. VCVerifier requests verification of the credential with a defined set of policies at WaltID-SSIKit.
+5. VCVerifier verifies the credential:
+    1. at WaltID-SSIKit with the configured set of policies
+    2. (Optional) if a Gaia-X compliant chain is provided
+    3. that the credential is registered in the configured trusted-participants-registries
+    4. that the issuer is allowed to issuer the credential with the given claims by one of the configured trusted-issuers-list(s)
 6. A JWT is created, the frontend-application is informed via callback and the token is retrieved via the token-endpoint.
 7. Frontend start to interact with the backend-service, using the jwt.
 8. Authorization-Layer requests the JWKS from the VCVerifier(this can happen asynchronously, not in the sequential flow of the diagram).
@@ -110,6 +115,35 @@ verifier:
 ssiKit:
     # url of the ssikit auditor-api(see https://docs.walt.id/v/ssikit/getting-started/rest-apis/auditor-api)
     auditorURL:
+
+# configuration of the service to retrieve configuration for
+configRepo:
+    # endpoint of the configuration service, to retrieve the scope to be requested and the trust endpoints for the credentials.
+    configEndpoint: http://config-service:8080
+    # static configuration for services
+    services: 
+        # name of the service to be configured
+        testService: 
+            # scope to be requested from the wallet
+            scope: 
+                - VerifiableCredential
+                - CustomerCredential
+            # trusted participants endpoint configuration 
+            trustedParticipants:
+                # the credentials type to configure the endpoint(s) for
+                VerifiableCredential: 
+                - https://tir-pdc.gaia-x.fiware.dev
+                # the credentials type to configure the endpoint(s) for
+                CustomerCredential: 
+                - https://tir-pdc.gaia-x.fiware.dev
+            # trusted issuers endpoint configuration
+            trustedIssuers:
+                # the credentials type to configure the endpoint(s) for
+                VerifiableCredential: 
+                - https://tir-pdc.gaia-x.fiware.dev
+                # the credentials type to configure the endpoint(s) for
+                CustomerCredential: 
+                - https://tir-pdc.gaia-x.fiware.dev
 
 ```
 #### Templating

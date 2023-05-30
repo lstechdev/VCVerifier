@@ -30,7 +30,6 @@ func Test_ReadConfig(t *testing.T) {
 					Did:           "did:key:somekey",
 					TirAddress:    "https://test.dev/trusted_issuer/v3/issuers/",
 					SessionExpiry: 30,
-					RequestScope:  "",
 					PolicyConfig: Policies{
 						DefaultPolicies: PolicyMap{
 							"SignaturePolicy": {},
@@ -53,6 +52,20 @@ func Test_ReadConfig(t *testing.T) {
 					LogRequests: true,
 					PathsToSkip: []string{"/health"},
 				},
+				ConfigRepo: ConfigRepo{
+					ConfigEndpoint: "",
+					Services: map[string]Service{
+						"testService": {
+							Scope: []string{"VerifiableCredential", "CustomerCredential"},
+							TrustedParticipants: map[string][]string{
+								"VerifiableCredential": {"https://tir-pdc.gaia-x.fiware.dev"},
+								"CustomerCredential":   {"https://tir-pdc.gaia-x.fiware.dev"},
+							},
+							TrustedIssuers: map[string][]string{
+								"VerifiableCredential": {"https://tir-pdc.gaia-x.fiware.dev"},
+								"CustomerCredential":   {"https://tir-pdc.gaia-x.fiware.dev"},
+							}}},
+				},
 			},
 			false,
 		}, {
@@ -66,7 +79,6 @@ func Test_ReadConfig(t *testing.T) {
 				Verifier: Verifier{Did: "",
 					TirAddress:    "",
 					SessionExpiry: 30,
-					RequestScope:  "",
 				}, SSIKit: SSIKit{
 					AuditorURL: "",
 				},

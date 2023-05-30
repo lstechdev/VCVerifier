@@ -4,10 +4,11 @@ package config
 
 // general structure of the configuration file
 type Configuration struct {
-	Server   Server   `mapstructure:"server"`
-	Verifier Verifier `mapstructure:"verifier"`
-	SSIKit   SSIKit   `mapstructure:"ssiKit"`
-	Logging  Logging  `mapstructure:"logging"`
+	Server     Server     `mapstructure:"server"`
+	Verifier   Verifier   `mapstructure:"verifier"`
+	SSIKit     SSIKit     `mapstructure:"ssiKit"`
+	Logging    Logging    `mapstructure:"logging"`
+	ConfigRepo ConfigRepo `mapstructure:"configRepo"`
 }
 
 // configuration to be used by the ssiKit configuration
@@ -46,8 +47,6 @@ type Verifier struct {
 	TirAddress string `mapstructure:"tirAddress"`
 	// expiry of auth sessions
 	SessionExpiry int `mapstructure:"sessionExpiry" default:"30"`
-	// scope to be used in the authentication request
-	RequestScope string `mapstructure:"requestScope"`
 	// policies that shall be checked
 	PolicyConfig Policies `mapstructure:"policies"`
 }
@@ -59,6 +58,19 @@ type Policies struct {
 	CredentialTypeSpecificPolicies map[string]PolicyMap `mapstructure:"credentialTypeSpecific"`
 }
 
+type ConfigRepo struct {
+	// url of the configuration service to be used
+	ConfigEndpoint string `mapstructure:"configEndpoint"`
+	// statically configured services with their trust anchors and scopes.
+	Services map[string]Service `mapstructure:"services"`
+}
+
 type PolicyMap map[string]PolicyConfigParameters
 
 type PolicyConfigParameters map[string]interface{}
+
+type Service struct {
+	Scope               []string            `mapstructure:"scope"`
+	TrustedParticipants map[string][]string `mapstructure:"trustedParticipants"`
+	TrustedIssuers      map[string][]string `mapstructure:"trustedIssuers"`
+}

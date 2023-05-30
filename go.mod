@@ -16,6 +16,8 @@ require (
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.2.0 // indirect
+	github.com/bxcodec/gotcha v1.0.0-beta.8 // indirect
+	github.com/bxcodec/httpcache v1.0.0-beta.3 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0 // indirect
 	github.com/fatih/color v1.14.1 // indirect
@@ -63,6 +65,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.7 // indirect
 	github.com/penglongli/gin-metrics v0.1.10
+	github.com/procyon-projects/chrono v1.1.2
 	github.com/sirupsen/logrus v1.9.0
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect

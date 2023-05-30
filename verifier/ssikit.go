@@ -7,7 +7,11 @@ import (
 	"github.com/fiware/VCVerifier/ssikit"
 )
 
-type SsiKitExternalVerifier struct {
+/**
+* The SsiKit verifier should concentrate on general verification at the credential level(e.g. check signature, expiry etc.). Even thought a TIR policy could
+* be configured, its recommended to use the TrustedIssuersRegistryVerifer or TrustedIssuersListVerifier for that purpose.
+ */
+type SsiKitExternalVerificationService struct {
 	policies                   PolicyMap
 	credentialSpecificPolicies map[string]PolicyMap
 	// client for connection waltId
@@ -21,7 +25,7 @@ func isPolicySupportedBySsiKit(policyName string) bool {
 	return policyName != gaiaxCompliancePolicy
 }
 
-func InitSsiKitExternalVerifier(verifierConfig *configModel.Verifier, ssiKitClient ssikit.SSIKit) (verifier SsiKitExternalVerifier, err error) {
+func InitSsiKitExternalVerificationService(verifierConfig *configModel.Verifier, ssiKitClient ssikit.SSIKit) (verifier SsiKitExternalVerificationService, err error) {
 	defaultPolicies := PolicyMap{}
 	for policyName, arguments := range verifierConfig.PolicyConfig.DefaultPolicies {
 		if isPolicySupportedBySsiKit(policyName) {
@@ -37,10 +41,10 @@ func InitSsiKitExternalVerifier(verifierConfig *configModel.Verifier, ssiKitClie
 			}
 		}
 	}
-	return SsiKitExternalVerifier{defaultPolicies, credentialSpecificPolicies, ssiKitClient}, nil
+	return SsiKitExternalVerificationService{defaultPolicies, credentialSpecificPolicies, ssiKitClient}, nil
 }
 
-func (v *SsiKitExternalVerifier) VerifyVC(verifiableCredential VerifiableCredential) (result bool, err error) {
+func (v *SsiKitExternalVerificationService) VerifyVC(verifiableCredential VerifiableCredential, verificationContext VerificationContext) (result bool, err error) {
 	usedPolicies := PolicyMap{}
 	for name, policy := range v.policies {
 		usedPolicies[name] = policy

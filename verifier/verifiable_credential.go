@@ -25,8 +25,9 @@ type MappableVerifiableCredential struct {
 
 // Subset of the structure of a CredentialSubject inside a Verifiable Credential
 type CredentialSubject struct {
-	Id          string `mapstructure:"id"`
-	SubjectType string `mapstructure:"type"`
+	Id          string                 `mapstructure:"id"`
+	SubjectType string                 `mapstructure:"type"`
+	Claims      map[string]interface{} `mapstructure:",remain"`
 }
 
 func optionalFields() []string {
