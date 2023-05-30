@@ -18,6 +18,7 @@ type TrustedParticipantVerificationService struct {
 
 func (tpvs *TrustedParticipantVerificationService) VerifyVC(verifiableCredential VerifiableCredential, verificationContext VerificationContext) (result bool, err error) {
 
+	logging.Log().Debugf("Verify trusted participant for %s", logging.PrettyPrintObject(verifiableCredential))
 	defer func() {
 		if recErr := recover(); recErr != nil {
 			logging.Log().Warnf("Was not able to convert context. Err: %v", recErr)

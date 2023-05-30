@@ -85,7 +85,7 @@ func (tc TirHttpClient) IsTrustedParticipant(tirEndpoints []string, did string) 
 
 	for _, tirEndpoint := range tirEndpoints {
 		logging.Log().Debugf("Check if a participant %s is trusted through %s.", did, tirEndpoint)
-		if tc.issuerExists(getIssuerUrl(tirEndpoint), did) {
+		if tc.issuerExists(tirEndpoint, did) {
 			logging.Log().Debugf("Issuer %s is a trusted participant via %s.", did, tirEndpoint)
 			return true
 		}
@@ -109,6 +109,7 @@ func (tc TirHttpClient) GetTrustedIssuer(tirEndpoints []string, did string) (exi
 			logging.Log().Warnf("Was not able to parse the response from tir %s for %s. Err: %v", tirEndpoint, did, err)
 			continue
 		}
+		logging.Log().Debugf("Got issuer %s.", logging.PrettyPrintObject(trustedIssuer))
 		return true, trustedIssuer, err
 	}
 	return false, trustedIssuer, err
@@ -134,12 +135,13 @@ func (tc TirHttpClient) issuerExists(tirEndpoint string, did string) (trusted bo
 	if err != nil {
 		return false
 	}
+	logging.Log().Debugf("Issuer %s response from %s is %v", did, tirEndpoint, resp.StatusCode)
 	// if a 200 is returned, the issuer exists. We dont have to parse the whole response
 	return resp.StatusCode == 200
 }
 
 func (tc TirHttpClient) requestIssuer(tirEndpoint string, did string) (response *http.Response, err error) {
-	resp, err := tc.client.Get(tirEndpoint + "/" + did)
+	resp, err := tc.client.Get(getIssuerUrl(tirEndpoint) + "/" + did)
 	if err != nil {
 		logging.Log().Warnf("Was not able to get the issuer %s from %s. Err: %v", did, tirEndpoint, err)
 		return resp, err

@@ -17,6 +17,8 @@ type TrustedIssuerVerificationService struct {
 }
 
 func (tpvs *TrustedIssuerVerificationService) VerifyVC(verifiableCredential VerifiableCredential, verificationContext VerificationContext) (result bool, err error) {
+
+	logging.Log().Debugf("Verify trusted issuer for %s", logging.PrettyPrintObject(verifiableCredential))
 	defer func() {
 		if recErr := recover(); recErr != nil {
 			logging.Log().Warnf("Was not able to convert context. Err: %v", recErr)
@@ -27,9 +29,11 @@ func (tpvs *TrustedIssuerVerificationService) VerifyVC(verifiableCredential Veri
 	exist, trustedIssuer, err := tpvs.tirClient.GetTrustedIssuer(trustContext.GetTrustedParticipantLists(), verifiableCredential.Issuer)
 
 	if err != nil {
+		logging.Log().Warnf("Was not able to verify trusted issuer. Err: %v", err)
 		return false, err
 	}
 	if !exist {
+		logging.Log().Warnf("Trusted issuer for %s does not exist in context %s.", logging.PrettyPrintObject(verifiableCredential), logging.PrettyPrintObject(verificationContext))
 		return false, err
 	}
 	credentials, err := parseAttributes(trustedIssuer)
@@ -107,6 +111,8 @@ func contains(interfaces []interface{}, interfaceToCheck interface{}) bool {
 			return true
 		}
 	}
+	logging.Log().Debugf("%s does not contain %s", logging.PrettyPrintObject(interfaces), logging.PrettyPrintObject(interfaceToCheck))
+
 	return false
 }
 

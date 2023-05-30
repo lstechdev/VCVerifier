@@ -427,7 +427,6 @@ func (v *CredentialVerifier) getTrustRegistriesVerificationContext(clientId stri
 		trustedParticipantsRegistries = append(trustedParticipantsRegistries, participantsLists...)
 	}
 	context := TrustRegistriesVerificationContext{trustedIssuersLists: trustedIssuersLists, trustedParticipantsRegistries: trustedParticipantsRegistries}
-	logging.Log().Debugf("The verification context is: %s", logging.PrettyPrintObject(context))
 	return context, err
 }
 
