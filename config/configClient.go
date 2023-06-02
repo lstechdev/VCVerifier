@@ -69,7 +69,7 @@ func (hcc HttpConfigClient) GetServices() (services []ConfiguredService, err err
 		services = append(services, servicesResponse.Services...)
 		// we check both, since its possible that druing the iterration new services where added to old pages(total != len(services)).
 		// those will be retrieved on next iterration, thus can be ignored
-		if len(servicesResponse.Services) < pageSize || servicesResponse.Total == len(services) {
+		if servicesResponse.Total == 0 || len(servicesResponse.Services) < pageSize || servicesResponse.Total == len(services) {
 			finished = true
 		}
 		currentPage++
@@ -102,7 +102,7 @@ func (hcc HttpConfigClient) getServicesPage(page int, pageSize int) (servicesRes
 		logging.Log().Warn("Was not able to decode the ccs-response.")
 		return servicesResponse, err
 	}
-
+	logging.Log().Debugf("Services response was: %s.", logging.PrettyPrintObject(servicesResponse))
 	return servicesResponse, err
 }
 
