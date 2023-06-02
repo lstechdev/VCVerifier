@@ -30,29 +30,38 @@ type CredentialsConfig interface {
 
 type ServiceBackedCredentialsConfig struct {
 	initialConfig            *config.ConfigRepo
-	configEndpoint           *url.URL
+	configClient             *config.ConfigClient
 	scopeCache               Cache
 	trustedParticipantsCache Cache
 	trustedIssuersCache      Cache
 }
 
 func InitServiceBackedCredentialsConfig(repoConfig *config.ConfigRepo) (credentialsConfig CredentialsConfig, err error) {
+	var configClient config.ConfigClient
 	if repoConfig.ConfigEndpoint == "" {
 		logging.Log().Warn("No endpoint for the configuration service is configured. Only static configuration will be provided.")
-	}
-	serviceUrl, err := url.Parse(repoConfig.ConfigEndpoint)
-	if err != nil {
-		logging.Log().Errorf("The service endpoint %s is not a valid url. Err: %v", repoConfig.ConfigEndpoint, err)
-		return
+	} else {
+
+		_, err = url.Parse(repoConfig.ConfigEndpoint)
+		if err != nil {
+			logging.Log().Errorf("The service endpoint %s is not a valid url. Err: %v", repoConfig.ConfigEndpoint, err)
+			return
+		}
+		configClient, err = config.NewCCSHttpClient(repoConfig.ConfigEndpoint)
+		if err != nil {
+			logging.Log().Warnf("Was not able to instantiate the config client.")
+		}
 	}
 	var scopeCache Cache = cache.New(CACHE_EXPIRY*time.Second, 2*CACHE_EXPIRY*time.Second)
 	var trustedParticipantsCache Cache = cache.New(CACHE_EXPIRY*time.Second, 2*CACHE_EXPIRY*time.Second)
 	var trustedIssuersCache Cache = cache.New(CACHE_EXPIRY*time.Second, 2*CACHE_EXPIRY*time.Second)
 
-	scb := ServiceBackedCredentialsConfig{configEndpoint: serviceUrl, scopeCache: scopeCache, trustedParticipantsCache: trustedParticipantsCache, trustedIssuersCache: trustedIssuersCache, initialConfig: repoConfig}
+	scb := ServiceBackedCredentialsConfig{configClient: &configClient, scopeCache: scopeCache, trustedParticipantsCache: trustedParticipantsCache, trustedIssuersCache: trustedIssuersCache, initialConfig: repoConfig}
+
 	scb.fillStaticValues()
-	taskScheduler := chrono.NewDefaultTaskScheduler()
-	taskScheduler.ScheduleAtFixedRate(scb.fillCache, time.Duration(30)*time.Second)
+	if repoConfig.ConfigEndpoint != "" {
+		chrono.NewDefaultTaskScheduler().ScheduleAtFixedRate(scb.fillCache, time.Duration(30)*time.Second)
+	}
 
 	return scb, err
 }
@@ -74,8 +83,21 @@ func (cc ServiceBackedCredentialsConfig) fillStaticValues() {
 }
 
 func (cc ServiceBackedCredentialsConfig) fillCache(ctx context.Context) {
-
-	// TODO: add fill from service
+	client := *(cc.configClient)
+	services, err := client.GetServices()
+	if err != nil {
+		logging.Log().Warnf("Was not able to update the credentials config from the external service. Will try again. Err: %v.", err)
+		return
+	}
+	for _, configuredService := range services {
+		scopes := []string{}
+		for _, credential := range configuredService.Credentials {
+			scopes = append(scopes, credential.Type)
+			cc.trustedParticipantsCache.Add(fmt.Sprintf(CACHE_KEY_TEMPLATE, configuredService.Id, credential.Type), credential.TrustedParticipantsLists, cache.NoExpiration)
+			cc.trustedIssuersCache.Add(fmt.Sprintf(CACHE_KEY_TEMPLATE, configuredService.Id, credential.Type), credential.TrustedIssuersLists, cache.NoExpiration)
+		}
+		cc.scopeCache.Add(configuredService.Id, scopes, cache.DefaultExpiration)
+	}
 }
 
 func (cc ServiceBackedCredentialsConfig) GetScope(serviceIdentifier string) (credentialTypes []string, err error) {
