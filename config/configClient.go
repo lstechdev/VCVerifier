@@ -10,7 +10,7 @@ import (
 	"github.com/fiware/VCVerifier/logging"
 )
 
-const SERVICES_PATH = "/service"
+const SERVICES_PATH = "service"
 
 var ErrorCcsNoResponse = errors.New("no_response_from_ccs")
 var ErrorCcsErrorResponse = errors.New("error_response_from_ccs")
