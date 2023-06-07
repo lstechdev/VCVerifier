@@ -12,7 +12,7 @@ import (
 )
 
 const ISSUERS_V4_PATH = "v4/issuers"
-const ISSUERS_V3_PATH = "v4/issuers"
+const ISSUERS_V3_PATH = "v3/issuers"
 
 var ErrorTirNoResponse = errors.New("no_response_from_tir")
 var ErrorTirEmptyResponse = errors.New("empty_response_from_tir")
@@ -150,6 +150,7 @@ func (tc TirHttpClient) requestIssuer(tirEndpoint string, did string) (response 
 }
 
 func (tc TirHttpClient) requestIssuerWithVersion(tirEndpoint string, did string) (response *http.Response, err error) {
+	logging.Log().Debugf("Get issuer %s/%s.", tirEndpoint, did)
 	resp, err := tc.client.Get(tirEndpoint + "/" + did)
 	if err != nil {
 		logging.Log().Warnf("Was not able to get the issuer %s from %s. Err: %v", did, tirEndpoint, err)
