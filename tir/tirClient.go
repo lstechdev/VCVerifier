@@ -11,7 +11,8 @@ import (
 	"github.com/fiware/VCVerifier/logging"
 )
 
-const ISSUERS_PATH = "v4/issuers"
+const ISSUERS_V4_PATH = "v4/issuers"
+const ISSUERS_V3_PATH = "v4/issuers"
 
 var ErrorTirNoResponse = errors.New("no_response_from_tir")
 var ErrorTirEmptyResponse = errors.New("empty_response_from_tir")
@@ -141,7 +142,15 @@ func (tc TirHttpClient) issuerExists(tirEndpoint string, did string) (trusted bo
 }
 
 func (tc TirHttpClient) requestIssuer(tirEndpoint string, did string) (response *http.Response, err error) {
-	resp, err := tc.client.Get(getIssuerUrl(tirEndpoint) + "/" + did)
+	response, err = tc.requestIssuerWithVersion(getIssuerV4Url(tirEndpoint), did)
+	if err != nil || response.StatusCode != 200 {
+		return tc.requestIssuerWithVersion(getIssuerV3Url(tirEndpoint), did)
+	}
+	return response, err
+}
+
+func (tc TirHttpClient) requestIssuerWithVersion(tirEndpoint string, did string) (response *http.Response, err error) {
+	resp, err := tc.client.Get(tirEndpoint + "/" + did)
 	if err != nil {
 		logging.Log().Warnf("Was not able to get the issuer %s from %s. Err: %v", did, tirEndpoint, err)
 		return resp, err
@@ -150,13 +159,22 @@ func (tc TirHttpClient) requestIssuer(tirEndpoint string, did string) (response 
 		logging.Log().Warnf("Was not able to get any response for issuer %s from %s.", did, tirEndpoint)
 		return nil, ErrorTirNoResponse
 	}
+
 	return resp, err
 }
 
-func getIssuerUrl(tirEndpoint string) string {
+func getIssuerV4Url(tirEndpoint string) string {
 	if strings.HasSuffix(tirEndpoint, "/") {
-		return tirEndpoint + ISSUERS_PATH
+		return tirEndpoint + ISSUERS_V4_PATH
 	} else {
-		return tirEndpoint + "/" + ISSUERS_PATH
+		return tirEndpoint + "/" + ISSUERS_V4_PATH
+	}
+}
+
+func getIssuerV3Url(tirEndpoint string) string {
+	if strings.HasSuffix(tirEndpoint, "/") {
+		return tirEndpoint + ISSUERS_V3_PATH
+	} else {
+		return tirEndpoint + "/" + ISSUERS_V3_PATH
 	}
 }
