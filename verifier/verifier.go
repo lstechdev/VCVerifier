@@ -364,9 +364,11 @@ func (v *CredentialVerifier) AuthenticationResponse(state string, verifiableCred
 		//FIXME make it an error if no policy was checked at all( possible misconfiguration)
 		for _, verificationService := range v.verificationServices {
 			if trustedChain {
+				logging.Log().Debug("Credentials chain is trusted.")
 				_, isTrustedParticipantVerificationService := verificationService.(*TrustedParticipantVerificationService)
 				_, isTrustedIssuerVerificationService := verificationService.(*TrustedIssuerVerificationService)
 				if isTrustedIssuerVerificationService || isTrustedParticipantVerificationService {
+					logging.Log().Debug("Skip the tir services.")
 					continue
 				}
 			}
@@ -434,7 +436,7 @@ func (v *CredentialVerifier) getTrustRegistriesVerificationContext(clientId stri
 func verifyChain(vcs []VerifiableCredential) (bool, error) {
 	if len(vcs) != 3 {
 		// TODO Simplification to be removed/replaced
-		return true, nil
+		return false, nil
 	}
 
 	var legalEntity VerifiableCredential
