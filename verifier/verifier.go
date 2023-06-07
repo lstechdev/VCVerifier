@@ -352,6 +352,9 @@ func (v *CredentialVerifier) AuthenticationResponse(state string, verifiableCred
 		mappedCredentials = append(mappedCredentials, mappedCredential)
 	}
 
+	// TODO extract into separate policy
+	trustedChain, _ := verifyChain(mappedCredentials)
+
 	for _, mappedCredential := range mappedCredentials {
 		verificationContext, err := v.getTrustRegistriesVerificationContext(loginSession.clientId, mappedCredential.Types)
 		if err != nil {
@@ -360,6 +363,16 @@ func (v *CredentialVerifier) AuthenticationResponse(state string, verifiableCred
 		}
 		//FIXME make it an error if no policy was checked at all( possible misconfiguration)
 		for _, verificationService := range v.verificationServices {
+			if trustedChain {
+				logging.Log().Debug("Credentials chain is trusted.")
+				_, isTrustedParticipantVerificationService := verificationService.(*TrustedParticipantVerificationService)
+				_, isTrustedIssuerVerificationService := verificationService.(*TrustedIssuerVerificationService)
+				if isTrustedIssuerVerificationService || isTrustedParticipantVerificationService {
+					logging.Log().Debug("Skip the tir services.")
+					continue
+				}
+			}
+
 			result, err := verificationService.VerifyVC(mappedCredential, verificationContext)
 			if err != nil {
 				logging.Log().Warnf("Failed to verify credential %s. Err: %v", logging.PrettyPrintObject(mappedCredential), err)
@@ -370,17 +383,6 @@ func (v *CredentialVerifier) AuthenticationResponse(state string, verifiableCred
 				return sameDevice, ErrorInvalidVC
 			}
 		}
-	}
-
-	// TODO extract into separate policy
-	result, err := verifyChain(mappedCredentials)
-	if err != nil {
-		logging.Log().Warnf("Failed to verify credentials %s. Err: %v", logging.PrettyPrintObject(mappedCredentials), err)
-		return sameDevice, err
-	}
-	if !result {
-		logging.Log().Infof("VCs %s have invalid trust chain.", logging.PrettyPrintObject(mappedCredentials))
-		return sameDevice, ErrorInvalidVC
 	}
 
 	// we ignore the error here, since the only consequence is that sub will be empty.
@@ -434,7 +436,7 @@ func (v *CredentialVerifier) getTrustRegistriesVerificationContext(clientId stri
 func verifyChain(vcs []VerifiableCredential) (bool, error) {
 	if len(vcs) != 3 {
 		// TODO Simplification to be removed/replaced
-		return true, nil
+		return false, nil
 	}
 
 	var legalEntity VerifiableCredential

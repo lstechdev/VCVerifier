@@ -143,7 +143,12 @@ func (tc TirHttpClient) issuerExists(tirEndpoint string, did string) (trusted bo
 
 func (tc TirHttpClient) requestIssuer(tirEndpoint string, did string) (response *http.Response, err error) {
 	response, err = tc.requestIssuerWithVersion(getIssuerV4Url(tirEndpoint), did)
-	if err != nil || response.StatusCode != 200 {
+	if err != nil {
+		logging.Log().Debugf("Got error %v", err)
+		return tc.requestIssuerWithVersion(getIssuerV3Url(tirEndpoint), did)
+	}
+	if response.StatusCode != 200 {
+		logging.Log().Debugf("Got status %v", response.StatusCode)
 		return tc.requestIssuerWithVersion(getIssuerV3Url(tirEndpoint), did)
 	}
 	return response, err
