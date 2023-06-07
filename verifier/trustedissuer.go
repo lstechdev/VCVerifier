@@ -26,7 +26,7 @@ func (tpvs *TrustedIssuerVerificationService) VerifyVC(verifiableCredential Veri
 		}
 	}()
 	trustContext := verificationContext.(TrustRegistriesVerificationContext)
-	exist, trustedIssuer, err := tpvs.tirClient.GetTrustedIssuer(trustContext.GetTrustedParticipantLists(), verifiableCredential.Issuer)
+	exist, trustedIssuer, err := tpvs.tirClient.GetTrustedIssuer(trustContext.GetTrustedIssuersLists(), verifiableCredential.Issuer)
 
 	if err != nil {
 		logging.Log().Warnf("Was not able to verify trusted issuer. Err: %v", err)
