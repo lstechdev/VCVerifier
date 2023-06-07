@@ -12,7 +12,7 @@ import (
 )
 
 const ISSUERS_V4_PATH = "v4/issuers"
-const ISSUERS_V3_PATH = "v4/issuers"
+const ISSUERS_V3_PATH = "v3/issuers"
 
 var ErrorTirNoResponse = errors.New("no_response_from_tir")
 var ErrorTirEmptyResponse = errors.New("empty_response_from_tir")
