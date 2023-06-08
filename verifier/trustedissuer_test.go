@@ -108,7 +108,7 @@ func getTrustedIssuer(attributes []tir.IssuerAttribute) tir.TrustedIssuer {
 }
 
 func getVerificationContext() VerificationContext {
-	return TrustRegistriesVerificationContext{trustedParticipantsRegistries: []string{"http://my-trust-registry.org"}}
+	return TrustRegistriesVerificationContext{trustedParticipantsRegistries: []string{"http://my-trust-registry.org"}, trustedIssuersLists: []string{"http://my-til.org"}}
 }
 
 func getMultiTypeCredential(types []string, claimName string, value interface{}) VerifiableCredential {
