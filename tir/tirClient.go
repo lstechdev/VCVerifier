@@ -3,6 +3,7 @@ package tir
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -13,6 +14,8 @@ import (
 
 const ISSUERS_V4_PATH = "v4/issuers"
 const ISSUERS_V3_PATH = "v3/issuers"
+
+const DID_V4_Path = "v4/identifiers"
 
 var ErrorTirNoResponse = errors.New("no_response_from_tir")
 var ErrorTirEmptyResponse = errors.New("empty_response_from_tir")
@@ -132,13 +135,13 @@ func parseTirResponse(resp http.Response) (trustedIssuer TrustedIssuer, err erro
 }
 
 func (tc TirHttpClient) issuerExists(tirEndpoint string, did string) (trusted bool) {
-	resp, err := tc.requestIssuer(tirEndpoint, did)
+	resp, err := tc.requestDidDocument(tirEndpoint, did)
 	if err != nil {
+		logging.Log().Errorf("problem occured while requesting did document: %v", err)
 		return false
 	}
-	logging.Log().Debugf("Issuer %s response from %s is %v", did, tirEndpoint, resp.StatusCode)
-	// if a 200 is returned, the issuer exists. We dont have to parse the whole response
-	return resp.StatusCode == 200
+	logging.Log().Debugf("Issuer %s response from %s is %v", did, tirEndpoint, resp)
+	return true
 }
 
 func (tc TirHttpClient) requestIssuer(tirEndpoint string, did string) (response *http.Response, err error) {
@@ -152,6 +155,21 @@ func (tc TirHttpClient) requestIssuer(tirEndpoint string, did string) (response 
 		return tc.requestIssuerWithVersion(getIssuerV3Url(tirEndpoint), did)
 	}
 	return response, err
+}
+
+func (tc TirHttpClient) requestDidDocument(tirEndpoint string, did string) (didDocument DidDocument, err error) {
+	resp, err := tc.client.Get(tirEndpoint + "/" + DID_V4_Path + "/" + did)
+	if err != nil {
+		return didDocument, fmt.Errorf("error while requesting did %s from %s: %W", did, tirEndpoint, err)
+	}
+	if resp.StatusCode != 200 {
+		return didDocument, fmt.Errorf("unexpected status code %d while requesting did %s from %s", resp.StatusCode, did, tirEndpoint)
+	}
+	err = json.NewDecoder(resp.Body).Decode(&didDocument)
+	if err != nil {
+		return didDocument, fmt.Errorf("error while decoding did document %s from %s: %w", did, tirEndpoint, err)
+	}
+	return didDocument, nil
 }
 
 func (tc TirHttpClient) requestIssuerWithVersion(tirEndpoint string, did string) (response *http.Response, err error) {
