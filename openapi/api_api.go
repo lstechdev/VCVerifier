@@ -153,6 +153,8 @@ func handleAuthenticationResponse(c *gin.Context, state string, vpToken string) 
 	verifiableCredentials := vpObjectMap["verifiableCredential"]
 	rawHolder := vpObjectMap["holder"]
 
+	// TODO: Check that the key in vpObjectMap["proof"] is equal to the key that we retrieve from the DID Registry API of the TrustedIssuersRegistry
+
 	var rawCredentials []map[string]interface{}
 	var holder string
 
