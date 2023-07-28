@@ -1,6 +1,7 @@
 package tir
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -156,19 +157,26 @@ func (tc TirHttpClient) requestIssuer(tirEndpoint string, did string) (response 
 	return response, err
 }
 
-func (tc TirHttpClient) requestDidDocument(tirEndpoint string, did string) (didDocument DidDocument, err error) {
-	resp, err := tc.client.Get(tirEndpoint + "/" + DID_V4_Path + "/" + did)
+func (tc TirHttpClient) requestDidDocument(tirEndpoint string, did string) (didDocument DIDDocument, err error) {
+
+	client, err := NewClientWithResponses(tirEndpoint)
+	if err != nil {
+		return didDocument, fmt.Errorf("error while initiating client for requesting did %s from %s: %W", did, tirEndpoint, err)
+	}
+	timeoutContext, derefFunc := context.WithTimeout(context.Background(), time.Second*30)
+	defer derefFunc()
+	resp, err := client.GetDIDDocumentWithResponse(timeoutContext, did, nil)
 	if err != nil {
 		return didDocument, fmt.Errorf("error while requesting did %s from %s: %W", did, tirEndpoint, err)
 	}
-	if resp.StatusCode != 200 {
-		return didDocument, fmt.Errorf("unexpected status code %d while requesting did %s from %s", resp.StatusCode, did, tirEndpoint)
+	if resp.StatusCode() != 200 {
+		return didDocument, fmt.Errorf("unexpected status code %d while requesting did %s from %s", resp.StatusCode(), did, tirEndpoint)
 	}
-	err = json.NewDecoder(resp.Body).Decode(&didDocument)
-	if err != nil {
-		return didDocument, fmt.Errorf("error while decoding did document %s from %s: %w", did, tirEndpoint, err)
+
+	if resp.JSON200 == nil {
+		return didDocument, fmt.Errorf("answer did not include the did document for %s from %s: %v", did, tirEndpoint, resp)
 	}
-	return didDocument, nil
+	return *resp.JSON200, nil
 }
 
 func (tc TirHttpClient) requestIssuerWithVersion(tirEndpoint string, did string) (response *http.Response, err error) {

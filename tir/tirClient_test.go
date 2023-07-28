@@ -15,8 +15,11 @@ func TestDidRegistry(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		// Test request parameters
 		if req.URL.String() == "/v4/identifiers/did:elsi:eu.eori.denhaag19902304" {
+			rw.Header().Set("Content-Type", "json")
 			// Send response to be tested
 			rw.Write([]byte(ISHARE_EXAMPLE))
+		} else {
+			rw.WriteHeader(404)
 		}
 	}))
 	// Close the server when test finishes
