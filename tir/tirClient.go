@@ -86,7 +86,6 @@ func NewTirHttpClient() (client TirClient, err error) {
 }
 
 func (tc TirHttpClient) IsTrustedParticipant(tirEndpoints []string, did string) (trusted bool) {
-
 	for _, tirEndpoint := range tirEndpoints {
 		logging.Log().Debugf("Check if a participant %s is trusted through %s.", did, tirEndpoint)
 		if tc.issuerExists(tirEndpoint, did) {
