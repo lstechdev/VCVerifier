@@ -16,7 +16,6 @@ import (
 
 	configModel "github.com/fiware/VCVerifier/config"
 	"github.com/fiware/VCVerifier/tir"
-	"golang.org/x/exp/slices"
 
 	logging "github.com/fiware/VCVerifier/logging"
 

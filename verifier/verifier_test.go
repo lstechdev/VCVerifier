@@ -84,11 +84,18 @@ func (mcc mockCredentialConfig) GetScope(serviceIdentifier string) (credentialTy
 	}
 	return mcc.mockScopes[serviceIdentifier], err
 }
-func (mcc mockCredentialConfig) GetTrustedParticipantLists(serviceIdentifier string, credentialType string) (trustedIssuersRegistryUrl []string, err error) {
+func (mcc mockCredentialConfig) GetTrustedParticipantLists(serviceIdentifier string, scope string, credentialType string) (trustedIssuersRegistryUrl []string, err error) {
 	return trustedIssuersRegistryUrl, err
 }
-func (mcc mockCredentialConfig) GetTrustedIssuersLists(serviceIdentifier string, credentialType string) (trustedIssuersRegistryUrl []string, err error) {
+func (mcc mockCredentialConfig) GetTrustedIssuersLists(serviceIdentifier string, scope string, credentialType string) (trustedIssuersRegistryUrl []string, err error) {
 	return trustedIssuersRegistryUrl, err
+}
+
+func (mcc mockCredentialConfig) RequiredCredentialTypes(serviceIdentifier string, scopes string) (credentialTypes []string, err error) {
+	if mcc.mockError != nil {
+		return credentialTypes, mcc.mockError
+	}
+	return mcc.mockScopes[serviceIdentifier], err
 }
 
 func (msc *mockSessionCache) Add(k string, x interface{}, d time.Duration) error {

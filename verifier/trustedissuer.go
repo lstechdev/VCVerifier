@@ -30,7 +30,8 @@ func (tpvs *TrustedIssuerVerificationService) VerifyVC(verifiableCredential Veri
 		logging.Log().Debug("The verfication context does not specify a trusted issuers list, therefor we consider every issuer as trusted.")
 		return true, err
 	}
-	exist, trustedIssuer, err := tpvs.tirClient.GetTrustedIssuer(trustContext.GetTrustedIssuersLists(), verifiableCredential.Issuer)
+	// FIXME Can we assume that if we have a VC with multiple types, its enough to check for only one type?
+	exist, trustedIssuer, err := tpvs.tirClient.GetTrustedIssuer(getFirstElementOfMap(trustContext.GetTrustedIssuersLists()), verifiableCredential.Issuer)
 
 	if err != nil {
 		logging.Log().Warnf("Was not able to verify trusted issuer. Err: %v", err)
