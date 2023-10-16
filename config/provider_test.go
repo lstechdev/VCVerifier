@@ -54,17 +54,21 @@ func Test_ReadConfig(t *testing.T) {
 				},
 				ConfigRepo: ConfigRepo{
 					ConfigEndpoint: "",
-					Services: map[string]Service{
-						"testService": {
-							Scope: []string{"VerifiableCredential", "CustomerCredential"},
-							TrustedParticipants: map[string][]string{
-								"VerifiableCredential": {"https://tir-pdc.gaia-x.fiware.dev"},
-								"CustomerCredential":   {"https://tir-pdc.gaia-x.fiware.dev"},
+					Services: []ConfiguredService{
+						{
+							Id:               "testService",
+							DefaultOidcScope: "someScope",
+							ServiceScopes: map[string][]Credential{
+								"someScope": []Credential{
+									Credential{
+										Type:                     "VerifiableCredential",
+										TrustedParticipantsLists: []string{"https://tir-pdc.gaia-x.fiware.dev"},
+										TrustedIssuersLists:      []string{"https://til-pdc.gaia-x.fiware.dev"},
+									},
+								},
 							},
-							TrustedIssuers: map[string][]string{
-								"VerifiableCredential": {"https://tir-pdc.gaia-x.fiware.dev"},
-								"CustomerCredential":   {"https://tir-pdc.gaia-x.fiware.dev"},
-							}}},
+						},
+					},
 				},
 			},
 			false,

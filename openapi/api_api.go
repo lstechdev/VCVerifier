@@ -69,7 +69,7 @@ func GetToken(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, TokenResponse{"Bearer", float32(expiration), jwt})
+	c.JSON(http.StatusOK, TokenResponse{TokenType: "Bearer", ExpiresIn: float32(expiration), AccessToken: jwt})
 }
 
 // StartSIOPSameDevice - Starts the siop flow for credentials hold by the same device
