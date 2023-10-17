@@ -20,6 +20,12 @@ jobs:
           go get github.com/mattn/goveralls
           go get github.com/go-playground/validator/v10
 
+
+      - name: Workaround
+        run: |
+          go get github.com/gookit/goutil@v0.6.6
+          go get github.com/gookit/goutil/envutil@v0.6.6
+
       - name: Go test
         run: |
           go test ./... -v -coverprofile=profile.cov ./...
