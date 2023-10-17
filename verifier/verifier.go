@@ -10,9 +10,10 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"slices"
 	"strings"
 	"time"
+
+	"golang.org/x/exp/slices"
 
 	configModel "github.com/fiware/VCVerifier/config"
 	"github.com/fiware/VCVerifier/tir"
