@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"net/http"
 	"net/url"
@@ -648,7 +649,7 @@ func TestCredentialVerifier_GenerateToken(t *testing.T) {
 				t.Errorf("CredentialVerifier.GenerateToken() got = %v, want %v", got, tt.expirationTime)
 			}
 			if removeSignatureFromToken(got1) != removeSignatureFromToken(tt.generatedToken) {
-				t.Errorf("CredentialVerifier.GenerateToken() got1 = %v, want %v", got1, tt.generatedToken)
+				t.Errorf("CredentialVerifier.GenerateToken() got1 = %v, want %v", base64.StdEncoding.EncodeToString([]byte(got1)), tt.generatedToken)
 			}
 		})
 	}
