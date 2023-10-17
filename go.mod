@@ -1,6 +1,6 @@
 module github.com/fiware/VCVerifier
 
-go 1.19
+go 1.21
 
 require (
 	github.com/bxcodec/httpcache v1.0.0-beta.3
