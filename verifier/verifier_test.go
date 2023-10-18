@@ -1,6 +1,7 @@
 package verifier
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -15,6 +16,7 @@ import (
 	configModel "github.com/fiware/VCVerifier/config"
 	logging "github.com/fiware/VCVerifier/logging"
 	"github.com/fiware/VCVerifier/ssikit"
+	"github.com/google/go-cmp/cmp"
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/lestrrat-go/jwx/jwt"
@@ -648,11 +650,33 @@ func TestCredentialVerifier_GenerateToken(t *testing.T) {
 			if got != tt.expirationTime {
 				t.Errorf("CredentialVerifier.GenerateToken() got = %v, want %v", got, tt.expirationTime)
 			}
-			if removeSignatureFromToken(got1) != removeSignatureFromToken(tt.generatedToken) {
+			if !compareToken(got1, tt.generatedToken) {
 				t.Errorf("CredentialVerifier.GenerateToken() got1 = %v, want %v", base64.StdEncoding.EncodeToString([]byte(got1)), tt.generatedToken)
 			}
 		})
 	}
+}
+
+func compareToken(receivedToken, expectedToken string) bool {
+	parsedReceivedToken, err := jwt.ParseString(receivedToken)
+	if err != nil {
+		return false
+	}
+	receivedTokenMap, err := parsedReceivedToken.AsMap(context.TODO())
+	if err != nil {
+		return false
+	}
+	receivedTokenMap["kid"] = ""
+	parsedExpectedToken, err := jwt.ParseString(expectedToken)
+	if err != nil {
+		return false
+	}
+	expectedTokenMap, err := parsedExpectedToken.AsMap(context.TODO())
+	if err != nil {
+		return false
+	}
+	expectedTokenMap["kid"] = ""
+	return cmp.Equal(receivedTokenMap, expectedTokenMap)
 }
 
 func removeSignatureFromToken(token string) string {
