@@ -38,18 +38,18 @@ type ServicesResponse struct {
 
 type ConfiguredService struct {
 	// Default OIDC scope to be used if none is specified
-	DefaultOidcScope string                  `json:"defaultOidcScope",mapstructure:"defaultOidcScope"`
-	ServiceScopes    map[string][]Credential `json:"oidcScopes",mapstructure:"oidcScopes"`
-	Id               string                  `json:"id",mapstructure:"id"`
+	DefaultOidcScope string                  `json:"defaultOidcScope" mapstructure:"defaultOidcScope"`
+	ServiceScopes    map[string][]Credential `json:"oidcScopes" mapstructure:"oidcScopes"`
+	Id               string                  `json:"id" mapstructure:"id"`
 }
 
 type Credential struct {
 	// Type of the credential
-	Type string `json:"type",mapstructure:"type"`
+	Type string `json:"type" mapstructure:"type"`
 	// A list of (EBSI Trusted Issuers Registry compatible) endpoints to  retrieve the trusted participants from.
-	TrustedParticipantsLists []string `json:"trustedParticipantsLists,omitempty",mapstructure:"trustedParticipantsLists,omitempty"`
+	TrustedParticipantsLists []string `json:"trustedParticipantsLists,omitempty" mapstructure:"trustedParticipantsLists,omitempty"`
 	// A list of (EBSI Trusted Issuers Registry compatible) endpoints to  retrieve the trusted issuers from. The attributes need to be formated to comply with the verifiers requirements.
-	TrustedIssuersLists []string `json:"trustedIssuersLists,omitempty",mapstructure:"trustedIssuersLists,omitempty"`
+	TrustedIssuersLists []string `json:"trustedIssuersLists,omitempty" mapstructure:"trustedIssuersLists,omitempty"`
 }
 
 func (cs ConfiguredService) GetRequiredCredentialTypes(scope string) []string {
