@@ -1,19 +1,22 @@
 package verifier
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
 	configModel "github.com/fiware/VCVerifier/config"
 	logging "github.com/fiware/VCVerifier/logging"
 	"github.com/fiware/VCVerifier/ssikit"
-
+	"github.com/google/go-cmp/cmp"
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/lestrrat-go/jwx/jwt"
@@ -84,11 +87,18 @@ func (mcc mockCredentialConfig) GetScope(serviceIdentifier string) (credentialTy
 	}
 	return mcc.mockScopes[serviceIdentifier], err
 }
-func (mcc mockCredentialConfig) GetTrustedParticipantLists(serviceIdentifier string, credentialType string) (trustedIssuersRegistryUrl []string, err error) {
+func (mcc mockCredentialConfig) GetTrustedParticipantLists(serviceIdentifier string, scope string, credentialType string) (trustedIssuersRegistryUrl []string, err error) {
 	return trustedIssuersRegistryUrl, err
 }
-func (mcc mockCredentialConfig) GetTrustedIssuersLists(serviceIdentifier string, credentialType string) (trustedIssuersRegistryUrl []string, err error) {
+func (mcc mockCredentialConfig) GetTrustedIssuersLists(serviceIdentifier string, scope string, credentialType string) (trustedIssuersRegistryUrl []string, err error) {
 	return trustedIssuersRegistryUrl, err
+}
+
+func (mcc mockCredentialConfig) RequiredCredentialTypes(serviceIdentifier string, scopes string) (credentialTypes []string, err error) {
+	if mcc.mockError != nil {
+		return credentialTypes, mcc.mockError
+	}
+	return mcc.mockScopes[serviceIdentifier], err
 }
 
 func (msc *mockSessionCache) Add(k string, x interface{}, d time.Duration) error {
@@ -576,4 +586,103 @@ func TestGetToken(t *testing.T) {
 func getToken() jwt.Token {
 	token, _ := jwt.NewBuilder().Expiration(time.Unix(1000, 0)).Build()
 	return token
+}
+
+type badRandom struct {
+}
+
+func (br badRandom) Read(p []byte) (n int, err error) {
+	for i := range p {
+		p[i] = 1
+	}
+	return len(p), nil
+}
+
+func TestCredentialVerifier_GenerateToken(t *testing.T) {
+
+	ecdsKey, _ := ecdsa.GenerateKey(elliptic.P256(), badRandom{})
+	testKey, _ := jwk.New(ecdsKey)
+	jwk.AssignKeyID(testKey)
+
+	type fields struct {
+		signingError       error
+		verificationResult []bool
+		verificationError  error
+	}
+	type args struct {
+		clientId              string
+		subject               string
+		audience              string
+		scopes                []string
+		verifiableCredentials []map[string]interface{}
+	}
+	tests := []struct {
+		name           string
+		fields         fields
+		args           args
+		expirationTime int64
+		generatedToken string
+		wantErr        bool
+	}{
+		{
+			"HappyPath",
+			fields{nil, []bool{true}, nil},
+			args{"serviceId", "someSubject", "someAudience", []string{"someScope"}, []map[string]interface{}{getVC("someId")}},
+			1800,
+			"eyJhbGciOiJFUzI1NiIsImtpZCI6Ik5ycWczLU1fWHd0eC0xdGJ0YzFKN1h1bDJEeWVDMGJVU3k5dV81TlNHNmciLCJ0eXAiOiJKV1QifQ.eyJhdWQiOlsic29tZUF1ZGllbmNlIl0sImNsaWVudF9pZCI6IiIsImV4cCI6MTgwMCwiaXNzIjoiIiwia2lkIjoiTnJxZzMtTV9Yd3R4LTF0YnRjMUo3WHVsMkR5ZUMwYlVTeTl1XzVOU0c2ZyIsInN1YiI6InNvbWVTdWJqZWN0IiwidmVyaWZpYWJsZUNyZWRlbnRpYWwiOnsiQGNvbnRleHQiOlsiaHR0cHM6Ly93d3cudzMub3JnLzIwMTgvY3JlZGVudGlhbHMvdjEiLCJodHRwczovL2hhcHB5cGV0cy5maXdhcmUuaW8vMjAyMi9jcmVkZW50aWFscy9lbXBsb3llZS92MSJdLCJjcmVkZW50aWFsU3ViamVjdCI6eyJpZCI6InNvbWVJZCIsInRhcmdldCI6ImRpZDplYnNpOnBhY2tldGRlbGl2ZXJ5IiwidHlwZSI6Imd4Ok5hdHVyYWxQYXJ0aWNpcGVudCJ9LCJleHBpcmF0aW9uRGF0ZSI6IjIwMzItMTEtMjNUMTU6MjM6MTNaIiwiaWQiOiJodHRwczovL2hhcHB5cGV0cy5maXdhcmUuaW8vY3JlZGVudGlhbC8yNTE1OTM4OS04ZGQxN2I3OTZhYzAiLCJpc3N1YW5jZURhdGUiOiIyMDIyLTExLTIzVDE1OjIzOjEzWiIsImlzc3VlciI6ImRpZDprZXk6dmVyaWZpZXIiLCJ0eXBlIjpbIlZlcmlmaWFibGVDcmVkZW50aWFsIiwiQ3VzdG9tZXJDcmVkZW50aWFsIl0sInZhbGlkRnJvbSI6IjIwMjItMTEtMjNUMTU6MjM6MTNaIn19.xR-1UMvuI0-Pbox5ddlTjgMu77Ruj7Zko_Fxkt4TJZuEMFw8Y_ZljFj6XIXolBrC1I4JAUBvPPuvvm200M6N1g",
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v := &CredentialVerifier{
+				clock:                mockClock{},
+				tokenSigner:          mockTokenSigner{tt.fields.signingError},
+				credentialsConfig:    mockCredentialConfig{},
+				signingKey:           testKey,
+				verificationServices: []VerificationService{&mockExternalSsiKit{tt.fields.verificationResult, tt.fields.verificationError}},
+			}
+			got, got1, err := v.GenerateToken(tt.args.clientId, tt.args.subject, tt.args.audience, tt.args.scopes, tt.args.verifiableCredentials)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("CredentialVerifier.GenerateToken() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.expirationTime {
+				t.Errorf("CredentialVerifier.GenerateToken() got = %v, want %v", got, tt.expirationTime)
+			}
+			if !compareToken(got1, tt.generatedToken) {
+				t.Errorf("CredentialVerifier.GenerateToken() got1 = %v, want %v", base64.StdEncoding.EncodeToString([]byte(got1)), tt.generatedToken)
+			}
+		})
+	}
+}
+
+func compareToken(receivedToken, expectedToken string) bool {
+	parsedReceivedToken, err := jwt.ParseString(receivedToken)
+	if err != nil {
+		return false
+	}
+	receivedTokenMap, err := parsedReceivedToken.AsMap(context.TODO())
+	if err != nil {
+		return false
+	}
+	receivedTokenMap["kid"] = ""
+	parsedExpectedToken, err := jwt.ParseString(expectedToken)
+	if err != nil {
+		return false
+	}
+	expectedTokenMap, err := parsedExpectedToken.AsMap(context.TODO())
+	if err != nil {
+		return false
+	}
+	expectedTokenMap["kid"] = ""
+	return cmp.Equal(receivedTokenMap, expectedTokenMap)
+}
+
+func removeSignatureFromToken(token string) string {
+	splitToken := strings.Split(token, ".")
+	if len(splitToken) > 0 {
+		splitToken = splitToken[:len(splitToken)-1]
+	}
+	return strings.Join(splitToken, ".")
 }

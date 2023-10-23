@@ -62,15 +62,9 @@ type ConfigRepo struct {
 	// url of the configuration service to be used
 	ConfigEndpoint string `mapstructure:"configEndpoint"`
 	// statically configured services with their trust anchors and scopes.
-	Services map[string]Service `mapstructure:"services"`
+	Services []ConfiguredService `mapstructure:"services"`
 }
 
 type PolicyMap map[string]PolicyConfigParameters
 
 type PolicyConfigParameters map[string]interface{}
-
-type Service struct {
-	Scope               []string            `mapstructure:"scope"`
-	TrustedParticipants map[string][]string `mapstructure:"trustedParticipants"`
-	TrustedIssuers      map[string][]string `mapstructure:"trustedIssuers"`
-}
