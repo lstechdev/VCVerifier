@@ -68,10 +68,10 @@ To ease the deployment on [Kubernetes](https://kubernetes.io/) environments, the
 
 ### Local setup
 
-Since the VCVerifier requires WaltID, a Trusted Issuers Registry and someone to issuer credentials, a local setup is not directly integrated into this repository. However, the [vc-integrationtest](https://github.com/fiware/vc-integrationtest) repository provides an extensive setup of various components participating in the flows. It can be used to run a local setup, either for trying-out or as a basis for further development. Run it via:
+Since the VCVerifier requires WaltID, a Trusted Issuers Registry and someone to issuer credentials, a local setup is not directly integrated into this repository. However, the [VC-Integration-Test](https://github.com/fiware/VC-Integration-Test) repository provides an extensive setup of various components participating in the flows. It can be used to run a local setup, either for trying-out or as a basis for further development. Run it via:
 ```shell
-    git clone git@github.com:fiware/vc-integrationtest.git
-    cd vc-integrationtest/
+    git clone git@github.com:fiware/VC-Integration-Test.git
+    cd VC-Integration-Test/
     mvn clean integration-test -Pdev
 ```
 See the documentation in that repo for more information.
@@ -225,7 +225,7 @@ The VCVerifier does currently not support all functionalities defined in the con
 
 ## Testing
 
-Functionality of the verifier is tested via parameterized Unit-Tests, following golang-bestpractices. In addition, the verifier is integrated into the [vc-integrationtest](https://github.com/fiware/vc-integrationtest), involving all components used in a typical, VerifiableCredentials based, scenario. 
+Functionality of the verifier is tested via parameterized Unit-Tests, following golang-bestpractices. In addition, the verifier is integrated into the [VC-Integration-Test](https://github.com/fiware/VC-Integration-Test), involving all components used in a typical, VerifiableCredentials based, scenario. 
 
 
 ## License
