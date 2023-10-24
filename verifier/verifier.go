@@ -41,8 +41,6 @@ var ErrorNoSuchCode = errors.New("no_such_code")
 var ErrorRedirectUriMismatch = errors.New("redirect_uri_does_not_match")
 var ErrorVerficationContextSetup = errors.New("no_valid_verification_context")
 
-var SCOPE_TO_BE_ADDED_LATER = ""
-
 // Actual implementation of the verfifier functionality
 
 // verifier interface
@@ -507,12 +505,12 @@ func (v *CredentialVerifier) getTrustRegistriesVerificationContext(clientId stri
 	trustedParticipantsRegistries := map[string][]string{}
 
 	for _, credentialType := range credentialTypes {
-		issuersLists, err := v.credentialsConfig.GetTrustedIssuersLists(clientId, SCOPE_TO_BE_ADDED_LATER, credentialType)
+		issuersLists, err := v.credentialsConfig.GetTrustedIssuersLists(clientId, configModel.SERVICE_DEFAULT_SCOPE, credentialType)
 		if err != nil {
 			logging.Log().Warnf("Was not able to get valid trusted-issuers-lists for client %s and type %s. Err: %v", clientId, credentialType, err)
 			return verificationContext, err
 		}
-		participantsLists, err := v.credentialsConfig.GetTrustedParticipantLists(clientId, SCOPE_TO_BE_ADDED_LATER, credentialType)
+		participantsLists, err := v.credentialsConfig.GetTrustedParticipantLists(clientId, configModel.SERVICE_DEFAULT_SCOPE, credentialType)
 		if err != nil {
 			logging.Log().Warnf("Was not able to get valid trusted-pariticpants-registries for client %s and type %s. Err: %v", clientId, credentialType, err)
 			return verificationContext, err

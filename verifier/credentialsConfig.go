@@ -14,7 +14,7 @@ import (
 )
 
 const CACHE_EXPIRY = 60
-const CACHE_KEY_TEMPLATE = "%s-%s"
+
 
 /**
 * Provides information about credentialTypes associated with services and there trust anchors.
@@ -27,6 +27,7 @@ type CredentialsConfig interface {
 	// get (EBSI TrustedIssuersRegistry compliant) endpoints for the given service/credential combination, to check that credentials are issued by trusted issuers
 	// and that the issuer has permission to issue such claims.
 	GetTrustedIssuersLists(serviceIdentifier string, scope string, credentialType string) (trustedIssuersRegistryUrl []string, err error)
+	// The credential types that are required for the given service and scope
 	RequiredCredentialTypes(serviceIdentifier string, scope string) (credentialTypes []string, err error)
 }
 
@@ -66,7 +67,7 @@ func InitServiceBackedCredentialsConfig(repoConfig *config.ConfigRepo) (credenti
 
 func (cc ServiceBackedCredentialsConfig) fillStaticValues() {
 	for _, configuredService := range cc.initialConfig.Services {
-		logging.Log().Debugf("Add to scope cache: %s", configuredService.Id)
+		logging.Log().Debugf("Add to service cache: %s", configuredService.Id)
 		cc.serviceCache.Add(configuredService.Id, configuredService, cache.NoExpiration)
 	}
 }
@@ -86,11 +87,11 @@ func (cc ServiceBackedCredentialsConfig) fillCache(ctx context.Context) {
 func (cc ServiceBackedCredentialsConfig) RequiredCredentialTypes(serviceIdentifier string, scope string) (credentialTypes []string, err error) {
 	cacheEntry, hit := cc.serviceCache.Get(serviceIdentifier)
 	if hit {
-		logging.Log().Debugf("Found scope for %s", serviceIdentifier)
+		logging.Log().Debugf("Found service for %s", serviceIdentifier)
 		configuredService := cacheEntry.(config.ConfiguredService)
 		return configuredService.GetRequiredCredentialTypes(scope), nil
 	}
-	logging.Log().Errorf("No scope entry for %s", serviceIdentifier)
+	logging.Log().Errorf("No service entry for %s", serviceIdentifier)
 	return []string{}, fmt.Errorf("no service %s configured", serviceIdentifier)
 }
 
@@ -107,7 +108,7 @@ func (cc ServiceBackedCredentialsConfig) GetScope(serviceIdentifier string) (cre
 }
 
 func (cc ServiceBackedCredentialsConfig) GetTrustedParticipantLists(serviceIdentifier string, scope string, credentialType string) (trustedIssuersRegistryUrl []string, err error) {
-	logging.Log().Debugf("Get participants list for %s.", fmt.Sprintf(CACHE_KEY_TEMPLATE, serviceIdentifier, credentialType))
+	logging.Log().Debugf("Get participants list for %s - %s - %s.", serviceIdentifier, scope, credentialType)
 	cacheEntry, hit := cc.serviceCache.Get(serviceIdentifier)
 	if hit {
 		credential, ok := cacheEntry.(config.ConfiguredService).GetCredential(scope, credentialType)
@@ -121,7 +122,7 @@ func (cc ServiceBackedCredentialsConfig) GetTrustedParticipantLists(serviceIdent
 }
 
 func (cc ServiceBackedCredentialsConfig) GetTrustedIssuersLists(serviceIdentifier string, scope string, credentialType string) (trustedIssuersRegistryUrl []string, err error) {
-	logging.Log().Debugf("Get issuers list for %s.", fmt.Sprintf(CACHE_KEY_TEMPLATE, serviceIdentifier, credentialType))
+	logging.Log().Debugf("Get issuers list for %s - %s - %s.", serviceIdentifier, scope, credentialType)
 	cacheEntry, hit := cc.serviceCache.Get(serviceIdentifier)
 	if hit {
 		credential, ok := cacheEntry.(config.ConfiguredService).GetCredential(scope, credentialType)

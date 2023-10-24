@@ -12,6 +12,9 @@ import (
 
 const SERVICES_PATH = "service"
 
+
+const SERVICE_DEFAULT_SCOPE = ""
+
 var ErrorCcsNoResponse = errors.New("no_response_from_ccs")
 var ErrorCcsErrorResponse = errors.New("error_response_from_ccs")
 var ErrorCcsEmptyResponse = errors.New("empty_response_from_ccs")
@@ -61,7 +64,7 @@ func (cs ConfiguredService) GetRequiredCredentialTypes(scope string) []string {
 }
 
 func (cs ConfiguredService) GetCredentials(scope string) []Credential {
-	if scope != "" {
+	if scope != SERVICE_DEFAULT_SCOPE {
 		return cs.ServiceScopes[scope]
 	}
 	return cs.ServiceScopes[cs.DefaultOidcScope]
