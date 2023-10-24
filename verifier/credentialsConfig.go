@@ -27,7 +27,7 @@ type CredentialsConfig interface {
 	// get (EBSI TrustedIssuersRegistry compliant) endpoints for the given service/credential combination, to check that credentials are issued by trusted issuers
 	// and that the issuer has permission to issue such claims.
 	GetTrustedIssuersLists(serviceIdentifier string, scope string, credentialType string) (trustedIssuersRegistryUrl []string, err error)
-	RequiredCredentialTypes(serviceIdentifier string, scopes string) (credentialTypes []string, err error)
+	RequiredCredentialTypes(serviceIdentifier string, scope string) (credentialTypes []string, err error)
 }
 
 type ServiceBackedCredentialsConfig struct {
@@ -90,8 +90,8 @@ func (cc ServiceBackedCredentialsConfig) RequiredCredentialTypes(serviceIdentifi
 		configuredService := cacheEntry.(config.ConfiguredService)
 		return configuredService.GetRequiredCredentialTypes(scope), nil
 	}
-	logging.Log().Debugf("No scope entry for %s", serviceIdentifier)
-	return []string{}, nil
+	logging.Log().Errorf("No scope entry for %s", serviceIdentifier)
+	return []string{}, fmt.Errorf("no service %s configured", serviceIdentifier)
 }
 
 // FIXME shall we return all scopes or just the default one?

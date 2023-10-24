@@ -8,6 +8,7 @@ require (
 	github.com/foolin/goview v0.3.0
 	github.com/gin-contrib/cors v1.4.0
 	github.com/gin-gonic/gin v1.9.0
+	github.com/google/go-cmp v0.6.0
 	github.com/gookit/config/v2 v2.2.1
 	github.com/hellofresh/health-go/v5 v5.0.0
 	github.com/lestrrat-go/jwx v1.2.25
@@ -29,7 +30,6 @@ require (
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
 	github.com/goccy/go-yaml v1.10.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/gookit/color v1.5.2 // indirect
 	github.com/gookit/goutil v0.6.6 // indirect
