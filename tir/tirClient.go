@@ -135,13 +135,17 @@ func parseTirResponse(resp http.Response) (trustedIssuer TrustedIssuer, err erro
 }
 
 func (tc TirHttpClient) issuerExists(tirEndpoint string, did string) (trusted bool) {
-	resp, err := tc.requestDidDocument(tirEndpoint, did)
+	// in 2.1.0 the did-document was requested. However, this seems to be wrong, therefor we go back to the issuers check.
+	// for future discussion, this part is left as a comment.
+	// 	resp, err := tc.requestDidDocument(tirEndpoint, did)
+
+	resp, err := tc.requestIssuer(tirEndpoint, did)
 	if err != nil {
-		logging.Log().Errorf("problem occured while requesting did document: %v", err)
 		return false
 	}
-	logging.Log().Debugf("Issuer %s response from %s is %v", did, tirEndpoint, resp)
-	return true
+	logging.Log().Debugf("Issuer %s response from %s is %v", did, tirEndpoint, resp.StatusCode)
+	// if a 200 is returned, the issuer exists. We dont have to parse the whole response
+	return resp.StatusCode == 200
 }
 
 func (tc TirHttpClient) requestIssuer(tirEndpoint string, did string) (response *http.Response, err error) {
@@ -157,6 +161,7 @@ func (tc TirHttpClient) requestIssuer(tirEndpoint string, did string) (response 
 	return response, err
 }
 
+// currently unused, did-registry has a different purpose.
 func (tc TirHttpClient) requestDidDocument(tirEndpoint string, did string) (didDocument DIDDocument, err error) {
 
 	client, err := NewClientWithResponses(tirEndpoint)
