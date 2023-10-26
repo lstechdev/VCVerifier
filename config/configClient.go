@@ -12,6 +12,9 @@ import (
 
 const SERVICES_PATH = "service"
 
+
+const SERVICE_DEFAULT_SCOPE = ""
+
 var ErrorCcsNoResponse = errors.New("no_response_from_ccs")
 var ErrorCcsErrorResponse = errors.New("error_response_from_ccs")
 var ErrorCcsEmptyResponse = errors.New("empty_response_from_ccs")
@@ -37,14 +40,44 @@ type ServicesResponse struct {
 }
 
 type ConfiguredService struct {
-	Id          string       `json:"id"`
-	Credentials []Credential `json:"credentials"`
+	// Default OIDC scope to be used if none is specified
+	DefaultOidcScope string                  `json:"defaultOidcScope" mapstructure:"defaultOidcScope"`
+	ServiceScopes    map[string][]Credential `json:"oidcScopes" mapstructure:"oidcScopes"`
+	Id               string                  `json:"id" mapstructure:"id"`
 }
 
 type Credential struct {
-	Type                     string   `json:"type"`
-	TrustedParticipantsLists []string `json:"trustedParticipantsLists"`
-	TrustedIssuersLists      []string `json:"trustedIssuersLists"`
+	// Type of the credential
+	Type string `json:"type" mapstructure:"type"`
+	// A list of (EBSI Trusted Issuers Registry compatible) endpoints to  retrieve the trusted participants from.
+	TrustedParticipantsLists []string `json:"trustedParticipantsLists,omitempty" mapstructure:"trustedParticipantsLists,omitempty"`
+	// A list of (EBSI Trusted Issuers Registry compatible) endpoints to  retrieve the trusted issuers from. The attributes need to be formated to comply with the verifiers requirements.
+	TrustedIssuersLists []string `json:"trustedIssuersLists,omitempty" mapstructure:"trustedIssuersLists,omitempty"`
+}
+
+func (cs ConfiguredService) GetRequiredCredentialTypes(scope string) []string {
+	types := []string{}
+	for _, credential := range cs.GetCredentials(scope) {
+		types = append(types, credential.Type)
+	}
+	return types
+}
+
+func (cs ConfiguredService) GetCredentials(scope string) []Credential {
+	if scope != SERVICE_DEFAULT_SCOPE {
+		return cs.ServiceScopes[scope]
+	}
+	return cs.ServiceScopes[cs.DefaultOidcScope]
+}
+
+func (cs ConfiguredService) GetCredential(scope, credentialType string) (Credential, bool) {
+	credentials := cs.GetCredentials(scope)
+	for _, credential := range credentials {
+		if credential.Type == credentialType {
+			return credential, true
+		}
+	}
+	return Credential{}, false
 }
 
 func NewCCSHttpClient(configEndpoint string) (client ConfigClient, err error) {
