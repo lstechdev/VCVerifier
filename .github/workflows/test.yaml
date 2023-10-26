@@ -20,7 +20,7 @@ jobs:
           go get github.com/mattn/goveralls
           go get github.com/go-playground/validator/v10
 
-
+      # Build fails due to libs missing in goroot, even when they are in the go.mod file
       - name: Workaround
         run: |
           go get github.com/gookit/goutil@v0.6.6
