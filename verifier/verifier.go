@@ -434,6 +434,7 @@ func (v *CredentialVerifier) getTrustRegistriesVerificationContext(clientId stri
 
 // TODO Use more generic approach to validate that every credential is issued by a party that we trust
 func verifyChain(vcs []VerifiableCredential) (bool, error) {
+	logging.Log().Infof("Recevide vcs %s", logging.PrettyPrintObject(vcs))
 	if len(vcs) != 3 {
 		// TODO Simplification to be removed/replaced
 		return false, nil
