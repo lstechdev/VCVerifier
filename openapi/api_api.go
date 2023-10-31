@@ -190,6 +190,16 @@ func VerifierAPIJWKS(c *gin.Context) {
 	c.JSON(http.StatusOK, getApiVerifier().GetJWKS())
 }
 
+// VerifierAPIOpenID
+func VerifierAPIOpenIDConfiguration(c *gin.Context) {
+	protocol := "https"
+	if c.Request.TLS == nil {
+		protocol = "http"
+	}
+
+	c.JSON(http.StatusOK, getApiVerifier().GetOpenIDConfiguration(c.Request.Host, protocol, c.Param("serviceIdentifier")))
+}
+
 // VerifierAPIStartSIOP - Initiates the siop flow and returns the 'openid://...' connection string
 func VerifierAPIStartSIOP(c *gin.Context) {
 	state, stateExists := c.GetQuery("state")
