@@ -5,6 +5,8 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"errors"
+	"fmt"
+	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/url"
 	"testing"
@@ -13,7 +15,6 @@ import (
 	configModel "github.com/fiware/VCVerifier/config"
 	logging "github.com/fiware/VCVerifier/logging"
 	"github.com/fiware/VCVerifier/ssikit"
-
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/lestrrat-go/jwx/jwt"
@@ -576,4 +577,52 @@ func TestGetToken(t *testing.T) {
 func getToken() jwt.Token {
 	token, _ := jwt.NewBuilder().Expiration(time.Unix(1000, 0)).Build()
 	return token
+}
+
+type openIdProviderMetadataTest struct {
+	host              string
+	protocol          string
+	testName          string
+	serviceIdentifier string
+	credentialScopes  map[string][]string
+	mockConfigError   error
+	expectedOpenID    OpenIDProviderMetadata
+}
+
+func getOpenIdProviderMetadataTests() []openIdProviderMetadataTest {
+	const VerifierHost = "test.com"
+	const VerifierProtocol = "https"
+
+	VerifierRootUrl := func() string {
+		return fmt.Sprintf("%s://%s", VerifierProtocol, VerifierHost)
+	}
+
+	return []openIdProviderMetadataTest{
+		{testName: "Test OIDC metadata with existing scopes", serviceIdentifier: "serviceId", host: VerifierHost,
+			protocol:         VerifierProtocol,
+			credentialScopes: map[string][]string{"serviceId": {"Scope1", "Scope2"}}, mockConfigError: nil,
+			expectedOpenID: OpenIDProviderMetadata{
+				Issuer:          VerifierRootUrl(),
+				ScopesSupported: []string{"Scope1", "Scope2"}}},
+		{testName: "Test OIDC metadata with non-existing scopes", serviceIdentifier: "serviceId", host: VerifierHost,
+			protocol:         VerifierProtocol,
+			credentialScopes: map[string][]string{"serviceId": {}}, mockConfigError: nil,
+			expectedOpenID: OpenIDProviderMetadata{
+				Issuer:          VerifierRootUrl(),
+				ScopesSupported: []string{}}},
+	}
+}
+
+func TestGetOpenIDConfiguration(t *testing.T) {
+	tests := getOpenIdProviderMetadataTests()
+	for _, tc := range tests {
+		t.Run(tc.testName, func(t *testing.T) {
+			credentialsConfig := mockCredentialConfig{tc.credentialScopes, tc.mockConfigError}
+			verifier := CredentialVerifier{credentialsConfig: credentialsConfig}
+			actualOpenID := verifier.GetOpenIDConfiguration(tc.host, tc.protocol, tc.serviceIdentifier)
+
+			assert.Equal(t, tc.expectedOpenID.Issuer, actualOpenID.Issuer)
+			assert.Equal(t, tc.expectedOpenID.ScopesSupported, actualOpenID.ScopesSupported)
+		})
+	}
 }

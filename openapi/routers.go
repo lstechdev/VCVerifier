@@ -95,6 +95,13 @@ var routes = Routes{
 	},
 
 	{
+		"VerifierAPIOpenIDConfiguration",
+		http.MethodGet,
+		"/services/:serviceIdentifier/.well-known/openid-configuration",
+		VerifierAPIOpenIDConfiguration,
+	},
+
+	{
 		"VerifierAPIStartSIOP",
 		http.MethodGet,
 		"/api/v1/startsiop",
