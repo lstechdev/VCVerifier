@@ -51,6 +51,10 @@ func (mV *mockVerifier) GetOpenIDConfiguration(host string, protocol string, ser
 	return mV.mockOpenIDConfig
 }
 
+func (mV *mockVerifier) GenerateToken(clientId, subject, audience string, scope []string, verifiableCredentials []map[string]interface{}) (int64, string, error) {
+	return mV.mockExpiration, mV.mockJWTString, mV.mockError
+}
+
 func TestGetToken(t *testing.T) {
 
 	logging.Configure(true, "DEBUG", true, []string{})

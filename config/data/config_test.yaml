@@ -27,19 +27,13 @@ ssiKit:
 
 configRepo:
   services: 
-    testService: 
-      scope: 
-        - VerifiableCredential
-        - CustomerCredential
-      trustedParticipants:
-        VerifiableCredential: 
-          - https://tir-pdc.gaia-x.fiware.dev
-        CustomerCredential: 
-          - https://tir-pdc.gaia-x.fiware.dev
-      trustedIssuers:
-        VerifiableCredential: 
-          - https://tir-pdc.gaia-x.fiware.dev
-        CustomerCredential: 
-          - https://tir-pdc.gaia-x.fiware.dev
-
+    - id: testService
+      defaultOidcScope: someScope
+      oidcScopes:
+        someScope:
+          - type: VerifiableCredential
+            trustedParticipantsLists:
+              - https://tir-pdc.gaia-x.fiware.dev
+            trustedIssuersLists:
+              - https://til-pdc.gaia-x.fiware.dev
         

@@ -67,6 +67,12 @@ var routes = Routes{
 	},
 
 	{
+		"GetToken_M2M",
+		http.MethodPost,
+		"/v4/token_m2m",
+		GetTokenM2M,
+	},
+	{
 		"StartSIOPSameDevice",
 		http.MethodGet,
 		"/api/v1/samedevice",
