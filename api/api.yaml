@@ -136,6 +136,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/JWKSet'
+  /services/{serviceIdentifier}/.well-known/openid-configuration:
+    get:
+      tags:
+        - api
+      operationId: VerifierAPIOpenIDConfiguration
+      summary: Returns the configuration of the OpenID Provider
+      responses:
+        '200':
+          description: OpenID Provider Metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenIDProviderMetadata'
 
   /info:
     get: 
@@ -400,6 +413,67 @@ components:
          type: array
          items:
           $ref: '#/components/schemas/JWK'
+    OpenIDProviderMetadata:
+      type: object
+      properties:
+        issuer:
+          type: string
+          example: https://api-test.ebsi.eu/authorisation/v4
+        authorization_endpoint:
+          type: string
+          example: https://api-test.ebsi.eu/authorisation/v4/authorize
+        token_endpoint:
+          type: string
+          example: https://api-test.ebsi.eu/authorisation/v4/token
+        presentation_definition_endpoint:
+          type: string
+          example: https://api-test.ebsi.eu/authorisation/v4/presentation-definitions
+        jwks_uri:
+          type: string
+          example: https://api-test.ebsi.eu/authorisation/v4/jwks
+        scopes_supported:
+          type: array
+          items:
+            type: string
+          example: ["openid","didr_invite","didr_write","tir_invite","tir_write"]
+        response_types_supported:
+          type: array
+          items:
+            type: string
+          example: ["token"]
+        response_mode_supported:
+          type: array
+          items:
+            type: string
+          example: ["query","fragment"]
+        grant_types_supported:
+          type: array
+          items:
+            type: string
+          example: ["vp_token"]
+        subject_types_supported:
+          type: array
+          items:
+            type: string
+          example: ["public"]
+        id_token_signing_alg_values_supported:
+          type: array
+          items:
+            type: string
+          example: ["ES256"]
+        request_object_signing_alg_values_supported:
+          type: array
+          items:
+            type: string
+          example: ["ES256"]
+        request_parameter_supported:
+          type: boolean
+          example: true
+        token_endpoint_auth_methods_supported:
+          type: array
+          items:
+            type: string
+          example: ["private_key_jwt"]
     ErrorMessage:
       type: object
       properties:
