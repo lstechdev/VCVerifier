@@ -734,7 +734,7 @@ type openIdProviderMetadataTest struct {
 	protocol          string
 	testName          string
 	serviceIdentifier string
-	credentialScopes  map[string][]string
+	credentialScopes  map[string]map[string]map[string][]string
 	mockConfigError   error
 	expectedOpenID    OpenIDProviderMetadata
 }
@@ -750,13 +750,13 @@ func getOpenIdProviderMetadataTests() []openIdProviderMetadataTest {
 	return []openIdProviderMetadataTest{
 		{testName: "Test OIDC metadata with existing scopes", serviceIdentifier: "serviceId", host: VerifierHost,
 			protocol:         VerifierProtocol,
-			credentialScopes: map[string][]string{"serviceId": {"Scope1", "Scope2"}}, mockConfigError: nil,
+			credentialScopes: map[string]map[string]map[string][]string{"serviceId": {"Scope1": {}, "Scope2": {}}}, mockConfigError: nil,
 			expectedOpenID: OpenIDProviderMetadata{
 				Issuer:          VerifierRootUrl(),
 				ScopesSupported: []string{"Scope1", "Scope2"}}},
 		{testName: "Test OIDC metadata with non-existing scopes", serviceIdentifier: "serviceId", host: VerifierHost,
 			protocol:         VerifierProtocol,
-			credentialScopes: map[string][]string{"serviceId": {}}, mockConfigError: nil,
+			credentialScopes: map[string]map[string]map[string][]string{"serviceId": {}}, mockConfigError: nil,
 			expectedOpenID: OpenIDProviderMetadata{
 				Issuer:          VerifierRootUrl(),
 				ScopesSupported: []string{}}},
