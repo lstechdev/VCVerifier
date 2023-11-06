@@ -52,6 +52,7 @@ type Verifier interface {
 	GetJWKS() jwk.Set
 	AuthenticationResponse(state string, verifiableCredentials []map[string]interface{}, holder string) (sameDevice SameDeviceResponse, err error)
 	GenerateToken(clientId, subject, audience string, scope []string, verifiableCredentials []map[string]interface{}) (int64, string, error)
+	GetOpenIDConfiguration(host string, protocol string, serviceIdentifier string) OpenIDProviderMetadata
 }
 
 type VerificationService interface {
@@ -189,6 +190,23 @@ type SameDeviceResponse struct {
 	Code string
 	// session id provided by the client
 	SessionId string
+}
+
+type OpenIDProviderMetadata struct {
+	Issuer                                 string   `json:"issuer"`
+	AuthorizationEndpoint                  string   `json:"authorization_endpoint"`
+	TokenEndpoint                          string   `json:"token_endpoint"`
+	PresentationDefinitionEndpoint         string   `json:"presentation_definition_endpoint,omitempty"`
+	JwksUri                                string   `json:"jwks_uri"`
+	ScopesSupported                        []string `json:"scopes_supported"`
+	ResponseTypesSupported                 []string `json:"response_types_supported"`
+	ResponseModeSupported                  []string `json:"response_mode_supported,omitempty"`
+	GrantTypesSupported                    []string `json:"grant_types_supported,omitempty"`
+	SubjectTypesSupported                  []string `json:"subject_types_supported"`
+	IdTokenSigningAlgValuesSupported       []string `json:"id_token_signing_alg_values_supported"`
+	RequestObjectSigningAlgValuesSupported []string `json:"request_object_signing_alg_values_supported,omitempty"`
+	RequestParameterSupported              bool     `json:"request_parameter_supported,omitempty"`
+	TokenEndpointAuthMethodsSupported      []string `json:"token_endpoint_auth_methods_supported,omitempty"`
 }
 
 /**
@@ -415,6 +433,27 @@ func (v *CredentialVerifier) GenerateToken(clientId, subject, audience string, s
 		return 0, "", err
 	}
 	return expiration, string(tokenBytes), nil
+}
+
+func (v *CredentialVerifier) GetOpenIDConfiguration(host string, protocol string, serviceIdentifier string) OpenIDProviderMetadata {
+	verifierUrl := fmt.Sprintf("%s://%s", protocol, host)
+
+	scopes, err := v.credentialsConfig.GetScope(serviceIdentifier)
+	if err != nil {
+		return OpenIDProviderMetadata{}
+	}
+
+	return OpenIDProviderMetadata{
+		Issuer:                           verifierUrl,
+		AuthorizationEndpoint:            verifierUrl + "/token_m2m",
+		TokenEndpoint:                    verifierUrl + "/token",
+		JwksUri:                          verifierUrl + "/.well-known/jwks",
+		GrantTypesSupported:              []string{"authorization_code"},
+		ResponseTypesSupported:           []string{"vp_token"},
+		ResponseModeSupported:            []string{"direct_post"},
+		SubjectTypesSupported:            []string{"public"},
+		IdTokenSigningAlgValuesSupported: []string{"EdDSA", "ES256"},
+		ScopesSupported:                  scopes}
 }
 
 /**
