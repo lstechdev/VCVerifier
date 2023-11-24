@@ -15,6 +15,7 @@ import (
 
 	"golang.org/x/exp/slices"
 
+	common "github.com/fiware/VCVerifier/common"
 	configModel "github.com/fiware/VCVerifier/config"
 	"github.com/fiware/VCVerifier/tir"
 
@@ -75,9 +76,9 @@ type CredentialVerifier struct {
 	// nonce generator
 	nonceGenerator NonceGenerator
 	// provides the current time
-	clock Clock
+	clock common.Clock
 	// provides the capabilities to signt the jwt
-	tokenSigner TokenSigner
+	tokenSigner common.TokenSigner
 	// provide the configuration to be used with the credentials
 	credentialsConfig CredentialsConfig
 	// Verification services to be used on the credentials
@@ -91,10 +92,6 @@ var verifier Verifier
 var httpClient = client.HttpClient()
 
 // interfaces and default implementations
-
-type Clock interface {
-	Now() time.Time
-}
 
 type VerificationContext interface{}
 
@@ -132,22 +129,6 @@ func removeDuplicate[T string | int](sliceList []T) []T {
 		}
 	}
 	return list
-}
-
-type realClock struct{}
-
-func (realClock) Now() time.Time {
-	return time.Now()
-}
-
-type TokenSigner interface {
-	Sign(t jwt.Token, alg jwa.SignatureAlgorithm, key interface{}, options ...jwt.SignOption) ([]byte, error)
-}
-
-type jwtTokenSigner struct{}
-
-func (jwtTokenSigner) Sign(t jwt.Token, alg jwa.SignatureAlgorithm, key interface{}, options ...jwt.SignOption) ([]byte, error) {
-	return jwt.Sign(t, alg, key, options...)
 }
 
 type randomGenerator struct{}
@@ -222,12 +203,13 @@ func GetVerifier() Verifier {
 /**
 * Initialize the verifier and all its components from the configuration
 **/
-func InitVerifier(verifierConfig *configModel.Verifier, repoConfig *configModel.ConfigRepo, ssiKitClient ssikit.SSIKit) (err error) {
+func InitVerifier(config *configModel.Configuration, ssiKitClient ssikit.SSIKit) (err error) {
 
-	err = verifyConfig(verifierConfig)
+	err = verifyConfig(&config.Verifier)
 	if err != nil {
 		return
 	}
+	verifierConfig := &config.Verifier
 
 	sessionCache := cache.New(time.Duration(verifierConfig.SessionExpiry)*time.Second, time.Duration(2*verifierConfig.SessionExpiry)*time.Second)
 	tokenCache := cache.New(time.Duration(verifierConfig.SessionExpiry)*time.Second, time.Duration(2*verifierConfig.SessionExpiry)*time.Second)
@@ -239,12 +221,23 @@ func InitVerifier(verifierConfig *configModel.Verifier, repoConfig *configModel.
 	}
 	externalGaiaXVerifier := InitGaiaXRegistryVerificationService(verifierConfig)
 
-	credentialsConfig, err := InitServiceBackedCredentialsConfig(repoConfig)
+	credentialsConfig, err := InitServiceBackedCredentialsConfig(&config.ConfigRepo)
 	if err != nil {
 		logging.Log().Errorf("Was not able to initiate the credentials config. Err: %v", err)
 	}
 
-	tirClient, err := tir.NewTirHttpClient()
+	clock := common.RealClock{}
+
+	var tokenProvider tir.TokenProvider
+	if (&config.M2M).AuthEnabled {
+		tokenProvider, err = tir.InitM2MTokenProvider(config, clock)
+		if err != nil {
+			logging.Log().Errorf("Was not able to instantiate the token provider. Err: %v", err)
+			return err
+		}
+	}
+
+	tirClient, err := tir.NewTirHttpClient(&tokenProvider)
 	if err != nil {
 		logging.Log().Errorf("Was not able to instantiate the trusted-issuers-registry client. Err: %v", err)
 		return err
@@ -266,8 +259,8 @@ func InitVerifier(verifierConfig *configModel.Verifier, repoConfig *configModel.
 		sessionCache,
 		tokenCache,
 		&randomGenerator{},
-		realClock{},
-		jwtTokenSigner{},
+		clock,
+		common.JwtTokenSigner{},
 		credentialsConfig,
 		[]VerificationService{
 			&externalSsiKitVerifier,
