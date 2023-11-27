@@ -11,7 +11,7 @@ import (
 	api "github.com/fiware/VCVerifier/openapi"
 )
 
-const tokenEndpoint = "/authorisation/v3/token"
+const TOKEN_ENDPOINT = "/v4/token_m2m"
 
 // http client to be used
 var ErrorTokenEndpointNoResponse = errors.New("no_response_from_token_endpoint")
@@ -36,13 +36,14 @@ func (nac NoAuthHttpClient) Get(tirAddress string, tirPath string) (resp *http.R
 
 func (ac AuthorizingHttpClient) Get(tirAddress string, tirPath string) (resp *http.Response, err error) {
 	urlString := buildUrlString(tirAddress, tirPath)
-	resp, err := ac.httpClient.Get(urlString)
+	resp, err = ac.httpClient.Get(urlString)
 	if err != nil {
 		return resp, err
 	}
 	if resp.StatusCode != 403 {
 		return resp, err
 	}
+	// repeat with auth
 
 }
 
@@ -62,8 +63,13 @@ func buildUrlString(address string, path string) string {
 	}
 }
 
-func (ac AuthorizingHttpClient) handleAuthorization(req *http.Request) {
-
+func (ac AuthorizingHttpClient) handleAuthorization(tirAddress string) (bearerToken string, err error) {
+	vc, err := (*ac.tokenProvider).GetAuthCredential()
+	if err != nil {
+		logging.Log().Warnf("No credential configured for auth. Err: %v", err)
+		return bearerToken, err
+	}
+	(*ac.tokenProvider).GetSignedToken(vc, tirAddress)
 }
 
 func (ac AuthorizingHttpClient) postVpToken(tokenHost string, vpToken string, presentationSubmission string, scope string) (idToken string, accessToken string, err error) {
@@ -74,7 +80,7 @@ func (ac AuthorizingHttpClient) postVpToken(tokenHost string, vpToken string, pr
 	formRequest.Add("presentation_submission", presentationSubmission)
 	formRequest.Add("scope", scope)
 
-	tokenHttpRequest, err := http.NewRequest("POST", tokenHost+tokenEndpoint, strings.NewReader(formRequest.Encode()))
+	tokenHttpRequest, err := http.NewRequest("POST", buildUrlString(tokenHost, TOKEN_ENDPOINT), strings.NewReader(formRequest.Encode()))
 	if err != nil {
 		logging.Log().Warnf("Was not able to create token request. Err: %v", err)
 		return idToken, accessToken, err

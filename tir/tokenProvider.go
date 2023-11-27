@@ -2,6 +2,7 @@ package tir
 
 import (
 	"crypto/rsa"
+	"encoding/json"
 	"errors"
 	"os"
 	"time"
@@ -21,6 +22,7 @@ import (
 var localFileAccessor fileAccessor = diskFileAccessor{}
 
 var ErrorTokenProviderNoKey = errors.New("no_key_configured")
+var ErrorTokenProviderNoVC = errors.New("no_vc_configured")
 
 type TokenProvider interface {
 	GetSignedToken(payload []map[string]interface{}, audience string) ([]byte, error)
@@ -34,6 +36,8 @@ type M2MTokenProvider struct {
 	signingKey jwk.Key
 	// token signer to be used
 	tokenSigner common.TokenSigner
+	// the credential
+	authCredential []map[string]interface{}
 	// time provider
 	clock common.Clock
 }
@@ -43,6 +47,9 @@ func InitM2MTokenProvider(config *configModel.Configuration, clock common.Clock)
 
 	if m2mConfig.KeyPath == "" {
 		return tokenProvider, ErrorTokenProviderNoKey
+	}
+	if m2mConfig.CredentialPath == "" {
+		return tokenProvider, ErrorTokenProviderNoVC
 	}
 
 	var signingKey jwk.RSAPrivateKey
@@ -61,12 +68,17 @@ func InitM2MTokenProvider(config *configModel.Configuration, clock common.Clock)
 		logging.Log().Warn("No did configured for the verifier.")
 		return tokenProvider, err
 	}
-	return M2MTokenProvider{issuerDid: config.Verifier.Did, signingKey: signingKey, tokenSigner: common.JwtTokenSigner{}, clock: common.RealClock{}}, err
+	vc, err := getCredential(m2mConfig.CredentialPath)
+	if err != nil {
+		logging.Log().Warnf("Was not able to load the credential. Err: %v", err)
+		return tokenProvider, err
+	}
+	return M2MTokenProvider{issuerDid: config.Verifier.Did, signingKey: signingKey, tokenSigner: common.JwtTokenSigner{}, authCredential: vc, clock: common.RealClock{}}, err
 
 }
 
 func (tokenProvider M2MTokenProvider) GetAuthCredential() (vc []map[string]interface{}, err error) {
-
+	return tokenProvider.authCredential, err
 }
 
 func (tokenProvider M2MTokenProvider) GetSignedToken(payload []map[string]interface{}, audience string) (signedToken []byte, err error) {
@@ -109,6 +121,12 @@ func getCredential(vcPath string) (vc []map[string]interface{}, err error) {
 		return vc, err
 	}
 
+	err = json.Unmarshal(vcBytes, &vc)
+	if err != nil {
+		logging.Log().Warnf("Was not able to unmarshal the vc. Err: %v", err)
+		return vc, err
+	}
+	return vc, err
 }
 
 // file system interfaces

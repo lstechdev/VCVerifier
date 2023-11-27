@@ -34,6 +34,8 @@ type M2M struct {
 	AuthEnabled bool `mapstructure:"authEnabled"`
 	// path to the signing key(in pem format)
 	KeyPath string `mapstructure:"keyPath"`
+	// path to the credential to be used for auth
+	CredentialPath string `mapstructure:"credentialPath"`
 }
 
 // logging config
