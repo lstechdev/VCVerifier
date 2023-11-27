@@ -20,6 +20,7 @@ import (
 	"github.com/fiware/VCVerifier/verifier"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mitchellh/mapstructure"
 )
 
 const TYPE_CODE = "authorization_code"
@@ -98,20 +99,34 @@ func handleTokenTypeVPToken(c *gin.Context) {
 		c.AbortWithStatusJSON(400, ErrorMessageUnableToDecodeToken)
 		return
 	}
-	var rawCredentials []map[string]interface{}
 
-	err = json.Unmarshal(bytes, &rawCredentials)
+	var rawVP map[string]interface{}
+	err = json.Unmarshal(bytes, &rawVP)
 	if err != nil {
-		logging.Log().Infof("Was not able to decode the credentials from the token %s. Err: %v", vpToken, err)
+		logging.Log().Infof("Was not able to decode the verifiable presentation from the token %s. Err: %v", vpToken, err)
 		c.AbortWithStatusJSON(400, ErrorMessageUnableToDecodeCredential)
 		return
 	}
+	
+	rawVCs, VCsPresent := rawVP["verifiableCredential"]
+	if !VCsPresent {
+		logging.Log().Infof("Was not able to decode the token %s.", vpToken)
+		c.AbortWithStatusJSON(400, ErrorMessageUnableToDecodeCredential)
+	}
+
+	var listOfRawCredentials []map[string]interface{}
+	err = mapstructure.Decode(rawVCs, &listOfRawCredentials)
+	if err != nil {
+		logging.Log().Infof("verifiableCredential field did not contain array %s. Err: %v", vpToken, err)
+		c.AbortWithStatusJSON(400, ErrorMessageUnableToDecodeCredential)
+	}
+
 	clientId := c.GetHeader("client_id")
 
 	scopes := strings.Split(scope, ",")
 
 	// Subject is empty since multiple VCs with different subjects can be provided
-	expiration, signedToken, err := getApiVerifier().GenerateToken(clientId, "", clientId, scopes, rawCredentials)
+	expiration, signedToken, err := getApiVerifier().GenerateToken(clientId, "", clientId, scopes, listOfRawCredentials)
 	if err != nil {
 		logging.Log().Error("Failure during generating M2M token", err)
 		c.AbortWithStatusJSON(400, err)
