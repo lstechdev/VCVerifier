@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/fiware/VCVerifier/logging"
 	"github.com/fiware/VCVerifier/verifier"
@@ -21,13 +22,19 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const TYPE_CODE = "authorization_code"
+const TYPE_VP_TOKEN = "vp_token"
+
 var apiVerifier verifier.Verifier
 
 var ErrorMessagNoGrantType = ErrorMessage{"no_grant_type_provided", "Token requests require a grant_type."}
+var ErrorMessageUnsupportedGrantType = ErrorMessage{"unsupported_grant_type", "Provided grant_type is not supported by the implementation."}
 var ErrorMessageNoCode = ErrorMessage{"no_code_provided", "Token requests require a code."}
 var ErrorMessageNoRedircetUri = ErrorMessage{"no_redirect_uri_provided", "Token requests require a redirect_uri."}
 var ErrorMessageNoState = ErrorMessage{"no_state_provided", "Authentication requires a state provided as query parameter."}
+var ErrorMessageNoScope = ErrorMessage{"no_scope_provided", "Authentication requires a scope provided as a form parameter."}
 var ErrorMessageNoToken = ErrorMessage{"no_token_provided", "Authentication requires a token provided as a form parameter."}
+var ErrorMessageNoPresentationSubmission = ErrorMessage{"no_presentation_submission_provided", "Authentication requires a presentation submission provided as a form parameter."}
 var ErrorMessageNoCallback = ErrorMessage{"NoCallbackProvided", "A callback address has to be provided as query-parameter."}
 var ErrorMessageUnableToDecodeToken = ErrorMessage{"invalid_token", "Token could not be decoded."}
 var ErrorMessageUnableToDecodeCredential = ErrorMessage{"invalid_token", "Could not read the credential(s) inside the token."}
@@ -50,19 +57,87 @@ func GetToken(c *gin.Context) {
 		c.AbortWithStatusJSON(400, ErrorMessagNoGrantType)
 		return
 	}
+
+	if grantType == TYPE_CODE {
+		handleTokenTypeCode(c)
+	} else if grantType == TYPE_VP_TOKEN {
+		handleTokenTypeVPToken(c)
+	}
+	c.AbortWithStatusJSON(400, ErrorMessageUnsupportedGrantType)
+
+}
+
+func handleTokenTypeVPToken(c *gin.Context) {
+	var requestBody TokenRequestBody
+
+	vpToken, vpTokenExists := c.GetPostForm("vp_token")
+	if !vpTokenExists {
+		logging.Log().Debug("No vp token present in the request.")
+		c.AbortWithStatusJSON(400, ErrorMessageNoToken)
+		return
+	}
+
+	// not used at the moment
+	// presentationSubmission, presentationSubmissionExists := c.GetPostForm("presentation_submission")
+	// if !presentationSubmissionExists {
+	//	logging.Log().Debug("No presentation submission present in the request.")
+	//	c.AbortWithStatusJSON(400, ErrorMessageNoPresentationSubmission)
+	//	return
+	//}
+
+	scope, scopeExists := c.GetPostForm("scope")
+	if !scopeExists {
+		logging.Log().Debug("No scope present in the request.")
+		c.AbortWithStatusJSON(400, ErrorMessageNoScope)
+		return
+	}
+
+	bytes, err := base64.RawURLEncoding.DecodeString(vpToken)
+	if err != nil {
+		logging.Log().Infof("Was not able to decode the form string %s. Err: %v", vpToken, err)
+		c.AbortWithStatusJSON(400, ErrorMessageUnableToDecodeToken)
+		return
+	}
+	var rawCredentials []map[string]interface{}
+
+	err = json.Unmarshal(bytes, &rawCredentials)
+	if err != nil {
+		logging.Log().Infof("Was not able to decode the credentials from the token %s. Err: %v", vpToken, err)
+		c.AbortWithStatusJSON(400, ErrorMessageUnableToDecodeCredential)
+		return
+	}
+	clientId := c.GetHeader("client_id")
+
+	scopes := strings.Split(scope, ",")
+
+	// Subject is empty since multiple VCs with different subjects can be provided
+	expiration, signedToken, err := getApiVerifier().GenerateToken(clientId, "", clientId, scopes, rawCredentials)
+	if err != nil {
+		logging.Log().Error("Failure during generating M2M token", err)
+		c.AbortWithStatusJSON(400, err)
+		return
+	}
+	response := TokenResponse{"Bearer", float32(expiration), signedToken, requestBody.Scope, ""}
+	logging.Log().Infof("Generated and signed token: %v", response)
+	c.JSON(http.StatusOK, response)
+}
+
+func handleTokenTypeCode(c *gin.Context) {
+
 	code, codeExists := c.GetPostForm("code")
 	if !codeExists {
 		logging.Log().Debug("No code present in the request.")
 		c.AbortWithStatusJSON(400, ErrorMessageNoCode)
 		return
 	}
+
 	redirectUri, redirectUriExists := c.GetPostForm("redirect_uri")
 	if !redirectUriExists {
 		logging.Log().Debug("No redircet_uri present in the request.")
 		c.AbortWithStatusJSON(400, ErrorMessageNoRedircetUri)
 		return
 	}
-	jwt, expiration, err := getApiVerifier().GetToken(grantType, code, redirectUri)
+	jwt, expiration, err := getApiVerifier().GetToken(code, redirectUri)
 
 	if err != nil {
 		c.AbortWithStatusJSON(403, ErrorMessage{Summary: err.Error()})
