@@ -7,17 +7,19 @@ import (
 	"net/url"
 	"strings"
 
-	api "github.com/fiware/VCVerifier/api"
 	common "github.com/fiware/VCVerifier/common"
 	"github.com/fiware/VCVerifier/logging"
+	"golang.org/x/exp/slices"
 )
 
-const TOKEN_ENDPOINT = "/v4/token_m2m"
 const WELL_KNOWN_ENDPOINT = "/.well-known/openid-configuration"
+const SCOPE_TIR_READ = "tir_read"
 
 // http client to be used
 var ErrorTokenEndpointNoResponse = errors.New("no_response_from_token_endpoint")
 var ErrorMetaDataNotOk = errors.New("no_metadata_available")
+var ErrorGrantTypeNotSupported = errors.New("grant_type_not_supported")
+var ErrorScopeNotSupported = errors.New("scope_not_supported")
 
 type HttpGetClient interface {
 	Get(tirAddress string, tirPath string) (resp *http.Response, err error)
@@ -46,8 +48,21 @@ func (ac AuthorizingHttpClient) Get(tirAddress string, tirPath string) (resp *ht
 	if resp.StatusCode != 403 {
 		return resp, err
 	}
-	// repeat with auth
 
+	bearerToken, err := ac.handleAuthorization(tirAddress)
+	if err != nil {
+		logging.Log().Warnf("Was not able to get a bearer token. Err: %v", err)
+		return resp, err
+	}
+
+	// repeat with auth
+	authenticatedRequest, err := http.NewRequest("GET", urlString, nil)
+	if err != nil {
+		logging.Log().Warnf("Was not able to build the authenticated request. Err: %v", err)
+		return resp, err
+	}
+	authenticatedRequest.Header.Add("Authorization", "Bearer "+bearerToken)
+	return ac.httpClient.Do(authenticatedRequest)
 }
 
 func buildUrlString(address string, path string) string {
@@ -83,7 +98,21 @@ func (ac AuthorizingHttpClient) handleAuthorization(tirAddress string) (bearerTo
 		logging.Log().Warnf("Was not able to get the openid metadata. Err: %v", err)
 		return bearerToken, err
 	}
-	if slices.Contains() metaData.GrantTypesSupported 
+	if !slices.Contains(metaData.GrantTypesSupported, common.TYPE_VP_TOKEN) {
+		logging.Log().Warnf("The server does not support grant type vp_token. Config: %v", logging.PrettyPrintObject(metaData))
+		return bearerToken, ErrorGrantTypeNotSupported
+	}
+	if !slices.Contains(metaData.ScopesSupported, SCOPE_TIR_READ) {
+		logging.Log().Warnf("The server does not support scope tir_read. Config: %v", logging.PrettyPrintObject(metaData))
+		return bearerToken, ErrorScopeNotSupported
+	}
+	// presentation submission is not yet used.
+	bearerToken, err = ac.postVpToken(metaData.TokenEndpoint, vpToken, "", SCOPE_TIR_READ)
+	if err != nil {
+		logging.Log().Warnf("Was not able to get an access token. Err: %v", err)
+	}
+	return bearerToken, err
+
 }
 
 func (ac AuthorizingHttpClient) getMetaData(tokenHost string) (metadata common.OpenIDProviderMetadata, err error) {
@@ -115,7 +144,7 @@ func (ac AuthorizingHttpClient) getMetaData(tokenHost string) (metadata common.O
 
 }
 
-func (ac AuthorizingHttpClient) postVpToken(tokenHost string, vpToken string, presentationSubmission string, scope string) (idToken string, accessToken string, err error) {
+func (ac AuthorizingHttpClient) postVpToken(tokenEndpoint string, vpToken string, presentationSubmission string, scope string) (accessToken string, err error) {
 
 	formRequest := url.Values{}
 	formRequest.Add("grant_type", "vp_token")
@@ -123,37 +152,51 @@ func (ac AuthorizingHttpClient) postVpToken(tokenHost string, vpToken string, pr
 	formRequest.Add("presentation_submission", presentationSubmission)
 	formRequest.Add("scope", scope)
 
-	tokenHttpRequest, err := http.NewRequest("POST", buildUrlString(tokenHost, TOKEN_ENDPOINT), strings.NewReader(formRequest.Encode()))
+	tokenHttpRequest, err := http.NewRequest("POST", tokenEndpoint, strings.NewReader(formRequest.Encode()))
 	if err != nil {
 		logging.Log().Warnf("Was not able to create token request. Err: %v", err)
-		return idToken, accessToken, err
+		return accessToken, err
 	}
 
 	tokenHttpRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	tokenHttpResponse, err := ac.httpClient.Do(tokenHttpRequest) // evaluate the results
 	if err != nil {
 		logging.Log().Warnf("Did not receive a valid token response. Err: %v", err)
-		return idToken, accessToken, err
+		return accessToken, err
 	}
 	if tokenHttpResponse == nil {
 		logging.Log().Warn("Did not receive any response from the token endpoint.")
-		return idToken, accessToken, ErrorTokenEndpointNoResponse
+		return accessToken, ErrorTokenEndpointNoResponse
 	}
 	if tokenHttpResponse.StatusCode != 200 {
 		logging.Log().Infof("Did not receive an ok from the token request. Was %s", logging.PrettyPrintObject(tokenHttpResponse))
-		return idToken, accessToken, err
+		return accessToken, err
 	}
 	if tokenHttpResponse.Body == nil {
 		logging.Log().Info("Received an empty body for the token request.")
-		return idToken, accessToken, err
+		return accessToken, err
 	}
 
-	var tokenResponse api.TokenResponse
+	var tokenResponse TokenResponse
 
 	err = json.NewDecoder(tokenHttpResponse.Body).Decode(&tokenResponse)
 	if err != nil {
 		logging.Log().Warn("Was not able to decode the token response.")
-		return idToken, accessToken, err
+		return accessToken, err
 	}
-	return tokenResponse.IdToken, tokenResponse.AccessToken, err
+	return tokenResponse.AccessToken, err
+}
+
+type TokenResponse struct {
+	TokenType string `json:"token_type,omitempty"`
+
+	// The lifetime in seconds of the access token
+	ExpiresIn float32 `json:"expires_in,omitempty"`
+
+	AccessToken string `json:"access_token,omitempty"`
+
+	// The scope of the access token
+	Scope string `json:"scope,omitempty"`
+	// ID Token value associated with the authenticated session. Presents client's identity. ID Token is issued in a JWS format. See also the \"ID Token\" schema definition.
+	IdToken string `json:"id_token,omitempty"`
 }

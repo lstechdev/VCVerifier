@@ -46,7 +46,7 @@ func main() {
 		return
 	}
 
-	verifier.InitVerifier(&configuration.Verifier, &configuration.ConfigRepo, ssiKitClient)
+	verifier.InitVerifier(&configuration, ssiKitClient)
 
 	router := getRouter()
 

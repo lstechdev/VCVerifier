@@ -16,14 +16,12 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/fiware/VCVerifier/common"
 	"github.com/fiware/VCVerifier/logging"
 	"github.com/fiware/VCVerifier/verifier"
 
 	"github.com/gin-gonic/gin"
 )
-
-const TYPE_CODE = "authorization_code"
-const TYPE_VP_TOKEN = "vp_token"
 
 var apiVerifier verifier.Verifier
 
@@ -58,9 +56,9 @@ func GetToken(c *gin.Context) {
 		return
 	}
 
-	if grantType == TYPE_CODE {
+	if grantType == common.TYPE_CODE {
 		handleTokenTypeCode(c)
-	} else if grantType == TYPE_VP_TOKEN {
+	} else if grantType == common.TYPE_VP_TOKEN {
 		handleTokenTypeVPToken(c)
 	} else {
 		c.AbortWithStatusJSON(400, ErrorMessageUnsupportedGrantType)

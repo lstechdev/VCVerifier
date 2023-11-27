@@ -15,6 +15,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	common "github.com/fiware/VCVerifier/common"
 	configModel "github.com/fiware/VCVerifier/config"
 	logging "github.com/fiware/VCVerifier/logging"
 	"github.com/fiware/VCVerifier/ssikit"
@@ -459,14 +460,14 @@ func TestInitVerifier(t *testing.T) {
 
 	type test struct {
 		testName      string
-		testConfig    configModel.Verifier
+		testConfig    configModel.Configuration
 		expectedError error
 	}
 
 	tests := []test{
-		{"A verifier should be properly intantiated.", configModel.Verifier{Did: "did:key:verifier", TirAddress: "https://tir.org", SessionExpiry: 30}, nil},
-		{"Without a did, no verifier should be instantiated.", configModel.Verifier{TirAddress: "https://tir.org", SessionExpiry: 30}, ErrorNoDID},
-		{"Without a tir, no verifier should be instantiated.", configModel.Verifier{Did: "did:key:verifier", SessionExpiry: 30}, ErrorNoTIR},
+		{"A verifier should be properly intantiated.", configModel.Configuration{Verifier: configModel.Verifier{Did: "did:key:verifier", TirAddress: "https://tir.org", SessionExpiry: 30}}, nil},
+		{"Without a did, no verifier should be instantiated.", configModel.Configuration{Verifier: configModel.Verifier{TirAddress: "https://tir.org", SessionExpiry: 30}}, ErrorNoDID},
+		{"Without a tir, no verifier should be instantiated.", configModel.Configuration{Verifier: configModel.Verifier{Did: "did:key:verifier", SessionExpiry: 30}}, ErrorNoTIR},
 	}
 
 	for _, tc := range tests {
@@ -474,7 +475,7 @@ func TestInitVerifier(t *testing.T) {
 			verifier = nil
 			logging.Log().Info("TestInitVerifier +++++++++++++++++ Running test: ", tc.testName)
 
-			err := InitVerifier(&tc.testConfig, &configModel.ConfigRepo{}, &mockSsiKit{})
+			err := InitVerifier(&tc.testConfig, &mockSsiKit{})
 			if tc.expectedError != err {
 				t.Errorf("%s - Expected error %v but was %v.", tc.testName, tc.expectedError, err)
 			}
@@ -735,7 +736,7 @@ type openIdProviderMetadataTest struct {
 	serviceIdentifier string
 	credentialScopes  map[string]map[string]map[string][]string
 	mockConfigError   error
-	expectedOpenID    OpenIDProviderMetadata
+	expectedOpenID    common.OpenIDProviderMetadata
 }
 
 func getOpenIdProviderMetadataTests() []openIdProviderMetadataTest {
@@ -750,13 +751,13 @@ func getOpenIdProviderMetadataTests() []openIdProviderMetadataTest {
 		{testName: "Test OIDC metadata with existing scopes", serviceIdentifier: "serviceId", host: VerifierHost,
 			protocol:         VerifierProtocol,
 			credentialScopes: map[string]map[string]map[string][]string{"serviceId": {"Scope1": {}, "Scope2": {}}}, mockConfigError: nil,
-			expectedOpenID: OpenIDProviderMetadata{
+			expectedOpenID: common.OpenIDProviderMetadata{
 				Issuer:          VerifierRootUrl(),
 				ScopesSupported: []string{"Scope1", "Scope2"}}},
 		{testName: "Test OIDC metadata with non-existing scopes", serviceIdentifier: "serviceId", host: VerifierHost,
 			protocol:         VerifierProtocol,
 			credentialScopes: map[string]map[string]map[string][]string{"serviceId": {}}, mockConfigError: nil,
-			expectedOpenID: OpenIDProviderMetadata{
+			expectedOpenID: common.OpenIDProviderMetadata{
 				Issuer:          VerifierRootUrl(),
 				ScopesSupported: []string{}}},
 	}

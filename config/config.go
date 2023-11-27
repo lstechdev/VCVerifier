@@ -25,7 +25,7 @@ type Server struct {
 	// directory to read the template(s) from
 	TemplateDir string `mapstructure:"templateDir" default:"views/"`
 	// directory of static files to be provided, f.e. to be used inside the templates
-	StaticDir string `mapstructure:"staticDir" default:"v iews/static/"`
+	StaticDir string `mapstructure:"staticDir" default:"views/static/"`
 }
 
 // configuration for M2M interaction

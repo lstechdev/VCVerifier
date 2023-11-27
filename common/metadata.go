@@ -1,5 +1,8 @@
 package common
 
+const TYPE_CODE = "authorization_code"
+const TYPE_VP_TOKEN = "vp_token"
+
 type OpenIDProviderMetadata struct {
 	Issuer                                 string   `json:"issuer"`
 	AuthorizationEndpoint                  string   `json:"authorization_endpoint"`

@@ -26,7 +26,7 @@ var ErrorTokenProviderNoKey = errors.New("no_key_configured")
 var ErrorTokenProviderNoVC = errors.New("no_vc_configured")
 
 type TokenProvider interface {
-	GetToken(payload []map[string]interface{}, audience string) ([]byte, error)
+	GetToken(payload []map[string]interface{}, audience string) (string, error)
 	GetAuthCredential() (vc []map[string]interface{}, err error)
 }
 
@@ -38,7 +38,7 @@ type M2MTokenProvider struct {
 }
 
 type TokenEncoder interface {
-	GetEncodedToken(payload []map[string]interface{}, audience string) (encodedToken []byte, err error)
+	GetEncodedToken(payload []map[string]interface{}, audience string) (encodedToken string, err error)
 }
 
 type Base64TokenEncoder struct{}
@@ -103,30 +103,36 @@ func (tokenProvider M2MTokenProvider) GetAuthCredential() (vc []map[string]inter
 	return tokenProvider.authCredential, err
 }
 
-func (tokenProvider M2MTokenProvider) GetToken(payload []map[string]interface{}, audience string) (token []byte, err error) {
+func (tokenProvider M2MTokenProvider) GetToken(payload []map[string]interface{}, audience string) (token string, err error) {
 	return tokenProvider.tokenEncoder.GetEncodedToken(payload, audience)
 }
 
-func (base64TokenEncoder Base64TokenEncoder) GetEncodedToken(payload []map[string]interface{}, audience string) (encodedToken []byte, err error) {
+func (base64TokenEncoder Base64TokenEncoder) GetEncodedToken(payload []map[string]interface{}, audience string) (encodedToken string, err error) {
 	marshalledPayload, err := json.Marshal(payload)
 	if err != nil {
-		logging.Log().Warnf("Was not able to marshal the token payload. Err: %v")
+		logging.Log().Warnf("Was not able to marshal the token payload. Err: %v", err)
 		return encodedToken, err
 	}
-	base64.RawURLEncoding.Encode(encodedToken, marshalledPayload)
-	return encodedToken, err
+
+	return base64.RawURLEncoding.EncodeToString(marshalledPayload), err
 }
 
-func (jwtTokenEncoder JWTTokenEncoder) GetEncodedToken(payload []map[string]interface{}, audience string) (encodedToken []byte, err error) {
+func (jwtTokenEncoder JWTTokenEncoder) GetEncodedToken(payload []map[string]interface{}, audience string) (encodedToken string, err error) {
 	now := jwtTokenEncoder.clock.Now()
-	jwtBuilder := jwt.NewBuilder().Issuer(jwtTokenEncoder.issuerDid).Audience([]string{jwtTokenEncoder.audience}).IssuedAt(now).Claim("kid", jwtTokenEncoder.signingKey.KeyID()).Expiration(now.Add(time.Minute*30)).Claim("vp", payload)
+	jwtBuilder := jwt.NewBuilder().Issuer(jwtTokenEncoder.issuerDid).Audience([]string{audience}).IssuedAt(now).Claim("kid", jwtTokenEncoder.signingKey.KeyID()).Expiration(now.Add(time.Minute*30)).Claim("vp", payload)
 	unsignedToken, err := jwtBuilder.Build()
 	if err != nil {
 		logging.Log().Warnf("Was not able to build the token. E: %s", err)
 		return encodedToken, err
 	}
 	// use the same signing algorithm like for the i4trust tokens
-	return jwtTokenEncoder.tokenSigner.Sign(unsignedToken, jwa.ES256, jwtTokenEncoder.signingKey)
+	signedToken, err := jwtTokenEncoder.tokenSigner.Sign(unsignedToken, jwa.ES256, jwtTokenEncoder.signingKey)
+	if err != nil {
+		logging.Log().Warnf("Was not able to sign the token. Err: %v", err)
+		return encodedToken, err
+	}
+
+	return string(signedToken), err
 }
 
 /**

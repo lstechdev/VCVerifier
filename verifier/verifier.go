@@ -53,7 +53,7 @@ type Verifier interface {
 	GetJWKS() jwk.Set
 	AuthenticationResponse(state string, verifiableCredentials []map[string]interface{}, holder string) (sameDevice SameDeviceResponse, err error)
 	GenerateToken(clientId, subject, audience string, scope []string, verifiableCredentials []map[string]interface{}) (int64, string, error)
-	GetOpenIDConfiguration(host string, protocol string, serviceIdentifier string) OpenIDProviderMetadata
+	GetOpenIDConfiguration(host string, protocol string, serviceIdentifier string) common.OpenIDProviderMetadata
 }
 
 type VerificationService interface {
@@ -407,7 +407,7 @@ func (v *CredentialVerifier) GenerateToken(clientId, subject, audience string, s
 	return expiration, string(tokenBytes), nil
 }
 
-func (v *CredentialVerifier) GetOpenIDConfiguration(host string, protocol string, serviceIdentifier string) OpenIDProviderMetadata {
+func (v *CredentialVerifier) GetOpenIDConfiguration(host string, protocol string, serviceIdentifier string) common.OpenIDProviderMetadata {
 	verifierUrl := fmt.Sprintf("%s://%s", protocol, host)
 
 	scopes, err := v.credentialsConfig.GetScope(serviceIdentifier)

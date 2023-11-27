@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/fiware/VCVerifier/common"
 	"github.com/fiware/VCVerifier/logging"
 	verifier "github.com/fiware/VCVerifier/verifier"
 
@@ -23,7 +24,7 @@ type mockVerifier struct {
 	mockConnectionString string
 	mockAuthRequest      string
 	mockJWKS             jwk.Set
-	mockOpenIDConfig     verifier.OpenIDProviderMetadata
+	mockOpenIDConfig     common.OpenIDProviderMetadata
 	mockSameDevice       verifier.SameDeviceResponse
 	mockExpiration       int64
 	mockError            error
@@ -47,7 +48,7 @@ func (mV *mockVerifier) GetJWKS() jwk.Set {
 func (mV *mockVerifier) AuthenticationResponse(state string, verifiableCredentials []map[string]interface{}, holder string) (sameDevice verifier.SameDeviceResponse, err error) {
 	return mV.mockSameDevice, mV.mockError
 }
-func (mV *mockVerifier) GetOpenIDConfiguration(host string, protocol string, serviceIdentifier string) verifier.OpenIDProviderMetadata {
+func (mV *mockVerifier) GetOpenIDConfiguration(host string, protocol string, serviceIdentifier string) common.OpenIDProviderMetadata {
 	return mV.mockOpenIDConfig
 }
 
