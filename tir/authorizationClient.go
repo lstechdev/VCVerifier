@@ -7,14 +7,17 @@ import (
 	"net/url"
 	"strings"
 
+	api "github.com/fiware/VCVerifier/api"
+	common "github.com/fiware/VCVerifier/common"
 	"github.com/fiware/VCVerifier/logging"
-	api "github.com/fiware/VCVerifier/openapi"
 )
 
 const TOKEN_ENDPOINT = "/v4/token_m2m"
+const WELL_KNOWN_ENDPOINT = "/.well-known/openid-configuration"
 
 // http client to be used
 var ErrorTokenEndpointNoResponse = errors.New("no_response_from_token_endpoint")
+var ErrorMetaDataNotOk = errors.New("no_metadata_available")
 
 type HttpGetClient interface {
 	Get(tirAddress string, tirPath string) (resp *http.Response, err error)
@@ -69,7 +72,47 @@ func (ac AuthorizingHttpClient) handleAuthorization(tirAddress string) (bearerTo
 		logging.Log().Warnf("No credential configured for auth. Err: %v", err)
 		return bearerToken, err
 	}
-	(*ac.tokenProvider).GetSignedToken(vc, tirAddress)
+	vpToken, err := (*ac.tokenProvider).GetToken(vc, tirAddress)
+	if err != nil {
+		logging.Log().Warnf("Was not able to get a VP Token. Err: %v", err)
+		return bearerToken, err
+	}
+
+	metaData, err := ac.getMetaData(tirAddress)
+	if err != nil {
+		logging.Log().Warnf("Was not able to get the openid metadata. Err: %v", err)
+		return bearerToken, err
+	}
+	if slices.Contains() metaData.GrantTypesSupported 
+}
+
+func (ac AuthorizingHttpClient) getMetaData(tokenHost string) (metadata common.OpenIDProviderMetadata, err error) {
+	resp, err := ac.httpClient.Get(buildUrlString(tokenHost, "/.well-known/openid-configuration"))
+	if err != nil {
+		logging.Log().Warnf("Was not able to get openid metadata from %s. Err: %v", tokenHost, err)
+		return metadata, err
+	}
+	if resp == nil {
+		logging.Log().Warnf("Did not receive a valid response from %v.", tokenHost)
+		return metadata, ErrorMetaDataNotOk
+	}
+	if resp.StatusCode != 200 {
+		logging.Log().Warnf("Was not able to get openid metadata from %s. Response was %v.", tokenHost, resp)
+		return metadata, ErrorMetaDataNotOk
+	}
+	if resp.Body == nil {
+		logging.Log().Warnf("Did not receive a valid response from %v. Was %v", tokenHost, resp)
+		return metadata, ErrorMetaDataNotOk
+	}
+	var metaDataResponse common.OpenIDProviderMetadata
+
+	err = json.NewDecoder(resp.Body).Decode(&metaDataResponse)
+	if err != nil {
+		logging.Log().Warnf("Was not able to decode the metadata response. Err: %v", err)
+		return metadata, err
+	}
+	return metadata, err
+
 }
 
 func (ac AuthorizingHttpClient) postVpToken(tokenHost string, vpToken string, presentationSubmission string, scope string) (idToken string, accessToken string, err error) {
