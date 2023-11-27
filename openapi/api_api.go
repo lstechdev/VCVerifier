@@ -107,10 +107,10 @@ func handleTokenTypeVPToken(c *gin.Context) {
 		c.AbortWithStatusJSON(400, ErrorMessageUnableToDecodeCredential)
 		return
 	}
-	
+
 	rawVCs, VCsPresent := rawVP["verifiableCredential"]
 	if !VCsPresent {
-		logging.Log().Infof("Was not able to decode the token %s.", vpToken)
+		logging.Log().Infof("No verifiableCredential field in the token %s.", vpToken)
 		c.AbortWithStatusJSON(400, ErrorMessageUnableToDecodeCredential)
 	}
 
