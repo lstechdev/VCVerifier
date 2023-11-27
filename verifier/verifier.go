@@ -441,11 +441,11 @@ func (v *CredentialVerifier) GetOpenIDConfiguration(host string, protocol string
 
 	return OpenIDProviderMetadata{
 		Issuer:                           verifierUrl,
-		AuthorizationEndpoint:            verifierUrl + "/token_m2m",
+		AuthorizationEndpoint:            verifierUrl,
 		TokenEndpoint:                    verifierUrl + "/token",
 		JwksUri:                          verifierUrl + "/.well-known/jwks",
-		GrantTypesSupported:              []string{"authorization_code"},
-		ResponseTypesSupported:           []string{"vp_token"},
+		GrantTypesSupported:              []string{"authorization_code", "vp_token"},
+		ResponseTypesSupported:           []string{"token"},
 		ResponseModeSupported:            []string{"direct_post"},
 		SubjectTypesSupported:            []string{"public"},
 		IdTokenSigningAlgValuesSupported: []string{"EdDSA", "ES256"},
