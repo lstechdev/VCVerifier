@@ -62,9 +62,9 @@ func GetToken(c *gin.Context) {
 		handleTokenTypeCode(c)
 	} else if grantType == TYPE_VP_TOKEN {
 		handleTokenTypeVPToken(c)
+	} else {
+		c.AbortWithStatusJSON(400, ErrorMessageUnsupportedGrantType)
 	}
-	c.AbortWithStatusJSON(400, ErrorMessageUnsupportedGrantType)
-
 }
 
 func handleTokenTypeVPToken(c *gin.Context) {
@@ -92,18 +92,9 @@ func handleTokenTypeVPToken(c *gin.Context) {
 		return
 	}
 
-	bytes, err := base64.RawURLEncoding.DecodeString(vpToken)
+	rawCredentials, _, err := extractVpFromToken(c, vpToken)
 	if err != nil {
-		logging.Log().Infof("Was not able to decode the form string %s. Err: %v", vpToken, err)
-		c.AbortWithStatusJSON(400, ErrorMessageUnableToDecodeToken)
-		return
-	}
-	var rawCredentials []map[string]interface{}
-
-	err = json.Unmarshal(bytes, &rawCredentials)
-	if err != nil {
-		logging.Log().Infof("Was not able to decode the credentials from the token %s. Err: %v", vpToken, err)
-		c.AbortWithStatusJSON(400, ErrorMessageUnableToDecodeCredential)
+		logging.Log().Warnf("Was not able to extract the credentials from the vp_token.")
 		return
 	}
 	clientId := c.GetHeader("client_id")
@@ -187,14 +178,19 @@ func VerifierAPIAuthenticationResponse(c *gin.Context) {
 		return
 	}
 
-	base64Token, tokenExists := c.GetPostForm("vp_token")
+	vptoken, tokenExists := c.GetPostForm("vp_token")
 	if !tokenExists {
 		logging.Log().Info("No token was provided.")
 		c.AbortWithStatusJSON(400, ErrorMessageNoToken)
 		return
 	}
 
-	handleAuthenticationResponse(c, state, base64Token)
+	rawCredentials, holder, err := extractVpFromToken(c, vptoken)
+	if err != nil {
+		logging.Log().Warnf("Was not able to extract the credentials from the vp_token.")
+		return
+	}
+	handleAuthenticationResponse(c, state, holder, rawCredentials)
 }
 
 // GetVerifierAPIAuthenticationResponse - Stores the credential for the given session
@@ -204,18 +200,22 @@ func GetVerifierAPIAuthenticationResponse(c *gin.Context) {
 		c.AbortWithStatusJSON(400, ErrorMessageNoState)
 		return
 	}
-
-	base64Token, tokenExists := c.GetQuery("vp_token")
+	vpToken, tokenExists := c.GetQuery("vp_token")
 	if !tokenExists {
 		logging.Log().Info("No token was provided.")
 		c.AbortWithStatusJSON(400, ErrorMessageNoToken)
 		return
 	}
-
-	handleAuthenticationResponse(c, state, base64Token)
+	rawCredentials, holder, err := extractVpFromToken(c, vpToken)
+	if err != nil {
+		logging.Log().Warnf("Was not able to extract the credentials from the vp_token.")
+		return
+	}
+	handleAuthenticationResponse(c, state, holder, rawCredentials)
 }
 
-func handleAuthenticationResponse(c *gin.Context, state string, vpToken string) {
+func extractVpFromToken(c *gin.Context, vpToken string) (rawCredentials []map[string]interface{}, holder string, err error) {
+
 	bytes, err := base64.RawURLEncoding.DecodeString(vpToken)
 	if err != nil {
 		logging.Log().Infof("Was not able to decode the form string %s. Err: %v", vpToken, err)
@@ -230,9 +230,6 @@ func handleAuthenticationResponse(c *gin.Context, state string, vpToken string) 
 
 	// TODO: Check that the key in vpObjectMap["proof"] is equal to the key that we retrieve from the DID Registry API of the TrustedIssuersRegistry
 
-	var rawCredentials []map[string]interface{}
-	var holder string
-
 	err = json.Unmarshal(verifiableCredentials, &rawCredentials)
 	if err != nil {
 		logging.Log().Infof("Was not able to decode the credentials from the token %s. Err: %v", vpToken, err)
@@ -245,6 +242,10 @@ func handleAuthenticationResponse(c *gin.Context, state string, vpToken string) 
 		c.AbortWithStatusJSON(400, ErrorMessageUnableToDecodeHolder)
 		return
 	}
+	return rawCredentials, holder, err
+}
+
+func handleAuthenticationResponse(c *gin.Context, state string, holder string, rawCredentials []map[string]interface{}) {
 
 	sameDeviceResponse, err := getApiVerifier().AuthenticationResponse(state, rawCredentials, holder)
 	if err != nil {
