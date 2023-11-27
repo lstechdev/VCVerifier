@@ -49,7 +49,7 @@ type Verifier interface {
 	ReturnLoginQR(host string, protocol string, callback string, sessionId string, clientId string) (qr string, err error)
 	StartSiopFlow(host string, protocol string, callback string, sessionId string, clientId string) (connectionString string, err error)
 	StartSameDeviceFlow(host string, protocol string, sessionId string, redirectPath string, clientId string) (authenticationRequest string, err error)
-	GetToken(grantType string, authorizationCode string, redirectUri string) (jwtString string, expiration int64, err error)
+	GetToken(authorizationCode string, redirectUri string) (jwtString string, expiration int64, err error)
 	GetJWKS() jwk.Set
 	AuthenticationResponse(state string, verifiableCredentials []map[string]interface{}, holder string) (sameDevice SameDeviceResponse, err error)
 	GenerateToken(clientId, subject, audience string, scope []string, verifiableCredentials []map[string]interface{}) (int64, string, error)
@@ -308,11 +308,7 @@ func (v *CredentialVerifier) StartSameDeviceFlow(host string, protocol string, s
 /**
 *   Returns an already generated jwt from the cache to properly authorized requests. Every token will only be returend once.
 **/
-func (v *CredentialVerifier) GetToken(grantType string, authorizationCode string, redirectUri string) (jwtString string, expiration int64, err error) {
-
-	if grantType != "authorization_code" {
-		return jwtString, expiration, ErrorWrongGrantType
-	}
+func (v *CredentialVerifier) GetToken(authorizationCode string, redirectUri string) (jwtString string, expiration int64, err error) {
 
 	tokenSessionInterface, hit := v.tokenCache.Get(authorizationCode)
 	if !hit {
@@ -421,11 +417,11 @@ func (v *CredentialVerifier) GetOpenIDConfiguration(host string, protocol string
 
 	return common.OpenIDProviderMetadata{
 		Issuer:                           verifierUrl,
-		AuthorizationEndpoint:            verifierUrl + "/token_m2m",
+		AuthorizationEndpoint:            verifierUrl,
 		TokenEndpoint:                    verifierUrl + "/token",
 		JwksUri:                          verifierUrl + "/.well-known/jwks",
-		GrantTypesSupported:              []string{"authorization_code"},
-		ResponseTypesSupported:           []string{"vp_token"},
+		GrantTypesSupported:              []string{"authorization_code", "vp_token"},
+		ResponseTypesSupported:           []string{"token"},
 		ResponseModeSupported:            []string{"direct_post"},
 		SubjectTypesSupported:            []string{"public"},
 		IdTokenSigningAlgValuesSupported: []string{"EdDSA", "ES256"},

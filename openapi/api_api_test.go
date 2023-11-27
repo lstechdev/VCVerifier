@@ -38,7 +38,7 @@ func (mV *mockVerifier) StartSiopFlow(host string, protocol string, callback str
 func (mV *mockVerifier) StartSameDeviceFlow(host string, protocol string, sessionId string, redirectPath string, clientId string) (authenticationRequest string, err error) {
 	return mV.mockAuthRequest, mV.mockError
 }
-func (mV *mockVerifier) GetToken(grantType string, authorizationCode string, redirectUri string) (jwtString string, expiration int64, err error) {
+func (mV *mockVerifier) GetToken(authorizationCode string, redirectUri string) (jwtString string, expiration int64, err error) {
 	return mV.mockJWTString, mV.mockExpiration, mV.mockError
 }
 func (mV *mockVerifier) GetJWKS() jwk.Set {
@@ -64,6 +64,8 @@ func TestGetToken(t *testing.T) {
 		testGrantType      string
 		testCode           string
 		testRedirectUri    string
+		testVPToken        string
+		testScope          string
 		mockJWTString      string
 		mockExpiration     int64
 		mockError          error
@@ -72,11 +74,16 @@ func TestGetToken(t *testing.T) {
 		expectedError      ErrorMessage
 	}
 	tests := []test{
-		{"If a valid request is received a token should be responded.", "authorization_code", "my-auth-code", "http://my-redirect.org", "theJWT", 10, nil, 200, TokenResponse{TokenType: "Bearer", ExpiresIn: 10, AccessToken: "theJWT"}, ErrorMessage{}},
-		{"If no grant type is provided, the request should fail.", "", "my-auth-code", "http://my-redirect.org", "theJWT", 10, nil, 400, TokenResponse{}, ErrorMessagNoGrantType},
-		{"If no auth code is provided, the request should fail.", "authorization_code", "", "http://my-redirect.org", "theJWT", 10, nil, 400, TokenResponse{}, ErrorMessageNoCode},
-		{"If no redirect uri is provided, the request should fail.", "authorization_code", "my-auth-code", "", "theJWT", 10, nil, 400, TokenResponse{}, ErrorMessageNoRedircetUri},
-		{"If the verify returns an error, a 403 should be answerd.", "authorization_code", "my-auth-code", "http://my-redirect.org", "", 10, errors.New("invalid"), 403, TokenResponse{}, ErrorMessage{}},
+		{testName: "If a valid authorization_code request is received a token should be responded.", testGrantType: "authorization_code", testCode: "my-auth-code", testRedirectUri: "http://my-redirect.org", mockJWTString: "theJWT", mockExpiration: 10, mockError: nil, expectedStatusCode: 200, expectedResponse: TokenResponse{TokenType: "Bearer", ExpiresIn: 10, AccessToken: "theJWT"}, expectedError: ErrorMessage{}},
+		{testName: "If no grant type is provided, the request should fail.", testGrantType: "", testCode: "my-auth-code", testRedirectUri: "http://my-redirect.org", expectedStatusCode: 400, expectedError: ErrorMessagNoGrantType},
+		{testName: "If an invalid grant type is provided, the request should fail.", testGrantType: "my_special_code", testCode: "my-auth-code", testRedirectUri: "http://my-redirect.org", expectedStatusCode: 400, expectedError: ErrorMessageUnsupportedGrantType},
+		{testName: "If no auth code is provided, the request should fail.", testGrantType: "authorization_code", testCode: "", testRedirectUri: "http://my-redirect.org", expectedStatusCode: 400, expectedError: ErrorMessageNoCode},
+		{testName: "If no redirect uri is provided, the request should fail.", testGrantType: "authorization_code", testCode: "my-auth-code", expectedStatusCode: 400, expectedError: ErrorMessageNoRedircetUri},
+		{testName: "If the verify returns an error, a 403 should be answerd.", testGrantType: "authorization_code", testCode: "my-auth-code", testRedirectUri: "http://my-redirect.org", mockError: errors.New("invalid"), expectedStatusCode: 403, expectedError: ErrorMessage{}},
+
+		{testName: "If a valid vp_token request is received a token should be responded.", testGrantType: "vp_token", testVPToken: getValidVPToken(), testScope: "tir_read", mockJWTString: "theJWT", mockExpiration: 10, expectedStatusCode: 200, expectedResponse: TokenResponse{TokenType: "Bearer", ExpiresIn: 10, AccessToken: "theJWT"}},
+		{testName: "If no valid vp_token is provided, the request should fail.", testGrantType: "vp_token", testScope: "tir_read", expectedStatusCode: 400, expectedError: ErrorMessageNoToken},
+		{testName: "If no valid scope is provided, the request should fail.", testVPToken: getValidVPToken(), testGrantType: "vp_token", expectedStatusCode: 400, expectedError: ErrorMessageNoScope},
 	}
 
 	for _, tc := range tests {
@@ -97,6 +104,14 @@ func TestGetToken(t *testing.T) {
 		}
 		if tc.testRedirectUri != "" {
 			formArray = append(formArray, "redirect_uri="+tc.testRedirectUri)
+		}
+
+		if tc.testScope != "" {
+			formArray = append(formArray, "scope="+tc.testScope)
+		}
+
+		if tc.testVPToken != "" {
+			formArray = append(formArray, "vp_token="+tc.testVPToken)
 		}
 
 		body := bytes.NewBufferString(strings.Join(formArray, "&"))
