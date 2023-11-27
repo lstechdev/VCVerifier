@@ -8,11 +8,12 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/url"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 
 	configModel "github.com/fiware/VCVerifier/config"
 	logging "github.com/fiware/VCVerifier/logging"
@@ -542,7 +543,6 @@ func TestGetToken(t *testing.T) {
 
 	type test struct {
 		testName           string
-		testGrantType      string
 		testCode           string
 		testRedirectUri    string
 		tokenSession       map[string]tokenStore
@@ -554,11 +554,10 @@ func TestGetToken(t *testing.T) {
 	}
 
 	tests := []test{
-		{"If a valid code is provided, the token should be returned.", "authorization_code", "my-auth-code", "https://myhost.org/redirect", map[string]tokenStore{"my-auth-code": {token: getToken(), redirect_uri: "https://myhost.org/redirect"}}, testKey, nil, getToken(), 1000, nil},
-		{"If the wrong grant_type is provided, an error should be returned.", "implicit", "my-auth-code", "https://myhost.org/redirect", map[string]tokenStore{"my-auth-code": {token: getToken(), redirect_uri: "https://myhost.org/redirect"}}, testKey, nil, nil, 0, ErrorWrongGrantType},
-		{"If the no such code exists, an error should be returned.", "authorization_code", "another-auth-code", "https://myhost.org/redirect", map[string]tokenStore{"my-auth-code": {token: getToken(), redirect_uri: "https://myhost.org/redirect"}}, testKey, nil, nil, 0, ErrorNoSuchCode},
-		{"If the redirect uri does not match, an error should be returned.", "authorization_code", "my-auth-code", "https://my-other-host.org/redirect", map[string]tokenStore{"my-auth-code": {token: getToken(), redirect_uri: "https://myhost.org/redirect"}}, testKey, nil, nil, 0, ErrorRedirectUriMismatch},
-		{"If the token cannot be signed, an error should be returned.", "authorization_code", "my-auth-code", "https://myhost.org/redirect", map[string]tokenStore{"my-auth-code": {token: getToken(), redirect_uri: "https://myhost.org/redirect"}}, testKey, signingError, nil, 0, signingError},
+		{"If a valid code is provided, the token should be returned.", "my-auth-code", "https://myhost.org/redirect", map[string]tokenStore{"my-auth-code": {token: getToken(), redirect_uri: "https://myhost.org/redirect"}}, testKey, nil, getToken(), 1000, nil},
+		{"If the no such code exists, an error should be returned.", "another-auth-code", "https://myhost.org/redirect", map[string]tokenStore{"my-auth-code": {token: getToken(), redirect_uri: "https://myhost.org/redirect"}}, testKey, nil, nil, 0, ErrorNoSuchCode},
+		{"If the redirect uri does not match, an error should be returned.", "my-auth-code", "https://my-other-host.org/redirect", map[string]tokenStore{"my-auth-code": {token: getToken(), redirect_uri: "https://myhost.org/redirect"}}, testKey, nil, nil, 0, ErrorRedirectUriMismatch},
+		{"If the token cannot be signed, an error should be returned.", "my-auth-code", "https://myhost.org/redirect", map[string]tokenStore{"my-auth-code": {token: getToken(), redirect_uri: "https://myhost.org/redirect"}}, testKey, signingError, nil, 0, signingError},
 	}
 
 	for _, tc := range tests {
@@ -567,7 +566,7 @@ func TestGetToken(t *testing.T) {
 
 			tokenCache := mockTokenCache{tokens: tc.tokenSession}
 			verifier := CredentialVerifier{tokenCache: &tokenCache, signingKey: testKey, clock: mockClock{}, tokenSigner: mockTokenSigner{tc.signingError}}
-			jwtString, expiration, err := verifier.GetToken(tc.testGrantType, tc.testCode, tc.testRedirectUri)
+			jwtString, expiration, err := verifier.GetToken(tc.testCode, tc.testRedirectUri)
 
 			if err != tc.expectedError {
 				t.Errorf("%s - Expected error %v but was %v.", tc.testName, tc.expectedError, err)
