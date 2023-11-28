@@ -43,9 +43,11 @@ func (ac AuthorizingHttpClient) Get(tirAddress string, tirPath string) (resp *ht
 	urlString := buildUrlString(tirAddress, tirPath)
 	resp, err = ac.httpClient.Get(urlString)
 	if err != nil {
+		logging.Log().Infof("Was not able to get a response. Err: %v", err)
 		return resp, err
 	}
 	if resp.StatusCode != 403 && resp.StatusCode != 401 {
+		logging.Log().Infof("Response was %v", resp)
 		return resp, err
 	}
 
