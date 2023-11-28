@@ -75,7 +75,7 @@ type Claim struct {
 	AllowedValues []interface{} `json:"allowedValues"`
 }
 
-func NewTirHttpClient(tokenProvider *TokenProvider) (client TirClient, err error) {
+func NewTirHttpClient(tokenProvider TokenProvider, enableAuth bool) (client TirClient, err error) {
 
 	httpClient := &http.Client{}
 	_, err = httpcache.NewWithInmemoryCache(httpClient, true, time.Second*60)
@@ -84,9 +84,9 @@ func NewTirHttpClient(tokenProvider *TokenProvider) (client TirClient, err error
 		return
 	}
 	var httpGetClient HttpGetClient
-	if tokenProvider != nil {
+	if enableAuth {
 		logging.Log().Infof("Provider is %v", tokenProvider)
-		httpGetClient = AuthorizingHttpClient{httpClient: httpClient, tokenProvider: *tokenProvider}
+		httpGetClient = AuthorizingHttpClient{httpClient: httpClient, tokenProvider: tokenProvider}
 	} else {
 		httpGetClient = NoAuthHttpClient{httpClient: httpClient}
 	}
