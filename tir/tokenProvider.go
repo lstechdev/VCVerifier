@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	ld "github.com/piprate/json-gold/ld"
 )
 
@@ -192,8 +193,19 @@ func getCredential(vcPath string) (vc *verifiable.Credential, err error) {
 		logging.Log().Warnf("Was not able to read the vc file from %s. err: %v", vcPath, err)
 		return vc, err
 	}
-
-	return verifiable.ParseCredential(vcBytes)
+	// create the framework
+	framework, err := aries.New()
+	if err != nil {
+		logging.Log().Warnf("Was not able to initiate aries. Err: %v", err)
+		return vc, err
+	}
+	// get the context
+	ctx, err := framework.Context()
+	if err != nil {
+		logging.Log().Warnf("Was unable to retrieve the framework context. Err: %v", err)
+		return vc, err
+	}
+	return verifiable.ParseCredential(vcBytes, verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(ctx.VDRegistry()).PublicKeyFetcher()))
 }
 
 // file system interfaces
