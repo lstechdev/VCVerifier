@@ -34,8 +34,10 @@ func (tpvs *TrustedParticipantVerificationService) VerifyVC(verifiableCredential
 	return tpvs.tirClient.IsTrustedParticipant(getFirstElementOfMap(trustContext.GetTrustedParticipantLists()), verifiableCredential.Issuer), err
 }
 
-func getFirstElementOfMap(slices map[string][]string) []string{
+func getFirstElementOfMap(slices map[string][]string) []string {
+	logging.Log().Infof("Participants are: %v", slices)
 	for _, value := range slices {
+		logging.Log().Infof("First Value is %v", value)
 		return value
 	}
 	return []string{}
