@@ -218,6 +218,7 @@ func InitVerifier(config *configModel.Configuration, ssiKitClient ssikit.SSIKit)
 			logging.Log().Errorf("Was not able to instantiate the token provider. Err: %v", err)
 			return err
 		}
+		logging.Log().Info("Successfully created token provider")
 	}
 
 	tirClient, err := tir.NewTirHttpClient(&tokenProvider)

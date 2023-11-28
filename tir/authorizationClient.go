@@ -86,6 +86,7 @@ func buildUrlString(address string, path string) string {
 
 func (ac AuthorizingHttpClient) handleAuthorization(tirAddress string) (bearerToken string, err error) {
 	logging.Log().Info("Handle Auth")
+	logging.Log().Infof("Token provider is %v", ac.tokenProvider)
 	vc, err := (*ac.tokenProvider).GetAuthCredential()
 	if err != nil {
 		logging.Log().Warnf("No credential configured for auth. Err: %v", err)

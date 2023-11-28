@@ -85,6 +85,7 @@ func InitM2MTokenProvider(config *configModel.Configuration, clock common.Clock)
 		return tokenProvider, ErrorTokenProviderNoVC
 	}
 	if config.Verifier.Did == "" {
+		logging.Log().Warn("No did for token provider")
 		return tokenProvider, ErrorTokenProviderNoDid
 	}
 
