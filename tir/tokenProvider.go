@@ -2,8 +2,8 @@ package tir
 
 import (
 	"crypto/rsa"
-	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"os"
@@ -12,6 +12,7 @@ import (
 	configModel "github.com/fiware/VCVerifier/config"
 	"github.com/fiware/VCVerifier/logging"
 	"github.com/google/uuid"
+	lestrrat "github.com/lestrrat-go/jwx/jwk"
 
 	v4 "github.com/golang-jwt/jwt/v4"
 	ldprocessor "github.com/hyperledger/aries-framework-go/component/models/ld/processor"
@@ -77,13 +78,21 @@ func InitM2MTokenProvider(config *configModel.Configuration, clock common.Clock)
 		logging.Log().Warnf("Was not able to load the signing key. Err: %v", err)
 		return tokenProvider, err
 	}
+	jwkHolder, err := lestrrat.New(privateKey)
+	if err != nil {
+		logging.Log().Infof("Was not able to load private key to jwk. Err: %v", err)
+		return tokenProvider, err
+	}
+	keyBytes, err := json.Marshal(jwkHolder)
+	if err != nil {
+		logging.Log().Warnf("Was not able to marshal the key. Err: %v", err)
+		return tokenProvider, err
+	}
 
-	var jwk jwk.JWK
-	jwk.UnmarshalJSON(x509.MarshalPKCS1PrivateKey(privateKey))
-	logging.Log().Infof("Jwk %v", jwk)
-	t, _ := jwk.KeyType()
-	logging.Log().Infof("Keytpye %v", t)
-	signer, err := util.GetSigner(&jwk)
+	var theKey jwk.JWK
+
+	theKey.UnmarshalJSON(keyBytes)
+	signer, err := util.GetSigner(&theKey)
 	if err != nil {
 		logging.Log().Warnf("Was not able to create the token signer. Err: %v", err)
 		return tokenProvider, err
