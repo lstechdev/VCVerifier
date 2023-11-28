@@ -40,6 +40,7 @@ func (nac NoAuthHttpClient) Get(tirAddress string, tirPath string) (resp *http.R
 }
 
 func (ac AuthorizingHttpClient) Get(tirAddress string, tirPath string) (resp *http.Response, err error) {
+	logging.Log().Debug("Get through the auth client.")
 	urlString := buildUrlString(tirAddress, tirPath)
 	resp, err = ac.httpClient.Get(urlString)
 	if err != nil {
@@ -50,7 +51,7 @@ func (ac AuthorizingHttpClient) Get(tirAddress string, tirPath string) (resp *ht
 		logging.Log().Infof("Response was %v", resp)
 		return resp, err
 	}
-
+	logging.Log().Info("No auth yet")
 	bearerToken, err := ac.handleAuthorization(tirAddress)
 	if err != nil {
 		logging.Log().Warnf("Was not able to get a bearer token. Err: %v", err)
@@ -84,6 +85,7 @@ func buildUrlString(address string, path string) string {
 }
 
 func (ac AuthorizingHttpClient) handleAuthorization(tirAddress string) (bearerToken string, err error) {
+	logging.Log().Info("Handle Auth")
 	vc, err := (*ac.tokenProvider).GetAuthCredential()
 	if err != nil {
 		logging.Log().Warnf("No credential configured for auth. Err: %v", err)

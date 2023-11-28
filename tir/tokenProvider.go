@@ -98,6 +98,7 @@ func InitM2MTokenProvider(config *configModel.Configuration, clock common.Clock)
 }
 
 func (tokenProvider M2MTokenProvider) GetAuthCredential() (vc *verifiable.Credential, err error) {
+	logging.Log().Info("Get cred")
 	return tokenProvider.authCredential, err
 }
 

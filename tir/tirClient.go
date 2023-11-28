@@ -193,6 +193,7 @@ func (tc TirHttpClient) requestDidDocument(tirEndpoint string, did string) (didD
 
 func (tc TirHttpClient) requestIssuerWithVersion(tirEndpoint string, didPath string) (response *http.Response, err error) {
 	logging.Log().Debugf("Get issuer %s/%s.", tirEndpoint, didPath)
+	logging.Log().Debugf("Client %v", tc.client)
 	resp, err := tc.client.Get(tirEndpoint, didPath)
 	if err != nil {
 		logging.Log().Warnf("Was not able to get the issuer %s from %s. Err: %v", didPath, tirEndpoint, err)
