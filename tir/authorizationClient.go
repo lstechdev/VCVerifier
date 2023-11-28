@@ -45,7 +45,7 @@ func (ac AuthorizingHttpClient) Get(tirAddress string, tirPath string) (resp *ht
 	if err != nil {
 		return resp, err
 	}
-	if resp.StatusCode != 403 {
+	if resp.StatusCode != 403 && resp.StatusCode != 401 {
 		return resp, err
 	}
 
