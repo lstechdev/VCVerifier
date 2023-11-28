@@ -202,7 +202,7 @@ func (tc TirHttpClient) requestIssuerWithVersion(tirEndpoint string, didPath str
 		logging.Log().Warnf("Was not able to get any response for issuer %s from %s.", didPath, tirEndpoint)
 		return nil, ErrorTirNoResponse
 	}
-
+	logging.Log().Infof("Got response %v", resp)
 	return resp, err
 }
 
