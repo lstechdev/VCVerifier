@@ -1,6 +1,8 @@
 package tir
 
 import (
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/base64"
 	"errors"
 	"net/http"
@@ -11,12 +13,12 @@ import (
 	"github.com/fiware/VCVerifier/logging"
 	"github.com/google/uuid"
 
-	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
+	v4 "github.com/golang-jwt/jwt/v4"
 	ldprocessor "github.com/hyperledger/aries-framework-go/component/models/ld/processor"
 	"github.com/hyperledger/aries-framework-go/component/models/signature/suite"
 	"github.com/hyperledger/aries-framework-go/component/models/signature/util"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	ld "github.com/piprate/json-gold/ld"
 )
@@ -75,7 +77,10 @@ func InitM2MTokenProvider(config *configModel.Configuration, clock common.Clock)
 		logging.Log().Warnf("Was not able to load the signing key. Err: %v", err)
 		return tokenProvider, err
 	}
-	signer, err := signature.GetSigner(privateKey)
+
+	var jwk jwk.JWK
+	jwk.UnmarshalJSON(x509.MarshalPKCS1PrivateKey(privateKey))
+	signer, err := util.GetSigner(&jwk)
 	if err != nil {
 		logging.Log().Warnf("Was not able to create the token signer. Err: %v", err)
 		return tokenProvider, err
@@ -153,15 +158,20 @@ func (tp M2MTokenProvider) signVerifiablePresentation(authCredential *verifiable
 /**
 * Read siging key from local filesystem
  */
-func getSigningKey(keyPath string) (key *jwk.JWK, err error) {
+func getSigningKey(keyPath string) (key *rsa.PrivateKey, err error) {
 	// read key file
 	rawKey, err := localFileAccessor.ReadFile(keyPath)
 	if err != nil {
 		logging.Log().Warnf("Was not able to read the key file from %s. err: %v", keyPath, err)
 		return key, err
+	} // parse key file
+	key, err = v4.ParseRSAPrivateKeyFromPEM(rawKey)
+	if err != nil {
+		logging.Log().Warnf("Was not able to parse the key %s. err: %v", rawKey, err)
+		return key, err
 	}
-	err = key.UnmarshalJSON(rawKey)
-	return key, err
+
+	return
 }
 
 func getCredential(vcPath string) (vc *verifiable.Credential, err error) {
