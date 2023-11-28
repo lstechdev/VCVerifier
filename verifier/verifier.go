@@ -53,7 +53,7 @@ type Verifier interface {
 	GetJWKS() jwk.Set
 	AuthenticationResponse(state string, verifiableCredentials []map[string]interface{}, holder string) (sameDevice SameDeviceResponse, err error)
 	GenerateToken(clientId, subject, audience string, scope []string, verifiableCredentials []map[string]interface{}) (int64, string, error)
-	GetOpenIDConfiguration(host string, protocol string, serviceIdentifier string) common.OpenIDProviderMetadata
+	GetOpenIDConfiguration(host string, protocol string, serviceIdentifier string) (metadata common.OpenIDProviderMetadata, err error)
 }
 
 type VerificationService interface {
@@ -407,12 +407,12 @@ func (v *CredentialVerifier) GenerateToken(clientId, subject, audience string, s
 	return expiration, string(tokenBytes), nil
 }
 
-func (v *CredentialVerifier) GetOpenIDConfiguration(host string, protocol string, serviceIdentifier string) common.OpenIDProviderMetadata {
+func (v *CredentialVerifier) GetOpenIDConfiguration(host string, protocol string, serviceIdentifier string) (metadata common.OpenIDProviderMetadata, err error) {
 	verifierUrl := fmt.Sprintf("%s://%s", protocol, host)
 
 	scopes, err := v.credentialsConfig.GetScope(serviceIdentifier)
 	if err != nil {
-		return common.OpenIDProviderMetadata{}
+		return metadata, err
 	}
 
 	return common.OpenIDProviderMetadata{
@@ -425,7 +425,7 @@ func (v *CredentialVerifier) GetOpenIDConfiguration(host string, protocol string
 		ResponseModeSupported:            []string{"direct_post"},
 		SubjectTypesSupported:            []string{"public"},
 		IdTokenSigningAlgValuesSupported: []string{"EdDSA", "ES256"},
-		ScopesSupported:                  scopes}
+		ScopesSupported:                  scopes}, err
 }
 
 /**

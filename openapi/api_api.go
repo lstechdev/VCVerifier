@@ -270,8 +270,12 @@ func VerifierAPIOpenIDConfiguration(c *gin.Context) {
 	if c.Request.TLS == nil {
 		protocol = "http"
 	}
-
-	c.JSON(http.StatusOK, getApiVerifier().GetOpenIDConfiguration(c.Request.Host, protocol, c.Param("serviceIdentifier")))
+	metadata, err := getApiVerifier().GetOpenIDConfiguration(c.Request.Host, protocol, c.Param("serviceIdentifier"))
+	if err != nil {
+		c.AbortWithStatusJSON(500, ErrorMessage{err.Error(), "Was not able to generate the OpenID metadata."})
+		return
+	}
+	c.JSON(http.StatusOK, metadata)
 }
 
 // VerifierAPIStartSIOP - Initiates the siop flow and returns the 'openid://...' connection string

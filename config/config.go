@@ -36,6 +36,8 @@ type M2M struct {
 	KeyPath string `mapstructure:"keyPath"`
 	// path to the credential to be used for auth
 	CredentialPath string `mapstructure:"credentialPath"`
+	// verification method to be provided for the ld-proof
+	VerificationMethod string `mapstructure:"verificationMethod"`
 }
 
 // logging config

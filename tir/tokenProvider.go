@@ -1,20 +1,24 @@
 package tir
 
 import (
-	"crypto/rsa"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
+	"net/http"
 	"os"
-	"time"
 
 	common "github.com/fiware/VCVerifier/common"
 	configModel "github.com/fiware/VCVerifier/config"
 	"github.com/fiware/VCVerifier/logging"
-	v4 "github.com/golang-jwt/jwt/v4"
-	"github.com/lestrrat-go/jwx/jwa"
-	"github.com/lestrrat-go/jwx/jwk"
-	"github.com/lestrrat-go/jwx/jwt"
+	"github.com/google/uuid"
+
+	"github.com/hyperledger/aries-framework-go/component/kmscrypto/doc/jose/jwk"
+	ldprocessor "github.com/hyperledger/aries-framework-go/component/models/ld/processor"
+	"github.com/hyperledger/aries-framework-go/component/models/signature/suite"
+	"github.com/hyperledger/aries-framework-go/component/models/signature/util"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	ld "github.com/piprate/json-gold/ld"
 )
 
 /**
@@ -24,51 +28,64 @@ var localFileAccessor fileAccessor = diskFileAccessor{}
 
 var ErrorTokenProviderNoKey = errors.New("no_key_configured")
 var ErrorTokenProviderNoVC = errors.New("no_vc_configured")
+var ErrorTokenProviderNoVerificationMethod = errors.New("no_verification_method_configured")
+var ErrorBadPrivateKey = errors.New("bad_private_key_length")
+var ErrorTokenProviderNoDid = errors.New("no_did_configured")
 
 type TokenProvider interface {
-	GetToken(payload []map[string]interface{}, audience string) (string, error)
-	GetAuthCredential() (vc []map[string]interface{}, err error)
+	GetToken(vc *verifiable.Credential, audience string) (string, error)
+	GetAuthCredential() (vc *verifiable.Credential, err error)
 }
 
 type M2MTokenProvider struct {
 	// encodes the token according to the configuration
 	tokenEncoder TokenEncoder
 	// the credential
-	authCredential []map[string]interface{}
+	authCredential *verifiable.Credential
+	// Signer for the Verifiable Presentation
+	signer util.Signer
+	// clock to get issuance time from
+	clock common.Clock
+	// verification method to be used on the tokens
+	verificationMethod string
+	// did of the token provider
+	did string
 }
 
 type TokenEncoder interface {
-	GetEncodedToken(payload []map[string]interface{}, audience string) (encodedToken string, err error)
+	GetEncodedToken(vp *verifiable.Presentation, audience string) (encodedToken string, err error)
 }
 
 type Base64TokenEncoder struct{}
 
-type JWTTokenEncoder struct {
-	// key to be used for signing jwt's
-	signingKey jwk.Key
-	// token signer to be used
-	tokenSigner common.TokenSigner
-	// time provider
-	clock common.Clock
-	// did of the token provider
-	issuerDid string
-}
-
 func InitM2MTokenProvider(config *configModel.Configuration, clock common.Clock) (tokenProvider TokenProvider, err error) {
 	m2mConfig := config.M2M
 
-	var tokenEncoder TokenEncoder
-	if m2mConfig.KeyPath != "" {
-		tokenEncoder, err = InitJWTTokenEncoder(m2mConfig.KeyPath, config.Verifier.Did)
-	} else {
-		tokenEncoder = Base64TokenEncoder{}
+	if m2mConfig.KeyPath == "" {
+		logging.Log().Warn("No private key configured, cannot provide m2m tokens.")
+		return tokenProvider, ErrorTokenProviderNoKey
 	}
+	if m2mConfig.VerificationMethod == "" {
+		logging.Log().Warn("No verification method configured, cannot provide m2m tokens.")
+		return tokenProvider, ErrorTokenProviderNoVerificationMethod
+	}
+
+	privateKey, err := getSigningKey(m2mConfig.KeyPath)
 	if err != nil {
-		logging.Log().Warnf("Was not able to create the token encoder. Err: %v", err)
+		logging.Log().Warnf("Was not able to load the signing key. Err: %v", err)
+		return tokenProvider, err
+	}
+	signer, err := signature.GetSigner(privateKey)
+	if err != nil {
+		logging.Log().Warnf("Was not able to create the token signer. Err: %v", err)
+		return tokenProvider, err
 	}
 
 	if m2mConfig.CredentialPath == "" {
 		return tokenProvider, ErrorTokenProviderNoVC
+	}
+	if config.Verifier.Did == "" {
+		return tokenProvider, ErrorTokenProviderNoDid
 	}
 
 	vc, err := getCredential(m2mConfig.CredentialPath)
@@ -76,39 +93,27 @@ func InitM2MTokenProvider(config *configModel.Configuration, clock common.Clock)
 		logging.Log().Warnf("Was not able to load the credential. Err: %v", err)
 		return tokenProvider, err
 	}
-	return M2MTokenProvider{tokenEncoder: tokenEncoder, authCredential: vc}, err
+
+	return M2MTokenProvider{tokenEncoder: Base64TokenEncoder{}, authCredential: vc, signer: signer, did: config.Verifier.Did, clock: clock, verificationMethod: m2mConfig.VerificationMethod}, err
 }
 
-func InitJWTTokenEncoder(keyPath string, issuerDid string) (tokenEncoder TokenEncoder, err error) {
-	if issuerDid == "" {
-		logging.Log().Warn("No did configured for the verifier.")
-		return tokenEncoder, err
-	}
-	var signingKey jwk.RSAPrivateKey
-	rawKey, err := getSigningKey(keyPath)
-	if err != nil {
-		logging.Log().Warnf("Was not able to read the signing key. E: %s", err)
-		return tokenEncoder, err
-	}
-	err = signingKey.FromRaw(rawKey)
-	if err != nil {
-		logging.Log().Warnf("Was not able to read the raw key. E: %s", err)
-		return tokenEncoder, err
-
-	}
-	return JWTTokenEncoder{signingKey: signingKey, tokenSigner: common.JwtTokenSigner{}, clock: common.RealClock{}, issuerDid: issuerDid}, err
-}
-
-func (tokenProvider M2MTokenProvider) GetAuthCredential() (vc []map[string]interface{}, err error) {
+func (tokenProvider M2MTokenProvider) GetAuthCredential() (vc *verifiable.Credential, err error) {
 	return tokenProvider.authCredential, err
 }
 
-func (tokenProvider M2MTokenProvider) GetToken(payload []map[string]interface{}, audience string) (token string, err error) {
-	return tokenProvider.tokenEncoder.GetEncodedToken(payload, audience)
+func (tokenProvider M2MTokenProvider) GetToken(vc *verifiable.Credential, audience string) (token string, err error) {
+
+	vp, err := tokenProvider.signVerifiablePresentation(vc)
+	if err != nil {
+		logging.Log().Warnf("Was not able to get a signed verifiable presentation. Err: %v", err)
+		return token, err
+	}
+	return tokenProvider.tokenEncoder.GetEncodedToken(vp, audience)
 }
 
-func (base64TokenEncoder Base64TokenEncoder) GetEncodedToken(payload []map[string]interface{}, audience string) (encodedToken string, err error) {
-	marshalledPayload, err := json.Marshal(payload)
+func (base64TokenEncoder Base64TokenEncoder) GetEncodedToken(vc *verifiable.Presentation, audience string) (encodedToken string, err error) {
+
+	marshalledPayload, err := vc.MarshalJSON()
 	if err != nil {
 		logging.Log().Warnf("Was not able to marshal the token payload. Err: %v", err)
 		return encodedToken, err
@@ -117,58 +122,54 @@ func (base64TokenEncoder Base64TokenEncoder) GetEncodedToken(payload []map[strin
 	return base64.RawURLEncoding.EncodeToString(marshalledPayload), err
 }
 
-func (jwtTokenEncoder JWTTokenEncoder) GetEncodedToken(payload []map[string]interface{}, audience string) (encodedToken string, err error) {
-	now := jwtTokenEncoder.clock.Now()
-	jwtBuilder := jwt.NewBuilder().Issuer(jwtTokenEncoder.issuerDid).Audience([]string{audience}).IssuedAt(now).Claim("kid", jwtTokenEncoder.signingKey.KeyID()).Expiration(now.Add(time.Minute*30)).Claim("vp", payload)
-	unsignedToken, err := jwtBuilder.Build()
+func (tp M2MTokenProvider) signVerifiablePresentation(authCredential *verifiable.Credential) (vp *verifiable.Presentation, err error) {
+	vp, err = verifiable.NewPresentation(verifiable.WithCredentials(authCredential))
 	if err != nil {
-		logging.Log().Warnf("Was not able to build the token. E: %s", err)
-		return encodedToken, err
+		logging.Log().Warnf("Was not able to create a presentation. Err: %v", err)
+		return vp, err
 	}
-	// use the same signing algorithm like for the i4trust tokens
-	signedToken, err := jwtTokenEncoder.tokenSigner.Sign(unsignedToken, jwa.ES256, jwtTokenEncoder.signingKey)
+	vp.ID = "urn:uuid:" + uuid.NewString()
+	vp.Holder = tp.did
+
+	created := tp.clock.Now()
+	err = vp.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
+		Created:                 &created,
+		SignatureType:           "Ed25519Signature2018",
+		Suite:                   ed25519signature2018.New(suite.WithSigner(tp.signer)),
+		SignatureRepresentation: verifiable.SignatureJWS,
+		VerificationMethod:      tp.verificationMethod,
+	}, ldprocessor.WithDocumentLoader(ld.NewDefaultDocumentLoader(http.DefaultClient)))
+
 	if err != nil {
-		logging.Log().Warnf("Was not able to sign the token. Err: %v", err)
-		return encodedToken, err
+		logging.Log().Warnf("Was not able to add an ld-proof. Err: %v", err)
+		return vp, err
 	}
 
-	return string(signedToken), err
+	return vp, err
 }
 
 /**
 * Read siging key from local filesystem
  */
-func getSigningKey(keyPath string) (key *rsa.PrivateKey, err error) {
+func getSigningKey(keyPath string) (key *jwk.JWK, err error) {
 	// read key file
-	priv, err := localFileAccessor.ReadFile(keyPath)
+	rawKey, err := localFileAccessor.ReadFile(keyPath)
 	if err != nil {
 		logging.Log().Warnf("Was not able to read the key file from %s. err: %v", keyPath, err)
 		return key, err
 	}
-
-	// parse key file
-	key, err = v4.ParseRSAPrivateKeyFromPEM(priv)
-	if err != nil {
-		logging.Log().Warnf("Was not able to parse the key %s. err: %v", priv, err)
-		return key, err
-	}
-
-	return
+	err = key.UnmarshalJSON(rawKey)
+	return key, err
 }
 
-func getCredential(vcPath string) (vc []map[string]interface{}, err error) {
+func getCredential(vcPath string) (vc *verifiable.Credential, err error) {
 	vcBytes, err := localFileAccessor.ReadFile(vcPath)
 	if err != nil {
 		logging.Log().Warnf("Was not able to read the vc file from %s. err: %v", vcPath, err)
 		return vc, err
 	}
 
-	err = json.Unmarshal(vcBytes, &vc)
-	if err != nil {
-		logging.Log().Warnf("Was not able to unmarshal the vc. Err: %v", err)
-		return vc, err
-	}
-	return vc, err
+	return verifiable.ParseCredential(vcBytes)
 }
 
 // file system interfaces

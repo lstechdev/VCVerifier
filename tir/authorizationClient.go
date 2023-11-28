@@ -87,6 +87,7 @@ func (ac AuthorizingHttpClient) handleAuthorization(tirAddress string) (bearerTo
 		logging.Log().Warnf("No credential configured for auth. Err: %v", err)
 		return bearerToken, err
 	}
+
 	vpToken, err := (*ac.tokenProvider).GetToken(vc, tirAddress)
 	if err != nil {
 		logging.Log().Warnf("Was not able to get a VP Token. Err: %v", err)
