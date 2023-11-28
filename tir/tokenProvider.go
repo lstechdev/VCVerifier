@@ -80,6 +80,9 @@ func InitM2MTokenProvider(config *configModel.Configuration, clock common.Clock)
 
 	var jwk jwk.JWK
 	jwk.UnmarshalJSON(x509.MarshalPKCS1PrivateKey(privateKey))
+	logging.Log().Infof("Jwk %v", jwk)
+	t, _ := jwk.KeyType()
+	logging.Log().Infof("Keytpye %v", t)
 	signer, err := util.GetSigner(&jwk)
 	if err != nil {
 		logging.Log().Warnf("Was not able to create the token signer. Err: %v", err)
