@@ -86,7 +86,7 @@ func NewTirHttpClient(tokenProvider *TokenProvider) (client TirClient, err error
 	var httpGetClient HttpGetClient
 	if tokenProvider != nil {
 		logging.Log().Infof("Provider is %v", tokenProvider)
-		httpGetClient = AuthorizingHttpClient{httpClient: httpClient, tokenProvider: tokenProvider}
+		httpGetClient = AuthorizingHttpClient{httpClient: httpClient, tokenProvider: *tokenProvider}
 	} else {
 		httpGetClient = NoAuthHttpClient{httpClient: httpClient}
 	}

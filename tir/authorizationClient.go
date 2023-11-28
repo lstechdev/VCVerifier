@@ -27,7 +27,7 @@ type HttpGetClient interface {
 
 type AuthorizingHttpClient struct {
 	httpClient    HttpClient
-	tokenProvider *TokenProvider
+	tokenProvider TokenProvider
 }
 
 type NoAuthHttpClient struct {
@@ -87,13 +87,13 @@ func buildUrlString(address string, path string) string {
 func (ac AuthorizingHttpClient) handleAuthorization(tirAddress string) (bearerToken string, err error) {
 	logging.Log().Info("Handle Auth")
 	logging.Log().Infof("Token provider is %v", ac.tokenProvider)
-	vc, err := (*ac.tokenProvider).GetAuthCredential()
+	vc, err := ac.tokenProvider.GetAuthCredential()
 	if err != nil {
 		logging.Log().Warnf("No credential configured for auth. Err: %v", err)
 		return bearerToken, err
 	}
 
-	vpToken, err := (*ac.tokenProvider).GetToken(vc, tirAddress)
+	vpToken, err := ac.tokenProvider.GetToken(vc, tirAddress)
 	if err != nil {
 		logging.Log().Warnf("Was not able to get a VP Token. Err: %v", err)
 		return bearerToken, err
