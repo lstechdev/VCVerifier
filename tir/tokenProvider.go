@@ -18,10 +18,13 @@ import (
 	ldprocessor "github.com/hyperledger/aries-framework-go/component/models/ld/processor"
 	"github.com/hyperledger/aries-framework-go/component/models/signature/suite"
 	"github.com/hyperledger/aries-framework-go/component/models/signature/util"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/web"
 	ld "github.com/piprate/json-gold/ld"
 )
 
@@ -201,11 +204,26 @@ func getCredential(vcPath string) (vc *verifiable.Credential, err error) {
 	}
 	// get the context
 	ctx, err := framework.Context()
+
 	if err != nil {
 		logging.Log().Warnf("Was unable to retrieve the framework context. Err: %v", err)
 		return vc, err
 	}
-	return verifiable.ParseCredential(vcBytes, verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(ctx.VDRegistry()).PublicKeyFetcher()))
+
+	didWeb := webResolver{vdr: *web.New()}
+
+	defaultResolver := verifiable.NewVDRKeyResolver(ctx.VDRegistry())
+	webResolver := verifiable.NewVDRKeyResolver(didWeb)
+
+	return verifiable.ParseCredential(vcBytes, verifiable.WithPublicKeyFetcher(defaultResolver.PublicKeyFetcher()), verifiable.WithPublicKeyFetcher(webResolver.PublicKeyFetcher()))
+}
+
+type webResolver struct {
+	vdr web.VDR
+}
+
+func (wr webResolver) Resolve(did string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+	return wr.vdr.Read(did)
 }
 
 // file system interfaces
