@@ -215,7 +215,7 @@ func getCredential(vcPath string) (vc *verifiable.Credential, err error) {
 	defaultResolver := verifiable.NewVDRKeyResolver(ctx.VDRegistry())
 	webResolver := verifiable.NewVDRKeyResolver(didWeb)
 
-	return verifiable.ParseCredential(vcBytes, verifiable.WithPublicKeyFetcher(defaultResolver.PublicKeyFetcher()), verifiable.WithPublicKeyFetcher(webResolver.PublicKeyFetcher()))
+	return verifiable.ParseCredential(vcBytes, verifiable.WithJSONLDDocumentLoader(ld.NewDefaultDocumentLoader(http.DefaultClient)), verifiable.WithPublicKeyFetcher(defaultResolver.PublicKeyFetcher()), verifiable.WithPublicKeyFetcher(webResolver.PublicKeyFetcher()))
 }
 
 type webResolver struct {
