@@ -160,7 +160,7 @@ func (tp M2MTokenProvider) signVerifiablePresentation(authCredential *verifiable
 		Suite:                   ed25519signature2018.New(suite.WithSigner(tp.signer)),
 		SignatureRepresentation: verifiable.SignatureJWS,
 		VerificationMethod:      tp.verificationMethod,
-	}, ldprocessor.WithDocumentLoader(ld.NewDefaultDocumentLoader(http.DefaultClient)))
+	}, ldprocessor.WithRemoveAllInvalidRDF(), ldprocessor.WithDocumentLoader(ld.NewDefaultDocumentLoader(http.DefaultClient)))
 
 	if err != nil {
 		logging.Log().Warnf("Was not able to add an ld-proof. Err: %v", err)
@@ -215,7 +215,7 @@ func getCredential(vcPath string) (vc *verifiable.Credential, err error) {
 	//webResolver := verifiable.NewVDRKeyResolver(didWeb)
 
 	return verifiable.ParseCredential(vcBytes, verifiable.WithDisabledProofCheck(), verifiable.WithCredDisableValidation())
-	//, verifiable.WithJSONLDDocumentLoader(ld.NewDefaultDocumentLoader(http.DefaultClient)), verifiable.WithPublicKeyFetcher(defaultResolver.PublicKeyFetcher()), verifiable.WithPublicKeyFetcher(webResolver.PublicKeyFetcher()))
+	//, verifiable.WithJSONLDDocumentLoader(ld.NewDefaultDocumentLoader(&http.Client{})), verifiable.WithPublicKeyFetcher(defaultResolver.PublicKeyFetcher()), verifiable.WithPublicKeyFetcher(webResolver.PublicKeyFetcher()))
 }
 
 type webResolver struct {
