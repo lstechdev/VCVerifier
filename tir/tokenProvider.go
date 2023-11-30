@@ -22,7 +22,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/web"
 	ld "github.com/piprate/json-gold/ld"
@@ -197,25 +196,26 @@ func getCredential(vcPath string) (vc *verifiable.Credential, err error) {
 		return vc, err
 	}
 	// create the framework
-	framework, err := aries.New()
+	//framework, err := aries.New()
 	if err != nil {
 		logging.Log().Warnf("Was not able to initiate aries. Err: %v", err)
 		return vc, err
 	}
 	// get the context
-	ctx, err := framework.Context()
+	//ctx, err := framework.Context()
 
 	if err != nil {
 		logging.Log().Warnf("Was unable to retrieve the framework context. Err: %v", err)
 		return vc, err
 	}
 
-	didWeb := webResolver{vdr: *web.New()}
+	//didWeb := webResolver{vdr: *web.New()}
 
-	defaultResolver := verifiable.NewVDRKeyResolver(ctx.VDRegistry())
-	webResolver := verifiable.NewVDRKeyResolver(didWeb)
+	//defaultResolver := verifiable.NewVDRKeyResolver(ctx.VDRegistry())
+	//webResolver := verifiable.NewVDRKeyResolver(didWeb)
 
-	return verifiable.ParseCredential(vcBytes, verifiable.WithJSONLDDocumentLoader(ld.NewDefaultDocumentLoader(http.DefaultClient)), verifiable.WithPublicKeyFetcher(defaultResolver.PublicKeyFetcher()), verifiable.WithPublicKeyFetcher(webResolver.PublicKeyFetcher()))
+	return verifiable.ParseCredential(vcBytes, verifiable.WithDisabledProofCheck(), verifiable.WithCredDisableValidation())
+	//, verifiable.WithJSONLDDocumentLoader(ld.NewDefaultDocumentLoader(http.DefaultClient)), verifiable.WithPublicKeyFetcher(defaultResolver.PublicKeyFetcher()), verifiable.WithPublicKeyFetcher(webResolver.PublicKeyFetcher()))
 }
 
 type webResolver struct {
