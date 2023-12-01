@@ -7,6 +7,8 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"regexp"
+	"strings"
 
 	common "github.com/fiware/VCVerifier/common"
 	configModel "github.com/fiware/VCVerifier/config"
@@ -22,6 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/web"
 	ld "github.com/piprate/json-gold/ld"
@@ -37,6 +40,64 @@ var ErrorTokenProviderNoVC = errors.New("no_vc_configured")
 var ErrorTokenProviderNoVerificationMethod = errors.New("no_verification_method_configured")
 var ErrorBadPrivateKey = errors.New("bad_private_key_length")
 var ErrorTokenProviderNoDid = errors.New("no_did_configured")
+
+const (
+	wso = "[ \\t]*"
+	iri = "(?:<([^:]+:[^>]*)>)"
+
+	// https://www.w3.org/TR/turtle/#grammar-production-BLANK_NODE_LABEL
+
+	pnCharsBase = "A-Z" + "a-z" +
+		"\u00C0-\u00D6" +
+		"\u00D8-\u00F6" +
+		"\u00F8-\u02FF" +
+		"\u0370-\u037D" +
+		"\u037F-\u1FFF" +
+		"\u200C-\u200D" +
+		"\u2070-\u218F" +
+		"\u2C00-\u2FEF" +
+		"\u3001-\uD7FF" +
+		"\uF900-\uFDCF" +
+		"\uFDF0-\uFFFD"
+	// TODO:
+	//"\u10000-\uEFFFF"
+
+	pnCharsU = pnCharsBase + "_"
+
+	pnChars = pnCharsU +
+		"0-9" +
+		"-" +
+		"\u00B7" +
+		"\u0300-\u036F" +
+		"\u203F-\u2040"
+
+	blankNodeLabel = "(_:" +
+		"(?:[" + pnCharsU + "0-9])" +
+		"(?:(?:[" + pnChars + ".])*(?:[" + pnChars + "]))?" +
+		")"
+
+	//   '(_:' +
+	//     '(?:[' + PN_CHARS_U + '0-9])' +
+	//     '(?:(?:[' + PN_CHARS + '.])*(?:[' + PN_CHARS + ']))?' +
+	//   ')';
+
+	bnode = blankNodeLabel
+
+	plain    = "\"([^\"\\\\]*(?:\\\\.[^\"\\\\]*)*)\""
+	datatype = "(?:\\^\\^" + iri + ")"
+	language = "(?:@([a-z]+(?:-[a-zA-Z0-9]+)*))"
+	literal  = "(?:" + plain + "(?:" + datatype + "|" + language + ")?)"
+	ws       = "[ \\t]+"
+
+	subject  = "(?:" + iri + "|" + bnode + ")" + ws
+	property = iri + ws
+	object   = "(?:" + iri + "|" + bnode + "|" + literal + ")" + wso
+	graph    = "(?:\\.|(?:(?:" + iri + "|" + bnode + ")" + wso + "\\.))"
+)
+
+// full quad regex
+
+var regexQuad = regexp.MustCompile("^" + wso + subject + property + object + graph + wso + "$")
 
 type TokenProvider interface {
 	GetToken(vc *verifiable.Credential, audience string) (string, error)
@@ -153,6 +214,45 @@ func (tp M2MTokenProvider) signVerifiablePresentation(authCredential *verifiable
 	vp.ID = "urn:uuid:" + uuid.NewString()
 	vp.Holder = tp.did
 
+	proc := ld.NewJsonLdProcessor()
+	options := ld.NewJsonLdOptions("")
+	options.Format = "application/n-quads"
+	options.Algorithm = "URDNA2015"
+	normalized, err := proc.Normalize(vp, options)
+	if err != nil {
+		logging.Log().Warnf("Normalize error: %v", err)
+		return vp, err
+	}
+	result, ok := normalized.(string)
+	if !ok {
+		logging.Log().Warn("Invalid view")
+		return vp, err
+	}
+	logging.Log().Infof("%s", result)
+	views := strings.Split(result, "\n")
+	valid := true
+	for _, v := range views {
+		_, err := ld.ParseNQuads(v)
+		if err != nil {
+			logging.Log().Warnf("++++++++++++++++++++++++++++++++++ERROR PARSING  +++++++++  %v", err)
+			logging.Log().Warnf("Was  %v", v)
+			valid = false
+			continue
+		} else {
+			logging.Log().Warnf("V %v is valid.", v)
+		}
+
+	}
+	logging.Log().Warnf("++++++++++++ The QUAD %s", regexQuad.String())
+
+	if valid {
+
+		logging.Log().Warnf("ALL VIEWS ARE VALID.")
+	} else {
+		logging.Log().Warnf("SOMETHING IS FISHY.")
+
+	}
+
 	created := tp.clock.Now()
 	err = vp.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 		Created:                 &created,
@@ -160,7 +260,7 @@ func (tp M2MTokenProvider) signVerifiablePresentation(authCredential *verifiable
 		Suite:                   ed25519signature2018.New(suite.WithSigner(tp.signer)),
 		SignatureRepresentation: verifiable.SignatureJWS,
 		VerificationMethod:      tp.verificationMethod,
-	}, ldprocessor.WithRemoveAllInvalidRDF(), ldprocessor.WithDocumentLoader(ld.NewDefaultDocumentLoader(http.DefaultClient)))
+	}, ldprocessor.WithDocumentLoader(ld.NewDefaultDocumentLoader(http.DefaultClient)))
 
 	if err != nil {
 		logging.Log().Warnf("Was not able to add an ld-proof. Err: %v", err)
@@ -196,26 +296,67 @@ func getCredential(vcPath string) (vc *verifiable.Credential, err error) {
 		return vc, err
 	}
 	// create the framework
-	//framework, err := aries.New()
+	framework, err := aries.New()
 	if err != nil {
 		logging.Log().Warnf("Was not able to initiate aries. Err: %v", err)
 		return vc, err
 	}
 	// get the context
-	//ctx, err := framework.Context()
+	ctx, err := framework.Context()
 
 	if err != nil {
 		logging.Log().Warnf("Was unable to retrieve the framework context. Err: %v", err)
 		return vc, err
 	}
 
-	//didWeb := webResolver{vdr: *web.New()}
+	didWeb := webResolver{vdr: *web.New()}
 
-	//defaultResolver := verifiable.NewVDRKeyResolver(ctx.VDRegistry())
-	//webResolver := verifiable.NewVDRKeyResolver(didWeb)
+	defaultResolver := verifiable.NewVDRKeyResolver(ctx.VDRegistry())
+	webResolver := verifiable.NewVDRKeyResolver(didWeb)
 
-	return verifiable.ParseCredential(vcBytes, verifiable.WithDisabledProofCheck(), verifiable.WithCredDisableValidation())
-	//, verifiable.WithJSONLDDocumentLoader(ld.NewDefaultDocumentLoader(&http.Client{})), verifiable.WithPublicKeyFetcher(defaultResolver.PublicKeyFetcher()), verifiable.WithPublicKeyFetcher(webResolver.PublicKeyFetcher()))
+	var ic map[string]interface{}
+	json.Unmarshal(vcBytes, &ic)
+
+	proc := ld.NewJsonLdProcessor()
+	options := ld.NewJsonLdOptions("")
+	options.Format = "application/n-quads"
+	options.Algorithm = "URDNA2015"
+	normalized, err := proc.Normalize(ic, options)
+	if err != nil {
+		logging.Log().Warnf("Normalize error: %v", err)
+		return vc, err
+	}
+	result, ok := normalized.(string)
+	if !ok {
+		logging.Log().Warn("Invalid view")
+		return vc, err
+	}
+	logging.Log().Infof("%s", result)
+	views := strings.Split(result, "\n")
+	valid := true
+	for _, v := range views {
+		_, err := ld.ParseNQuads(v)
+		if err != nil {
+			logging.Log().Warnf("++++++++++++++++++++++++++++++++++ERROR PARSING  +++++++++  %v", err)
+			logging.Log().Warnf("Was  %v", v)
+			valid = false
+			continue
+		} else {
+			logging.Log().Warnf("V %v is valid.", v)
+		}
+
+	}
+	logging.Log().Warnf("++++++++++++ The QUAD %s", regexQuad.String())
+
+	if valid {
+
+		logging.Log().Warnf("ALL VIEWS ARE VALID.")
+	} else {
+		logging.Log().Warnf("SOMETHING IS FISHY.")
+
+	}
+
+	return verifiable.ParseCredential(vcBytes, verifiable.WithJSONLDDocumentLoader(ld.NewDefaultDocumentLoader(&http.Client{})), verifiable.WithPublicKeyFetcher(defaultResolver.PublicKeyFetcher()), verifiable.WithPublicKeyFetcher(webResolver.PublicKeyFetcher()))
 }
 
 type webResolver struct {
