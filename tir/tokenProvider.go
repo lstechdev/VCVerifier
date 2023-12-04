@@ -18,6 +18,7 @@ import (
 	"github.com/piprate/json-gold/ld"
 
 	"github.com/trustbloc/did-go/doc/ld/processor"
+	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/vc-go/proof/creator"
 	"github.com/trustbloc/vc-go/proof/jwtproofs/rs256"
 	"github.com/trustbloc/vc-go/proof/ldproofs/jsonwebsignature2020"
@@ -137,7 +138,7 @@ func (tp M2MTokenProvider) signVerifiablePresentation(authCredential *verifiable
 	err = vp.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 		Created:                 &created,
 		SignatureType:           "JsonWebSignature2020",
-		KeyType:                 "RSAPS256",
+		KeyType:                 kms.RSARS256Type,
 		ProofCreator:            proofCreator,
 		SignatureRepresentation: verifiable.SignatureJWS,
 		VerificationMethod:      "JsonWebKey2020",
