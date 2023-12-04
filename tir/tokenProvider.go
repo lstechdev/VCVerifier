@@ -171,26 +171,27 @@ func getSigningKey(keyPath string) (key *rsa.PrivateKey, err error) {
 }
 
 func getCredential(vcPath string) (vc *verifiable.Credential, err error) {
+	var credential verifiable.Credential
 	vcBytes, err := localFileAccessor.ReadFile(vcPath)
 	if err != nil {
 		logging.Log().Warnf("Was not able to read the vc file from %s. err: %v", vcPath, err)
-		return vc, err
+		return &credential, err
 	}
 	logging.Log().Warnf("Got bytes %v", vcBytes)
-	err = json.Unmarshal(vcBytes, vc)
+	err = json.Unmarshal(vcBytes, &credential)
 
 	if err != nil {
 		logging.Log().Warnf("Was not able to unmarshal the credential. Err: %v", err)
-		return vc, err
+		return &credential, err
 	}
-	err = vc.ValidateCredential()
+	err = credential.ValidateCredential()
 	if err != nil {
 		logging.Log().Warnf("Validation failed: %v", err)
-		return vc, err
+		return &credential, err
 
 	}
 
-	return vc, err
+	return &credential, err
 }
 
 // file system interfaces
