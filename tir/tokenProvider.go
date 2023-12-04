@@ -176,7 +176,7 @@ func getCredential(vcPath string) (vc *verifiable.Credential, err error) {
 		logging.Log().Warnf("Was not able to read the vc file from %s. err: %v", vcPath, err)
 		return vc, err
 	}
-
+	logging.Log().Warnf("Got bytes %v", vcBytes)
 	err = json.Unmarshal(vcBytes, vc)
 
 	if err != nil {
