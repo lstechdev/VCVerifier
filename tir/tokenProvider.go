@@ -140,7 +140,7 @@ func (tp M2MTokenProvider) signVerifiablePresentation(authCredential *verifiable
 		KeyType:                 kms.RSAPS256Type,
 		ProofCreator:            proofCreator,
 		SignatureRepresentation: verifiable.SignatureJWS,
-		VerificationMethod:      tp.verificationMethod,
+		VerificationMethod:      "JsonWebKey2020",
 	}, processor.WithDocumentLoader(ld.NewDefaultDocumentLoader(http.DefaultClient)))
 
 	if err != nil {
