@@ -136,7 +136,7 @@ func (tp M2MTokenProvider) signVerifiablePresentation(authCredential *verifiable
 	created := tp.clock.Now()
 	err = vp.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 		Created:                 &created,
-		SignatureType:           "Ed25519Signature2018",
+		SignatureType:           "JsonWebSignature2020",
 		KeyType:                 kms.ED25519Type,
 		ProofCreator:            proofCreator,
 		SignatureRepresentation: verifiable.SignatureJWS,
