@@ -1,6 +1,8 @@
 package tir
 
 import (
+	"crypto"
+	"crypto/rand"
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
@@ -11,21 +13,15 @@ import (
 	common "github.com/fiware/VCVerifier/common"
 	configModel "github.com/fiware/VCVerifier/config"
 	"github.com/fiware/VCVerifier/logging"
-	"github.com/google/uuid"
-	lestrrat "github.com/lestrrat-go/jwx/jwk"
-
 	v4 "github.com/golang-jwt/jwt/v4"
-	ldprocessor "github.com/hyperledger/aries-framework-go/component/models/ld/processor"
-	"github.com/hyperledger/aries-framework-go/component/models/signature/suite"
-	"github.com/hyperledger/aries-framework-go/component/models/signature/util"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
-	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/web"
-	ld "github.com/piprate/json-gold/ld"
+	"github.com/google/uuid"
+	"github.com/piprate/json-gold/ld"
+
+	"github.com/trustbloc/did-go/doc/ld/processor"
+	"github.com/trustbloc/kms-go/spi/kms"
+	"github.com/trustbloc/vc-go/proof/creator"
+	"github.com/trustbloc/vc-go/proof/ldproofs/jsonwebsignature2020"
+	"github.com/trustbloc/vc-go/verifiable"
 )
 
 /**
@@ -49,8 +45,8 @@ type M2MTokenProvider struct {
 	tokenEncoder TokenEncoder
 	// the credential
 	authCredential *verifiable.Credential
-	// Signer for the Verifiable Presentation
-	signer util.Signer
+	// the signing key
+	signingKey *rsa.PrivateKey
 	// clock to get issuance time from
 	clock common.Clock
 	// verification method to be used on the tokens
@@ -82,25 +78,6 @@ func InitM2MTokenProvider(config *configModel.Configuration, clock common.Clock)
 		logging.Log().Warnf("Was not able to load the signing key. Err: %v", err)
 		return tokenProvider, err
 	}
-	jwkHolder, err := lestrrat.New(privateKey)
-	if err != nil {
-		logging.Log().Infof("Was not able to load private key to jwk. Err: %v", err)
-		return tokenProvider, err
-	}
-	keyBytes, err := json.Marshal(jwkHolder)
-	if err != nil {
-		logging.Log().Warnf("Was not able to marshal the key. Err: %v", err)
-		return tokenProvider, err
-	}
-
-	var theKey jwk.JWK
-
-	theKey.UnmarshalJSON(keyBytes)
-	signer, err := util.GetSigner(&theKey)
-	if err != nil {
-		logging.Log().Warnf("Was not able to create the token signer. Err: %v", err)
-		return tokenProvider, err
-	}
 
 	if m2mConfig.CredentialPath == "" {
 		return tokenProvider, ErrorTokenProviderNoVC
@@ -116,7 +93,7 @@ func InitM2MTokenProvider(config *configModel.Configuration, clock common.Clock)
 		return tokenProvider, err
 	}
 
-	return M2MTokenProvider{tokenEncoder: Base64TokenEncoder{}, authCredential: vc, signer: signer, did: config.Verifier.Did, clock: clock, verificationMethod: m2mConfig.VerificationMethod}, err
+	return M2MTokenProvider{tokenEncoder: Base64TokenEncoder{}, authCredential: vc, signingKey: privateKey, did: config.Verifier.Did, clock: clock, verificationMethod: m2mConfig.VerificationMethod}, err
 }
 
 func (tokenProvider M2MTokenProvider) GetAuthCredential() (vc *verifiable.Credential, err error) {
@@ -154,14 +131,17 @@ func (tp M2MTokenProvider) signVerifiablePresentation(authCredential *verifiable
 	vp.ID = "urn:uuid:" + uuid.NewString()
 	vp.Holder = tp.did
 
+	proofCreator := creator.New(creator.WithLDProofType(jsonwebsignature2020.New(), NewRS256Signer(tp.signingKey)))
+
 	created := tp.clock.Now()
 	err = vp.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 		Created:                 &created,
 		SignatureType:           "Ed25519Signature2018",
-		Suite:                   ed25519signature2018.New(suite.WithSigner(tp.signer)),
+		KeyType:                 kms.ED25519Type,
+		ProofCreator:            proofCreator,
 		SignatureRepresentation: verifiable.SignatureJWS,
 		VerificationMethod:      tp.verificationMethod,
-	}, ldprocessor.WithDocumentLoader(ld.NewDefaultDocumentLoader(http.DefaultClient)))
+	}, processor.WithDocumentLoader(ld.NewDefaultDocumentLoader(http.DefaultClient)))
 
 	if err != nil {
 		logging.Log().Warnf("Was not able to add an ld-proof. Err: %v", err)
@@ -196,34 +176,21 @@ func getCredential(vcPath string) (vc *verifiable.Credential, err error) {
 		logging.Log().Warnf("Was not able to read the vc file from %s. err: %v", vcPath, err)
 		return vc, err
 	}
-	// create the framework
-	framework, err := aries.New()
-	if err != nil {
-		logging.Log().Warnf("Was not able to initiate aries. Err: %v", err)
-		return vc, err
-	}
-	// get the context
-	ctx, err := framework.Context()
+
+	err = json.Unmarshal(vcBytes, vc)
 
 	if err != nil {
-		logging.Log().Warnf("Was unable to retrieve the framework context. Err: %v", err)
+		logging.Log().Warnf("Was not able to unmarshal the credential. Err: %v", err)
 		return vc, err
 	}
+	err = vc.ValidateCredential()
+	if err != nil {
+		logging.Log().Warnf("Validation failed: %v", err)
+		return vc, err
 
-	didWeb := webResolver{vdr: *web.New()}
+	}
 
-	defaultResolver := verifiable.NewVDRKeyResolver(ctx.VDRegistry())
-	webResolver := verifiable.NewVDRKeyResolver(didWeb)
-
-	return verifiable.ParseCredential(vcBytes, verifiable.WithJSONLDDocumentLoader(ld.NewDefaultDocumentLoader(&http.Client{})), verifiable.WithPublicKeyFetcher(defaultResolver.PublicKeyFetcher()), verifiable.WithPublicKeyFetcher(webResolver.PublicKeyFetcher()))
-}
-
-type webResolver struct {
-	vdr web.VDR
-}
-
-func (wr webResolver) Resolve(did string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
-	return wr.vdr.Read(did)
+	return vc, err
 }
 
 // file system interfaces
@@ -236,4 +203,35 @@ type diskFileAccessor struct{}
 
 func (diskFileAccessor) ReadFile(filename string) ([]byte, error) {
 	return os.ReadFile(filename)
+}
+
+// NewRS256Signer creates RS256Signer.
+func NewRS256Signer(privKey *rsa.PrivateKey) *RS256Signer {
+	return &RS256Signer{
+		privKey: privKey,
+	}
+}
+
+// PS256Signer is a Jose complient signer.
+type PS256Signer struct {
+	privKey *rsa.PrivateKey
+}
+
+// Sign data.
+func (s RS256Signer) Sign(data []byte) ([]byte, error) {
+	hash := crypto.SHA256.New()
+
+	_, err := hash.Write(data)
+	if err != nil {
+		return nil, err
+	}
+
+	hashed := hash.Sum(nil)
+
+	return rsa.SignPKCS1v15(rand.Reader, s.privKey, crypto.SHA256, hashed)
+}
+
+// RS256Signer is a Jose complient signer.
+type RS256Signer struct {
+	privKey *rsa.PrivateKey
 }
