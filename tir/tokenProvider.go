@@ -20,7 +20,7 @@ import (
 	"github.com/trustbloc/did-go/doc/ld/processor"
 	"github.com/trustbloc/kms-go/spi/kms"
 	"github.com/trustbloc/vc-go/proof/creator"
-	"github.com/trustbloc/vc-go/proof/jwtproofs/rs256"
+	"github.com/trustbloc/vc-go/proof/jwtproofs/ps256"
 	"github.com/trustbloc/vc-go/proof/ldproofs/jsonwebsignature2020"
 	"github.com/trustbloc/vc-go/verifiable"
 )
@@ -132,13 +132,13 @@ func (tp M2MTokenProvider) signVerifiablePresentation(authCredential *verifiable
 	vp.ID = "urn:uuid:" + uuid.NewString()
 	vp.Holder = tp.did
 
-	proofCreator := creator.New(creator.WithLDProofType(jsonwebsignature2020.New(), NewRS256Signer(tp.signingKey)), creator.WithJWTAlg(rs256.New(), NewRS256Signer(tp.signingKey)))
+	proofCreator := creator.New(creator.WithLDProofType(jsonwebsignature2020.New(), NewRS256Signer(tp.signingKey)), creator.WithJWTAlg(ps256.New(), NewRS256Signer(tp.signingKey)))
 
 	created := tp.clock.Now()
 	err = vp.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 		Created:                 &created,
 		SignatureType:           "JsonWebSignature2020",
-		KeyType:                 kms.RSARS256Type,
+		KeyType:                 kms.RSAPS256Type,
 		ProofCreator:            proofCreator,
 		SignatureRepresentation: verifiable.SignatureJWS,
 		VerificationMethod:      "JsonWebKey2020",
