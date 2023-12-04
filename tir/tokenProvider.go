@@ -184,12 +184,6 @@ func getCredential(vcPath string) (vc *verifiable.Credential, err error) {
 		logging.Log().Warnf("Was not able to unmarshal the credential. Err: %v", err)
 		return &credential, err
 	}
-	err = credential.ValidateCredential()
-	if err != nil {
-		logging.Log().Warnf("Validation failed: %v", err)
-		return &credential, err
-
-	}
 
 	return &credential, err
 }
