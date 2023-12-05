@@ -94,7 +94,7 @@ func InitM2MTokenProvider(config *configModel.Configuration, clock common.Clock)
 		return tokenProvider, err
 	}
 	vs, _ := vc.MarshalJSON()
-	logging.Log().Warnf("The cred %s", string(vs))
+	logging.Log().Warnf("The cred from %s %s", m2mConfig.CredentialPath, string(vs))
 
 	return M2MTokenProvider{tokenEncoder: Base64TokenEncoder{}, authCredential: vc, signingKey: privateKey, did: config.Verifier.Did, clock: clock, verificationMethod: m2mConfig.VerificationMethod}, err
 }
@@ -183,7 +183,7 @@ func getCredential(vcPath string) (vc *verifiable.Credential, err error) {
 		logging.Log().Warnf("Was not able to read the vc file from %s. err: %v", vcPath, err)
 		return &credential, err
 	}
-	logging.Log().Warnf("Got bytes %v", vcBytes)
+	logging.Log().Warnf("Got bytes %v", string(vcBytes))
 	err = json.Unmarshal(vcBytes, &credential)
 
 	if err != nil {
