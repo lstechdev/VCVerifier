@@ -26,11 +26,19 @@ func (tpvs *TrustedParticipantVerificationService) VerifyVC(verifiableCredential
 		}
 	}()
 	trustContext := verificationContext.(TrustRegistriesVerificationContext)
-	if len(trustContext.trustedParticipantsRegistries) == 0 {
+
+	tirSpecified := false
+	for _, pl := range trustContext.GetTrustedParticipantLists() {
+		if len(pl) > 0 {
+			tirSpecified = true
+			break
+		}
+	}
+
+	if !tirSpecified {
 		logging.Log().Debug("The verfication context does not specify a trusted issuers registry, therefor we consider every participant as trusted.")
 		return true, err
 	}
-	logging.Log().Warnf("Participants %s", logging.PrettyPrintObject(trustContext.trustedParticipantsRegistries))
 	// FIXME Can we assume that if we have a VC with multiple types, its enough to check for only one type?
 	return tpvs.tirClient.IsTrustedParticipant(getFirstElementOfMap(trustContext.GetTrustedParticipantLists()), verifiableCredential.Issuer), err
 }
