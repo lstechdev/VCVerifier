@@ -158,6 +158,7 @@ func (ac AuthorizingHttpClient) postVpToken(tokenEndpoint string, vpToken string
 	formRequest.Add("presentation_submission", presentationSubmission)
 	formRequest.Add("scope", scope)
 
+	logging.Log().Infof("Get token from %s.", tokenEndpoint)
 	tokenHttpRequest, err := http.NewRequest("POST", tokenEndpoint, strings.NewReader(formRequest.Encode()))
 	if err != nil {
 		logging.Log().Warnf("Was not able to create token request. Err: %v", err)
@@ -175,7 +176,7 @@ func (ac AuthorizingHttpClient) postVpToken(tokenEndpoint string, vpToken string
 		return accessToken, ErrorTokenEndpointNoResponse
 	}
 	if tokenHttpResponse.StatusCode != 200 {
-		logging.Log().Infof("Did not receive an ok from the token request. Was %s", logging.PrettyPrintObject(tokenHttpResponse))
+		logging.Log().Infof("Did not receive an ok(was %v) from the token request. Was %s", tokenHttpResponse.StatusCode, logging.PrettyPrintObject(tokenHttpResponse.Body))
 		return accessToken, err
 	}
 	if tokenHttpResponse.Body == nil {
