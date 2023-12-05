@@ -225,7 +225,7 @@ func InitVerifier(config *configModel.Configuration, ssiKitClient ssikit.SSIKit)
 		logging.Log().Infof("Auth disabled.")
 	}
 
-	tirClient, err := tir.NewTirHttpClient(tokenProvider, &config.M2M)
+	tirClient, err := tir.NewTirHttpClient(tokenProvider, config.M2M)
 	if err != nil {
 		logging.Log().Errorf("Was not able to instantiate the trusted-issuers-registry client. Err: %v", err)
 		return err

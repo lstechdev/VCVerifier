@@ -76,7 +76,7 @@ type Claim struct {
 	AllowedValues []interface{} `json:"allowedValues"`
 }
 
-func NewTirHttpClient(tokenProvider TokenProvider, config *config.M2M) (client TirClient, err error) {
+func NewTirHttpClient(tokenProvider TokenProvider, config config.M2M) (client TirClient, err error) {
 
 	httpClient := &http.Client{}
 	_, err = httpcache.NewWithInmemoryCache(httpClient, true, time.Second*60)
@@ -86,7 +86,7 @@ func NewTirHttpClient(tokenProvider TokenProvider, config *config.M2M) (client T
 	}
 	var httpGetClient HttpGetClient
 	if config.AuthEnabled {
-		logging.Log().Infof("Provider is %v", tokenProvider)
+		logging.Log().Debugf("Provider is %v", tokenProvider)
 		httpGetClient = AuthorizingHttpClient{httpClient: httpClient, tokenProvider: tokenProvider, clientId: config.ClientId}
 	} else {
 		httpGetClient = NoAuthHttpClient{httpClient: httpClient}
