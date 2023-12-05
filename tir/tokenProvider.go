@@ -131,7 +131,9 @@ func (tp M2MTokenProvider) signVerifiablePresentation(authCredential *verifiable
 	}
 	vp.ID = "urn:uuid:" + uuid.NewString()
 	vp.Holder = tp.did
-	logging.Log().Warnf("Cred %v, vp: %v", authCredential, vp)
+	cs, _ := authCredential.MarshalJSON()
+	vs, _ := vp.MarshalJSON()
+	logging.Log().Warnf("Cred %s, vp: %s", cs, vs)
 
 	proofCreator := creator.New(creator.WithLDProofType(jsonwebsignature2020.New(), NewRS256Signer(tp.signingKey)), creator.WithJWTAlg(ps256.New(), NewRS256Signer(tp.signingKey)))
 
