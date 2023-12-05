@@ -769,7 +769,7 @@ func TestGetOpenIDConfiguration(t *testing.T) {
 		t.Run(tc.testName, func(t *testing.T) {
 			credentialsConfig := mockCredentialConfig{tc.credentialScopes, tc.mockConfigError}
 			verifier := CredentialVerifier{credentialsConfig: credentialsConfig}
-			actualOpenID, _ := verifier.GetOpenIDConfiguration(tc.host, tc.protocol, tc.serviceIdentifier)
+			actualOpenID, _ := verifier.GetOpenIDConfiguration(tc.serviceIdentifier)
 
 			assert.Equal(t, tc.expectedOpenID.Issuer, actualOpenID.Issuer)
 			assert.Equal(t, tc.expectedOpenID.ScopesSupported, actualOpenID.ScopesSupported)

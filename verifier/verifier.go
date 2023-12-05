@@ -53,7 +53,7 @@ type Verifier interface {
 	GetJWKS() jwk.Set
 	AuthenticationResponse(state string, verifiableCredentials []map[string]interface{}, holder string) (sameDevice SameDeviceResponse, err error)
 	GenerateToken(clientId, subject, audience string, scope []string, verifiableCredentials []map[string]interface{}) (int64, string, error)
-	GetOpenIDConfiguration(protocol string, serviceIdentifier string) (metadata common.OpenIDProviderMetadata, err error)
+	GetOpenIDConfiguration(serviceIdentifier string) (metadata common.OpenIDProviderMetadata, err error)
 }
 
 type VerificationService interface {
@@ -413,8 +413,7 @@ func (v *CredentialVerifier) GenerateToken(clientId, subject, audience string, s
 	return expiration, string(tokenBytes), nil
 }
 
-func (v *CredentialVerifier) GetOpenIDConfiguration(protocol string, serviceIdentifier string) (metadata common.OpenIDProviderMetadata, err error) {
-	verifierUrl := fmt.Sprintf("%s://%s", protocol, v.host)
+func (v *CredentialVerifier) GetOpenIDConfiguration(serviceIdentifier string) (metadata common.OpenIDProviderMetadata, err error) {
 
 	scopes, err := v.credentialsConfig.GetScope(serviceIdentifier)
 	if err != nil {
@@ -422,10 +421,10 @@ func (v *CredentialVerifier) GetOpenIDConfiguration(protocol string, serviceIden
 	}
 
 	return common.OpenIDProviderMetadata{
-		Issuer:                           verifierUrl,
-		AuthorizationEndpoint:            verifierUrl,
-		TokenEndpoint:                    verifierUrl + "/token",
-		JwksUri:                          verifierUrl + "/.well-known/jwks",
+		Issuer:                           v.host,
+		AuthorizationEndpoint:            v.host,
+		TokenEndpoint:                    v.host + "/token",
+		JwksUri:                          v.host + "/.well-known/jwks",
 		GrantTypesSupported:              []string{"authorization_code", "vp_token"},
 		ResponseTypesSupported:           []string{"token"},
 		ResponseModeSupported:            []string{"direct_post"},
