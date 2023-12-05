@@ -75,6 +75,8 @@ func handleTokenTypeVPToken(c *gin.Context) {
 		return
 	}
 
+	logging.Log().Warnf("Got token %s", vpToken)
+
 	// not used at the moment
 	// presentationSubmission, presentationSubmissionExists := c.GetPostForm("presentation_submission")
 	// if !presentationSubmissionExists {

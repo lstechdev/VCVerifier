@@ -176,7 +176,7 @@ func (ac AuthorizingHttpClient) postVpToken(tokenEndpoint string, vpToken string
 		return accessToken, ErrorTokenEndpointNoResponse
 	}
 	if tokenHttpResponse.StatusCode != 200 {
-		logging.Log().Infof("Did not receive an ok(was %v) from the token request. Was %s", tokenHttpResponse.StatusCode, tokenHttpResponse.Body)
+		logging.Log().Infof("Did not receive an ok(was %v) from the token request.", tokenHttpResponse.StatusCode)
 		return accessToken, err
 	}
 	if tokenHttpResponse.Body == nil {
