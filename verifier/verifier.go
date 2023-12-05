@@ -53,7 +53,7 @@ type Verifier interface {
 	GetJWKS() jwk.Set
 	AuthenticationResponse(state string, verifiableCredentials []map[string]interface{}, holder string) (sameDevice SameDeviceResponse, err error)
 	GenerateToken(clientId, subject, audience string, scope []string, verifiableCredentials []map[string]interface{}) (int64, string, error)
-	GetOpenIDConfiguration(host string, protocol string, serviceIdentifier string) (metadata common.OpenIDProviderMetadata, err error)
+	GetOpenIDConfiguration(protocol string, serviceIdentifier string) (metadata common.OpenIDProviderMetadata, err error)
 }
 
 type VerificationService interface {
@@ -63,6 +63,8 @@ type VerificationService interface {
 
 // implementation of the verifier, using waltId ssikit and gaia-x compliance issuers registry as a validation backends.
 type CredentialVerifier struct {
+	// host of the verifier
+	host string
 	// did of the verifier
 	did string
 	// trusted-issuers-registry to be used for verification
@@ -239,6 +241,7 @@ func InitVerifier(config *configModel.Configuration, ssiKitClient ssikit.SSIKit)
 	}
 	logging.Log().Warnf("Initiated key %s.", logging.PrettyPrintObject(key))
 	verifier = &CredentialVerifier{
+		(&config.Server).Host,
 		verifierConfig.Did,
 		verifierConfig.TirAddress,
 		key,
@@ -410,8 +413,8 @@ func (v *CredentialVerifier) GenerateToken(clientId, subject, audience string, s
 	return expiration, string(tokenBytes), nil
 }
 
-func (v *CredentialVerifier) GetOpenIDConfiguration(host string, protocol string, serviceIdentifier string) (metadata common.OpenIDProviderMetadata, err error) {
-	verifierUrl := fmt.Sprintf("%s://%s", protocol, host)
+func (v *CredentialVerifier) GetOpenIDConfiguration(protocol string, serviceIdentifier string) (metadata common.OpenIDProviderMetadata, err error) {
+	verifierUrl := fmt.Sprintf("%s://%s", protocol, v.host)
 
 	scopes, err := v.credentialsConfig.GetScope(serviceIdentifier)
 	if err != nil {

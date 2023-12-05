@@ -20,6 +20,8 @@ type SSIKit struct {
 
 // general configuration to run the application
 type Server struct {
+	// host name of the verifier
+	Host string `mapstructure:"host"`
 	// port to bind the server
 	Port int `mapstructure:"port" default:"8080"`
 	// directory to read the template(s) from

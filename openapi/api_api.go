@@ -270,7 +270,7 @@ func VerifierAPIOpenIDConfiguration(c *gin.Context) {
 	if c.Request.TLS == nil {
 		protocol = "http"
 	}
-	metadata, err := getApiVerifier().GetOpenIDConfiguration(c.Request.Host, protocol, c.Param("serviceIdentifier"))
+	metadata, err := getApiVerifier().GetOpenIDConfiguration(protocol, c.Param("serviceIdentifier"))
 	if err != nil {
 		c.AbortWithStatusJSON(500, ErrorMessage{err.Error(), "Was not able to generate the OpenID metadata."})
 		return
