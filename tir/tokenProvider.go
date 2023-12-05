@@ -93,7 +93,7 @@ func InitM2MTokenProvider(config *configModel.Configuration, clock common.Clock)
 		logging.Log().Warnf("Was not able to load the credential. Err: %v", err)
 		return tokenProvider, err
 	}
-	vs, _ := (vc.MarshalJSON())
+	vs, _ := vc.MarshalJSON()
 	logging.Log().Warnf("The cred %s", string(vs))
 
 	return M2MTokenProvider{tokenEncoder: Base64TokenEncoder{}, authCredential: vc, signingKey: privateKey, did: config.Verifier.Did, clock: clock, verificationMethod: m2mConfig.VerificationMethod}, err
@@ -190,6 +190,8 @@ func getCredential(vcPath string) (vc *verifiable.Credential, err error) {
 		logging.Log().Warnf("Was not able to unmarshal the credential. Err: %v", err)
 		return &credential, err
 	}
+	c, _ := credential.MarshalJSON()
+	logging.Log().Warnf("The cred %s", string(c))
 
 	return &credential, err
 }
