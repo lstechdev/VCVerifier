@@ -102,7 +102,7 @@ func handleTokenTypeVPToken(c *gin.Context) {
 	// Subject is empty since multiple VCs with different subjects can be provided
 	expiration, signedToken, err := getApiVerifier().GenerateToken(clientId, "", clientId, scopes, rawCredentials)
 	if err != nil {
-		logging.Log().Error("Failure during generating M2M token", err)
+		logging.Log().Error("Failure during generating M2M token: ", err)
 		c.AbortWithStatusJSON(400, err)
 		return
 	}

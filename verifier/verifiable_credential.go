@@ -84,6 +84,7 @@ func MapVerifiableCredential(raw map[string]interface{}) (VerifiableCredential, 
 
 	for _, unsetField := range metaData.Unset {
 		if !slices.Contains(optionalFields(), unsetField) {
+			logging.Log().Warnf("%s is unset.", unsetField)
 			return VerifiableCredential{}, errors.New("unset_field")
 		}
 	}
