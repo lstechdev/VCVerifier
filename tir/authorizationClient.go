@@ -146,7 +146,7 @@ func (ac AuthorizingHttpClient) getMetaData(tokenHost string) (metadata common.O
 		logging.Log().Warnf("Was not able to decode the metadata response. Err: %v", err)
 		return metadata, err
 	}
-	return metadata, err
+	return metaDataResponse, err
 
 }
 
