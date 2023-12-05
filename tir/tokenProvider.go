@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"os"
@@ -177,23 +176,23 @@ func getSigningKey(keyPath string) (key *rsa.PrivateKey, err error) {
 }
 
 func getCredential(vcPath string) (vc *verifiable.Credential, err error) {
-	var credential verifiable.Credential
 	vcBytes, err := localFileAccessor.ReadFile(vcPath)
 	if err != nil {
 		logging.Log().Warnf("Was not able to read the vc file from %s. err: %v", vcPath, err)
-		return &credential, err
+		return vc, err
 	}
 	logging.Log().Warnf("Got bytes %v", string(vcBytes))
-	err = json.Unmarshal(vcBytes, &credential)
+
+	vc, err = verifiable.ParseCredential(vcBytes)
 
 	if err != nil {
 		logging.Log().Warnf("Was not able to unmarshal the credential. Err: %v", err)
-		return &credential, err
+		return vc, err
 	}
-	c, _ := credential.MarshalJSON()
+	c, _ := vc.MarshalJSON()
 	logging.Log().Warnf("The cred %s", string(c))
 
-	return &credential, err
+	return vc, err
 }
 
 // file system interfaces
