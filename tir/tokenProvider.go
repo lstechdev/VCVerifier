@@ -183,7 +183,7 @@ func getCredential(vcPath string) (vc *verifiable.Credential, err error) {
 	}
 	logging.Log().Warnf("Got bytes %v", string(vcBytes))
 
-	vc, err = verifiable.ParseCredential(vcBytes)
+	vc, err = verifiable.ParseCredential(vcBytes, verifiable.WithCredDisableValidation())
 
 	if err != nil {
 		logging.Log().Warnf("Was not able to unmarshal the credential. Err: %v", err)
