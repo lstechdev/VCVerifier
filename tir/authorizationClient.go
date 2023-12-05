@@ -160,7 +160,6 @@ func (ac AuthorizingHttpClient) postVpToken(tokenEndpoint string, vpToken string
 	formRequest.Add("vp_token", vpToken)
 	formRequest.Add("presentation_submission", presentationSubmission)
 	formRequest.Add("scope", scope)
-	formRequest.Add("client_id", ac.clientId)
 
 	logging.Log().Infof("Get token from %s.", tokenEndpoint)
 	tokenHttpRequest, err := http.NewRequest("POST", tokenEndpoint, strings.NewReader(formRequest.Encode()))
@@ -168,7 +167,8 @@ func (ac AuthorizingHttpClient) postVpToken(tokenEndpoint string, vpToken string
 		logging.Log().Warnf("Was not able to create token request. Err: %v", err)
 		return accessToken, err
 	}
-
+	// move to the vc?
+	tokenHttpRequest.Header.Set("client_id", "ac.clientId")
 	tokenHttpRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	tokenHttpResponse, err := ac.httpClient.Do(tokenHttpRequest) // evaluate the results
 	if err != nil {
