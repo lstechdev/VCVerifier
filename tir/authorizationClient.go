@@ -28,6 +28,7 @@ type HttpGetClient interface {
 type AuthorizingHttpClient struct {
 	httpClient    HttpClient
 	tokenProvider TokenProvider
+	clientId      string
 }
 
 type NoAuthHttpClient struct {
@@ -159,6 +160,7 @@ func (ac AuthorizingHttpClient) postVpToken(tokenEndpoint string, vpToken string
 	formRequest.Add("vp_token", vpToken)
 	formRequest.Add("presentation_submission", presentationSubmission)
 	formRequest.Add("scope", scope)
+	formRequest.Add("client_id", ac.clientId)
 
 	logging.Log().Infof("Get token from %s.", tokenEndpoint)
 	tokenHttpRequest, err := http.NewRequest("POST", tokenEndpoint, strings.NewReader(formRequest.Encode()))

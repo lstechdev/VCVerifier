@@ -40,6 +40,8 @@ type M2M struct {
 	CredentialPath string `mapstructure:"credentialPath"`
 	// verification method to be provided for the ld-proof
 	VerificationMethod string `mapstructure:"verificationMethod"`
+	// id of the verifier when retrieving tokens
+	ClientId string `mapstructure:"clientId"`
 }
 
 // logging config

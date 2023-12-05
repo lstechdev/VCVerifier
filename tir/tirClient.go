@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bxcodec/httpcache"
+	"github.com/fiware/VCVerifier/config"
 	"github.com/fiware/VCVerifier/logging"
 )
 
@@ -75,7 +76,7 @@ type Claim struct {
 	AllowedValues []interface{} `json:"allowedValues"`
 }
 
-func NewTirHttpClient(tokenProvider TokenProvider, enableAuth bool) (client TirClient, err error) {
+func NewTirHttpClient(tokenProvider TokenProvider, config *config.M2M) (client TirClient, err error) {
 
 	httpClient := &http.Client{}
 	_, err = httpcache.NewWithInmemoryCache(httpClient, true, time.Second*60)
@@ -84,9 +85,9 @@ func NewTirHttpClient(tokenProvider TokenProvider, enableAuth bool) (client TirC
 		return
 	}
 	var httpGetClient HttpGetClient
-	if enableAuth {
+	if config.AuthEnabled {
 		logging.Log().Infof("Provider is %v", tokenProvider)
-		httpGetClient = AuthorizingHttpClient{httpClient: httpClient, tokenProvider: tokenProvider}
+		httpGetClient = AuthorizingHttpClient{httpClient: httpClient, tokenProvider: tokenProvider, clientId: config.ClientId}
 	} else {
 		httpGetClient = NoAuthHttpClient{httpClient: httpClient}
 	}
