@@ -168,7 +168,7 @@ func (ac AuthorizingHttpClient) postVpToken(tokenEndpoint string, vpToken string
 		return accessToken, err
 	}
 	// move to the vc?
-	tokenHttpRequest.Header.Set("client_id", "ac.clientId")
+	tokenHttpRequest.Header.Set("client_id", ac.clientId)
 	tokenHttpRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	tokenHttpResponse, err := ac.httpClient.Do(tokenHttpRequest) // evaluate the results
 	if err != nil {
