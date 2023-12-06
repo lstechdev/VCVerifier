@@ -48,7 +48,7 @@ func (mV *mockVerifier) GetJWKS() jwk.Set {
 func (mV *mockVerifier) AuthenticationResponse(state string, verifiableCredentials []map[string]interface{}, holder string) (sameDevice verifier.SameDeviceResponse, err error) {
 	return mV.mockSameDevice, mV.mockError
 }
-func (mV *mockVerifier) GetOpenIDConfiguration(host string, protocol string, serviceIdentifier string) (metadata common.OpenIDProviderMetadata, err error) {
+func (mV *mockVerifier) GetOpenIDConfiguration(serviceIdentifier string) (metadata common.OpenIDProviderMetadata, err error) {
 	return mV.mockOpenIDConfig, err
 }
 
