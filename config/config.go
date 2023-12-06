@@ -38,10 +38,14 @@ type M2M struct {
 	KeyPath string `mapstructure:"keyPath"`
 	// path to the credential to be used for auth
 	CredentialPath string `mapstructure:"credentialPath"`
-	// verification method to be provided for the ld-proof
-	VerificationMethod string `mapstructure:"verificationMethod"`
 	// id of the verifier when retrieving tokens
 	ClientId string `mapstructure:"clientId"`
+	// verification method to be provided for the ld-proof
+	VerificationMethod string `mapstructure:"verificationMethod" default:"JsonWebKey2020"`
+	// signature type to be provided for the ld-proof
+	SignatureType string `mapstructure:"signatureType" default:"JsonWebSignature2020"`
+	// type of the provided key
+	KeyType string `mapstructure:"keyType" default:"RSAPS256"`
 }
 
 // logging config

@@ -70,7 +70,7 @@ func Test_ReadConfig(t *testing.T) {
 						},
 					},
 				},
-				M2M: M2M{AuthEnabled: false},
+				M2M: M2M{AuthEnabled: false, VerificationMethod: "JsonWebKey2020", SignatureType: "JsonWebSignature2020", KeyType: "RSAPS256"},
 			},
 			false,
 		}, {
@@ -93,7 +93,7 @@ func Test_ReadConfig(t *testing.T) {
 					LogRequests: true,
 					PathsToSkip: nil,
 				},
-				M2M: M2M{AuthEnabled: false},
+				M2M: M2M{AuthEnabled: false, VerificationMethod: "JsonWebKey2020", SignatureType: "JsonWebSignature2020", KeyType: "RSAPS256"},
 			},
 			false,
 		},

@@ -51,6 +51,10 @@ type M2MTokenProvider struct {
 	clock common.Clock
 	// verification method to be used on the tokens
 	verificationMethod string
+	// signature type to be used
+	signatureType string
+	// type of the provided key
+	keyType string
 	// did of the token provider
 	did string
 }
@@ -95,7 +99,7 @@ func InitM2MTokenProvider(config *configModel.Configuration, clock common.Clock)
 	vs, _ := vc.MarshalJSON()
 	logging.Log().Warnf("The cred from %s %s", m2mConfig.CredentialPath, string(vs))
 
-	return M2MTokenProvider{tokenEncoder: Base64TokenEncoder{}, authCredential: vc, signingKey: privateKey, did: config.Verifier.Did, clock: clock, verificationMethod: m2mConfig.VerificationMethod}, err
+	return M2MTokenProvider{tokenEncoder: Base64TokenEncoder{}, authCredential: vc, signingKey: privateKey, did: config.Verifier.Did, clock: clock, verificationMethod: m2mConfig.VerificationMethod, keyType: config.M2M.KeyType, signatureType: config.M2M.SignatureType}, err
 }
 
 func (tokenProvider M2MTokenProvider) GetAuthCredential() (vc *verifiable.Credential, err error) {
@@ -132,20 +136,17 @@ func (tp M2MTokenProvider) signVerifiablePresentation(authCredential *verifiable
 	}
 	vp.ID = "urn:uuid:" + uuid.NewString()
 	vp.Holder = tp.did
-	cs, _ := authCredential.MarshalJSON()
-	vs, _ := vp.MarshalJSON()
-	logging.Log().Warnf("Cred %s, vp: %s", cs, vs)
 
 	proofCreator := creator.New(creator.WithLDProofType(jsonwebsignature2020.New(), NewRS256Signer(tp.signingKey)), creator.WithJWTAlg(ps256.New(), NewRS256Signer(tp.signingKey)))
 
 	created := tp.clock.Now()
 	err = vp.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 		Created:                 &created,
-		SignatureType:           "JsonWebSignature2020",
-		KeyType:                 kms.RSAPS256Type,
+		SignatureType:           tp.signatureType,
+		KeyType:                 kms.KeyType(tp.keyType),
 		ProofCreator:            proofCreator,
 		SignatureRepresentation: verifiable.SignatureJWS,
-		VerificationMethod:      "JsonWebKey2020",
+		VerificationMethod:      tp.verificationMethod,
 	}, processor.WithDocumentLoader(ld.NewDefaultDocumentLoader(http.DefaultClient)))
 
 	if err != nil {
@@ -212,11 +213,6 @@ func NewRS256Signer(privKey *rsa.PrivateKey) *RS256Signer {
 	return &RS256Signer{
 		privKey: privKey,
 	}
-}
-
-// PS256Signer is a Jose complient signer.
-type PS256Signer struct {
-	privKey *rsa.PrivateKey
 }
 
 // Sign data.
