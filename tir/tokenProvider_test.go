@@ -7,10 +7,14 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 
 	"github.com/fiware/VCVerifier/common"
 	configModel "github.com/fiware/VCVerifier/config"
+	util "github.com/trustbloc/did-go/doc/util/time"
+	"github.com/trustbloc/vc-go/verifiable"
 )
 
 type mockFileAccessor struct {
@@ -20,6 +24,50 @@ type mockFileAccessor struct {
 
 func (mfa mockFileAccessor) ReadFile(filename string) ([]byte, error) {
 	return mfa.files[filename], mfa.errors[filename]
+}
+
+func TestTokenProvider_GetToken(t *testing.T) {
+	type test struct {
+		testName       string
+		testKey        *rsa.PrivateKey
+		testCredential *verifiable.Credential
+		expectedError  bool
+	}
+
+	tests := []test{
+		{testName: "A valid token should be returned.", testKey: getRandomRsaKey(), testCredential: getTestAuthCredential()},
+		{testName: "If credential with an invalid context is provided, no token should be returned", testKey: getRandomRsaKey(), testCredential: getInvalidContextAuthCredential(), expectedError: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.testName, func(t *testing.T) {
+			tokenProvider := M2MTokenProvider{tokenEncoder: Base64TokenEncoder{}, signingKey: tc.testKey, clock: common.RealClock{}, verificationMethod: "JsonWebKey2020", signatureType: "JsonWebSignature2020", keyType: "RSAPS256"}
+
+			token, err := tokenProvider.GetToken(tc.testCredential, "myAudience")
+			if tc.expectedError && err == nil {
+				t.Errorf("%s - Expected error but none was returned.", tc.testName)
+			} else {
+				return
+			}
+			bytes, err := base64.RawURLEncoding.DecodeString(token)
+			if err != nil {
+				t.Errorf("%s - Token should be properly encoded. Err: %v", tc.testName, err)
+			}
+			var vpObjectMap map[string]json.RawMessage
+			err = json.Unmarshal(bytes, &vpObjectMap)
+			if err != nil {
+				t.Errorf("%s - Token should contain json. Err: %v", tc.testName, err)
+			}
+			_, credentialsExits := vpObjectMap["verifiableCredential"]
+			_, proofExists := vpObjectMap["proof"]
+			if !credentialsExits {
+				t.Errorf("%s - Token should contain the credential.", tc.testName)
+			}
+			if !proofExists {
+				t.Errorf("%s - Token should contain a proof.", tc.testName)
+			}
+		})
+	}
 }
 
 func TestTokenProvider_InitM2MTokenProvider(t *testing.T) {
@@ -52,14 +100,88 @@ func TestTokenProvider_InitM2MTokenProvider(t *testing.T) {
 	}
 }
 
+func getRandomRsaKey() *rsa.PrivateKey {
+	key, _ := rsa.GenerateKey(rand.Reader, 2048)
+	return key
+}
+
 func getRandomSigningKey() []byte {
-	key, _ := rsa.GenerateKey(rand.Reader, 4096)
+
 	return pem.EncodeToMemory(
 		&pem.Block{
 			Type:  "RSA PRIVATE KEY",
-			Bytes: x509.MarshalPKCS1PrivateKey(key),
+			Bytes: x509.MarshalPKCS1PrivateKey(getRandomRsaKey()),
 		},
 	)
+}
+
+func getTestAuthCredential() *verifiable.Credential {
+	time := util.NewTime(common.RealClock{}.Now())
+	testIssuer := verifiable.Issuer{ID: "did:web:test.org"}
+	credentialSubject := verifiable.Subject{
+		ID: "urn:uuid:credenital",
+	}
+	contents := verifiable.CredentialContents{
+		Context: []string{"https://www.w3.org/2018/credentials/v1"},
+		Types:   []string{"VerifiableCredential"},
+		ID:      "urn:uuid:aee3ffc9-9700-4e7e-b903-039c446d1bfe",
+		Issuer:  &testIssuer,
+		Issued:  time,
+		Subject: []verifiable.Subject{credentialSubject},
+	}
+	vc, _ := verifiable.CreateCredential(contents, verifiable.CustomFields{})
+	return vc
+}
+
+func getNoTypetAuthCredential() *verifiable.Credential {
+	time := util.NewTime(common.RealClock{}.Now())
+	testIssuer := verifiable.Issuer{ID: "did:web:test.org"}
+	credentialSubject := verifiable.Subject{
+		ID: "urn:uuid:credenital",
+	}
+	contents := verifiable.CredentialContents{
+		Context: []string{"https://www.w3.org/2018/credentials/v1"},
+		ID:      "urn:uuid:aee3ffc9-9700-4e7e-b903-039c446d1bfe",
+		Issuer:  &testIssuer,
+		Issued:  time,
+		Subject: []verifiable.Subject{credentialSubject},
+	}
+	vc, _ := verifiable.CreateCredential(contents, verifiable.CustomFields{})
+	return vc
+}
+
+func getInvalidContextAuthCredential() *verifiable.Credential {
+	time := util.NewTime(common.RealClock{}.Now())
+	testIssuer := verifiable.Issuer{ID: "did:web:test.org"}
+	credentialSubject := verifiable.Subject{
+		ID: "urn:uuid:credenital",
+	}
+	contents := verifiable.CredentialContents{
+		Context: []string{"https://this.is.nowhere.org"},
+		Types:   []string{"VerifiableCredential"},
+		ID:      "urn:uuid:aee3ffc9-9700-4e7e-b903-039c446d1bfe",
+		Issuer:  &testIssuer,
+		Issued:  time,
+		Subject: []verifiable.Subject{credentialSubject},
+	}
+	vc, _ := verifiable.CreateCredential(contents, verifiable.CustomFields{})
+	return vc
+}
+
+func getNoIssuerAuthCredential() *verifiable.Credential {
+	time := util.NewTime(common.RealClock{}.Now())
+	credentialSubject := verifiable.Subject{
+		ID: "urn:uuid:credenital",
+	}
+	contents := verifiable.CredentialContents{
+		Context: []string{"https://www.w3.org/2018/credentials/v1"},
+		Types:   []string{"VerifiableCredential"},
+		ID:      "urn:uuid:aee3ffc9-9700-4e7e-b903-039c446d1bfe",
+		Issued:  time,
+		Subject: []verifiable.Subject{credentialSubject},
+	}
+	vc, _ := verifiable.CreateCredential(contents, verifiable.CustomFields{})
+	return vc
 }
 
 func getTestCredential() []byte {

@@ -229,6 +229,7 @@ func extractVpFromToken(c *gin.Context, vpToken string) (rawCredentials []map[st
 	rawHolder := vpObjectMap["holder"]
 
 	// TODO: Check that the key in vpObjectMap["proof"] is equal to the key that we retrieve from the DID Registry API of the TrustedIssuersRegistry
+	// TODO: verify the proof of the vp
 
 	err = json.Unmarshal(verifiableCredentials, &rawCredentials)
 	if err != nil {
