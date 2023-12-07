@@ -167,7 +167,6 @@ func (tc TirHttpClient) requestIssuer(tirEndpoint string, did string) (response 
 
 func (tc TirHttpClient) requestIssuerWithVersion(tirEndpoint string, didPath string) (response *http.Response, err error) {
 	logging.Log().Debugf("Get issuer %s/%s.", tirEndpoint, didPath)
-	logging.Log().Debugf("Client %v", tc.client)
 	resp, err := tc.client.Get(tirEndpoint, didPath)
 	if err != nil {
 		logging.Log().Warnf("Was not able to get the issuer %s from %s. Err: %v", didPath, tirEndpoint, err)
@@ -177,7 +176,6 @@ func (tc TirHttpClient) requestIssuerWithVersion(tirEndpoint string, didPath str
 		logging.Log().Warnf("Was not able to get any response for issuer %s from %s.", didPath, tirEndpoint)
 		return nil, ErrorTirNoResponse
 	}
-	logging.Log().Infof("Got response %v", resp)
 	return resp, err
 }
 

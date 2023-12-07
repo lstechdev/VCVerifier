@@ -96,9 +96,7 @@ func InitM2MTokenProvider(config *configModel.Configuration, clock common.Clock)
 		logging.Log().Warnf("Was not able to load the credential. Err: %v", err)
 		return tokenProvider, err
 	}
-	vs, _ := vc.MarshalJSON()
-	logging.Log().Warnf("The cred from %s %s", m2mConfig.CredentialPath, string(vs))
-
+	logging.Log().Debug("Successfully initialized the M2MTokenProvider.")
 	return M2MTokenProvider{tokenEncoder: Base64TokenEncoder{}, authCredential: vc, signingKey: privateKey, did: config.Verifier.Did, clock: clock, verificationMethod: m2mConfig.VerificationMethod, keyType: config.M2M.KeyType, signatureType: config.M2M.SignatureType}, err
 }
 
