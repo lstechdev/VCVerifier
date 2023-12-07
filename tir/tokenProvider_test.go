@@ -133,7 +133,7 @@ func getTestAuthCredential() *verifiable.Credential {
 	return vc
 }
 
-func getNoTypetAuthCredential() *verifiable.Credential {
+func getNoTypeAuthCredential() *verifiable.Credential {
 	time := util.NewTime(common.RealClock{}.Now())
 	testIssuer := verifiable.Issuer{ID: "did:web:test.org"}
 	credentialSubject := verifiable.Subject{
