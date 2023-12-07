@@ -1,10 +1,8 @@
 package tir
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -86,7 +84,7 @@ func NewTirHttpClient(tokenProvider TokenProvider, config config.M2M) (client Ti
 	}
 	var httpGetClient HttpGetClient
 	if config.AuthEnabled {
-		logging.Log().Debugf("Provider is %v", tokenProvider)
+		logging.Log().Debug("Authorization for the tursted-issuers-registry is enabled.")
 		httpGetClient = AuthorizingHttpClient{httpClient: httpClient, tokenProvider: tokenProvider, clientId: config.ClientId}
 	} else {
 		httpGetClient = NoAuthHttpClient{httpClient: httpClient}
@@ -144,9 +142,6 @@ func parseTirResponse(resp http.Response) (trustedIssuer TrustedIssuer, err erro
 }
 
 func (tc TirHttpClient) issuerExists(tirEndpoint string, did string) (trusted bool) {
-	// in 2.1.0 the did-document was requested. However, this seems to be wrong, therefor we go back to the issuers check.
-	// for future discussion, this part is left as a comment.
-	// 	resp, err := tc.requestDidDocument(tirEndpoint, did)
 
 	resp, err := tc.requestIssuer(tirEndpoint, did)
 	if err != nil {
@@ -168,29 +163,6 @@ func (tc TirHttpClient) requestIssuer(tirEndpoint string, did string) (response 
 		return tc.requestIssuerWithVersion(tirEndpoint, getIssuerV3Url(did))
 	}
 	return response, err
-}
-
-// currently unused, did-registry has a different purpose.
-func (tc TirHttpClient) requestDidDocument(tirEndpoint string, did string) (didDocument DIDDocument, err error) {
-
-	client, err := NewClientWithResponses(tirEndpoint)
-	if err != nil {
-		return didDocument, fmt.Errorf("error while initiating client for requesting did %s from %s: %W", did, tirEndpoint, err)
-	}
-	timeoutContext, derefFunc := context.WithTimeout(context.Background(), time.Second*30)
-	defer derefFunc()
-	resp, err := client.GetDIDDocumentWithResponse(timeoutContext, did, nil)
-	if err != nil {
-		return didDocument, fmt.Errorf("error while requesting did %s from %s: %W", did, tirEndpoint, err)
-	}
-	if resp.StatusCode() != 200 {
-		return didDocument, fmt.Errorf("unexpected status code %d while requesting did %s from %s", resp.StatusCode(), did, tirEndpoint)
-	}
-
-	if resp.JSON200 == nil {
-		return didDocument, fmt.Errorf("answer did not include the did document for %s from %s: %v", did, tirEndpoint, resp)
-	}
-	return *resp.JSON200, nil
 }
 
 func (tc TirHttpClient) requestIssuerWithVersion(tirEndpoint string, didPath string) (response *http.Response, err error) {
