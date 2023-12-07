@@ -18,7 +18,7 @@ func (mrc *mockRegistryClient) GetComplianceIssuers() ([]string, error) {
 }
 
 func createConfig(defaultsEnabled, specific bool) *configModel.Verifier {
-	conf := configModel.Verifier{PolicyConfig: configModel.Policies{configModel.PolicyMap{}, make(map[string]configModel.PolicyMap)}}
+	conf := configModel.Verifier{PolicyConfig: configModel.Policies{DefaultPolicies: configModel.PolicyMap{}, CredentialTypeSpecificPolicies: make(map[string]configModel.PolicyMap)}}
 	if defaultsEnabled {
 		conf.PolicyConfig.DefaultPolicies[gaiaxCompliancePolicy] = configModel.PolicyConfigParameters{"registryAddress": "test.com"}
 	}

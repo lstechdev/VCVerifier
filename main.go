@@ -45,7 +45,8 @@ func main() {
 		logger.Errorf("Was not able to get an ssiKit client. Err: %v", err)
 		return
 	}
-	verifier.InitVerifier(&configuration.Verifier, &configuration.ConfigRepo, ssiKitClient)
+
+	verifier.InitVerifier(&configuration, ssiKitClient)
 
 	router := getRouter()
 

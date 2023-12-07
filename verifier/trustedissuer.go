@@ -26,7 +26,16 @@ func (tpvs *TrustedIssuerVerificationService) VerifyVC(verifiableCredential Veri
 		}
 	}()
 	trustContext := verificationContext.(TrustRegistriesVerificationContext)
-	if len(trustContext.GetTrustedIssuersLists()) == 0 {
+
+	tilSpecified := false
+	for _, tl := range trustContext.GetTrustedIssuersLists() {
+		if len(tl) > 0 {
+			tilSpecified = true
+			break
+		}
+	}
+
+	if !tilSpecified {
 		logging.Log().Debug("The verfication context does not specify a trusted issuers list, therefor we consider every issuer as trusted.")
 		return true, err
 	}

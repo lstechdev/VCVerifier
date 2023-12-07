@@ -16,14 +16,12 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/fiware/VCVerifier/common"
 	"github.com/fiware/VCVerifier/logging"
 	"github.com/fiware/VCVerifier/verifier"
 
 	"github.com/gin-gonic/gin"
 )
-
-const TYPE_CODE = "authorization_code"
-const TYPE_VP_TOKEN = "vp_token"
 
 var apiVerifier verifier.Verifier
 
@@ -58,9 +56,9 @@ func GetToken(c *gin.Context) {
 		return
 	}
 
-	if grantType == TYPE_CODE {
+	if grantType == common.TYPE_CODE {
 		handleTokenTypeCode(c)
-	} else if grantType == TYPE_VP_TOKEN {
+	} else if grantType == common.TYPE_VP_TOKEN {
 		handleTokenTypeVPToken(c)
 	} else {
 		c.AbortWithStatusJSON(400, ErrorMessageUnsupportedGrantType)
@@ -76,6 +74,8 @@ func handleTokenTypeVPToken(c *gin.Context) {
 		c.AbortWithStatusJSON(400, ErrorMessageNoToken)
 		return
 	}
+
+	logging.Log().Warnf("Got token %s", vpToken)
 
 	// not used at the moment
 	// presentationSubmission, presentationSubmissionExists := c.GetPostForm("presentation_submission")
@@ -104,7 +104,7 @@ func handleTokenTypeVPToken(c *gin.Context) {
 	// Subject is empty since multiple VCs with different subjects can be provided
 	expiration, signedToken, err := getApiVerifier().GenerateToken(clientId, "", clientId, scopes, rawCredentials)
 	if err != nil {
-		logging.Log().Error("Failure during generating M2M token", err)
+		logging.Log().Error("Failure during generating M2M token: ", err)
 		c.AbortWithStatusJSON(400, err)
 		return
 	}
@@ -229,6 +229,7 @@ func extractVpFromToken(c *gin.Context, vpToken string) (rawCredentials []map[st
 	rawHolder := vpObjectMap["holder"]
 
 	// TODO: Check that the key in vpObjectMap["proof"] is equal to the key that we retrieve from the DID Registry API of the TrustedIssuersRegistry
+	// TODO: verify the proof of the vp
 
 	err = json.Unmarshal(verifiableCredentials, &rawCredentials)
 	if err != nil {
@@ -268,12 +269,13 @@ func VerifierAPIJWKS(c *gin.Context) {
 
 // VerifierAPIOpenID
 func VerifierAPIOpenIDConfiguration(c *gin.Context) {
-	protocol := "https"
-	if c.Request.TLS == nil {
-		protocol = "http"
-	}
 
-	c.JSON(http.StatusOK, getApiVerifier().GetOpenIDConfiguration(c.Request.Host, protocol, c.Param("serviceIdentifier")))
+	metadata, err := getApiVerifier().GetOpenIDConfiguration(c.Param("serviceIdentifier"))
+	if err != nil {
+		c.AbortWithStatusJSON(500, ErrorMessage{err.Error(), "Was not able to generate the OpenID metadata."})
+		return
+	}
+	c.JSON(http.StatusOK, metadata)
 }
 
 // VerifierAPIStartSIOP - Initiates the siop flow and returns the 'openid://...' connection string

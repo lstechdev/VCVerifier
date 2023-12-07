@@ -9,6 +9,7 @@ type Configuration struct {
 	SSIKit     SSIKit     `mapstructure:"ssiKit"`
 	Logging    Logging    `mapstructure:"logging"`
 	ConfigRepo ConfigRepo `mapstructure:"configRepo"`
+	M2M        M2M        `mapstructure:"m2m"`
 }
 
 // configuration to be used by the ssiKit configuration
@@ -19,12 +20,32 @@ type SSIKit struct {
 
 // general configuration to run the application
 type Server struct {
+	// host name of the verifier
+	Host string `mapstructure:"host"`
 	// port to bind the server
 	Port int `mapstructure:"port" default:"8080"`
 	// directory to read the template(s) from
 	TemplateDir string `mapstructure:"templateDir" default:"views/"`
 	// directory of static files to be provided, f.e. to be used inside the templates
 	StaticDir string `mapstructure:"staticDir" default:"views/static/"`
+}
+
+// configuration for M2M interaction
+type M2M struct {
+	// auth enabled for M2M interactions
+	AuthEnabled bool `mapstructure:"authEnabled"`
+	// path to the signing key(in pem format)
+	KeyPath string `mapstructure:"keyPath"`
+	// path to the credential to be used for auth
+	CredentialPath string `mapstructure:"credentialPath"`
+	// id of the verifier when retrieving tokens
+	ClientId string `mapstructure:"clientId"`
+	// verification method to be provided for the ld-proof
+	VerificationMethod string `mapstructure:"verificationMethod" default:"JsonWebKey2020"`
+	// signature type to be provided for the ld-proof
+	SignatureType string `mapstructure:"signatureType" default:"JsonWebSignature2020"`
+	// type of the provided key
+	KeyType string `mapstructure:"keyType" default:"RSAPS256"`
 }
 
 // logging config
