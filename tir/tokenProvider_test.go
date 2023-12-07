@@ -133,23 +133,6 @@ func getTestAuthCredential() *verifiable.Credential {
 	return vc
 }
 
-func getNoTypeAuthCredential() *verifiable.Credential {
-	time := util.NewTime(common.RealClock{}.Now())
-	testIssuer := verifiable.Issuer{ID: "did:web:test.org"}
-	credentialSubject := verifiable.Subject{
-		ID: "urn:uuid:credenital",
-	}
-	contents := verifiable.CredentialContents{
-		Context: []string{"https://www.w3.org/2018/credentials/v1"},
-		ID:      "urn:uuid:aee3ffc9-9700-4e7e-b903-039c446d1bfe",
-		Issuer:  &testIssuer,
-		Issued:  time,
-		Subject: []verifiable.Subject{credentialSubject},
-	}
-	vc, _ := verifiable.CreateCredential(contents, verifiable.CustomFields{})
-	return vc
-}
-
 func getInvalidContextAuthCredential() *verifiable.Credential {
 	time := util.NewTime(common.RealClock{}.Now())
 	testIssuer := verifiable.Issuer{ID: "did:web:test.org"}
@@ -161,22 +144,6 @@ func getInvalidContextAuthCredential() *verifiable.Credential {
 		Types:   []string{"VerifiableCredential"},
 		ID:      "urn:uuid:aee3ffc9-9700-4e7e-b903-039c446d1bfe",
 		Issuer:  &testIssuer,
-		Issued:  time,
-		Subject: []verifiable.Subject{credentialSubject},
-	}
-	vc, _ := verifiable.CreateCredential(contents, verifiable.CustomFields{})
-	return vc
-}
-
-func getNoIssuerAuthCredential() *verifiable.Credential {
-	time := util.NewTime(common.RealClock{}.Now())
-	credentialSubject := verifiable.Subject{
-		ID: "urn:uuid:credenital",
-	}
-	contents := verifiable.CredentialContents{
-		Context: []string{"https://www.w3.org/2018/credentials/v1"},
-		Types:   []string{"VerifiableCredential"},
-		ID:      "urn:uuid:aee3ffc9-9700-4e7e-b903-039c446d1bfe",
 		Issued:  time,
 		Subject: []verifiable.Subject{credentialSubject},
 	}
