@@ -11,7 +11,6 @@ package openapi
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/fiware/VCVerifier/logging"
 	"github.com/fiware/VCVerifier/verifier"
@@ -56,15 +55,7 @@ func VerifierPageDisplayQRSIOP(c *gin.Context) {
 		return
 	}
 
-	c.HTML(http.StatusOK, buildPath(configuration.TemplateDir, "verifier_present_qr.html"), gin.H{"qrcode": qr})
-}
-
-func buildPath(templateDir string, file string) string {
-	if strings.HasSuffix(templateDir, "/") {
-		return templateDir + file
-	} else {
-		return templateDir + "/" + file
-	}
+	c.HTML(http.StatusOK, "verifier_present_qr.html", gin.H{"qrcode": qr})
 }
 
 // VerifierPageLoginExpired - Presents a page when the login session is expired

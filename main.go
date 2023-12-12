@@ -47,7 +47,7 @@ func main() {
 	}
 	verifier.InitVerifier(&configuration.Verifier, &configuration.ConfigRepo, ssiKitClient)
 
-	router := getRouter(configuration.Server)
+	router := getRouter()
 
 	// health check
 	router.GET("/health", HealthReq)
@@ -65,6 +65,8 @@ func main() {
 	// static files for the frontend
 	router.Static("/static", configuration.Server.StaticDir)
 
+	router.LoadHTMLGlob(configuration.Server.TemplateDir)
+
 	// initiate metrics
 	metrics := ginmetrics.GetMonitor()
 	metrics.SetMetricPath("/metrics")
@@ -76,12 +78,12 @@ func main() {
 }
 
 // initiate the router
-func getRouter(serverConfig configModel.Server) *gin.Engine {
+func getRouter() *gin.Engine {
 	// the openapi generated router uses the defaults, which we want to override to improve and configure logging
 	router := gin.New()
 	router.Use(logging.GinHandlerFunc(), gin.Recovery())
 
-	for _, route := range api.NewRouter(serverConfig).Routes() {
+	for _, route := range api.NewRouter().Routes() {
 
 		switch route.Method {
 		case http.MethodGet:
