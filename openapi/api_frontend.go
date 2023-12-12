@@ -54,6 +54,7 @@ func VerifierPageDisplayQRSIOP(c *gin.Context) {
 		c.AbortWithStatusJSON(500, ErrorMessage{"qr_generation_error", err.Error()})
 		return
 	}
+	logging.Log().Infof("Return template %s", configuration.TemplateDir+"verifier_present_qr.html")
 
 	c.HTML(http.StatusOK, configuration.TemplateDir+"verifier_present_qr.html", gin.H{"qrcode": qr})
 }
