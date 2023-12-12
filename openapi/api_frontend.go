@@ -11,6 +11,7 @@ package openapi
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/fiware/VCVerifier/logging"
 	"github.com/fiware/VCVerifier/verifier"
@@ -54,9 +55,16 @@ func VerifierPageDisplayQRSIOP(c *gin.Context) {
 		c.AbortWithStatusJSON(500, ErrorMessage{"qr_generation_error", err.Error()})
 		return
 	}
-	logging.Log().Infof("Return template %s", configuration.TemplateDir+"verifier_present_qr.html")
 
-	c.HTML(http.StatusOK, configuration.TemplateDir+"verifier_present_qr.html", gin.H{"qrcode": qr})
+	c.HTML(http.StatusOK, buildPath(configuration.TemplateDir, "verifier_present_qr.html"), gin.H{"qrcode": qr})
+}
+
+func buildPath(templateDir string, file string) string {
+	if strings.HasSuffix(templateDir, "/") {
+		return templateDir + file
+	} else {
+		return templateDir + "/" + file
+	}
 }
 
 // VerifierPageLoginExpired - Presents a page when the login session is expired
