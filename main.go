@@ -73,6 +73,7 @@ func main() {
 		templateDir = templateDir + "/*"
 	}
 
+	logging.Log().Infof("Intialize templates from %s", templateDir)
 	router.LoadHTMLGlob(templateDir)
 
 	// initiate metrics
