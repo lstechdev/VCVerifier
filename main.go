@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	configModel "github.com/fiware/VCVerifier/config"
 	logging "github.com/fiware/VCVerifier/logging"
@@ -65,7 +66,14 @@ func main() {
 	// static files for the frontend
 	router.Static("/static", configuration.Server.StaticDir)
 
-	router.LoadHTMLGlob(configuration.Server.TemplateDir)
+	templateDir := configuration.Server.TemplateDir
+	if strings.HasSuffix(templateDir, "/") {
+		templateDir = templateDir + "*"
+	} else {
+		templateDir = templateDir + "/*"
+	}
+
+	router.LoadHTMLGlob(templateDir)
 
 	// initiate metrics
 	metrics := ginmetrics.GetMonitor()
