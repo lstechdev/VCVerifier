@@ -55,7 +55,7 @@ func VerifierPageDisplayQRSIOP(c *gin.Context) {
 		return
 	}
 
-	c.HTML(http.StatusOK, "verifier_present_qr.html", gin.H{"qrcode": qr})
+	c.HTML(http.StatusOK, "verifier_present_qr", gin.H{"qrcode": qr})
 }
 
 // VerifierPageLoginExpired - Presents a page when the login session is expired
