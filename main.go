@@ -67,14 +67,15 @@ func main() {
 	router.Static("/static", configuration.Server.StaticDir)
 
 	templateDir := configuration.Server.TemplateDir
-	if strings.HasSuffix(templateDir, "/") {
-		templateDir = templateDir + "*.html"
-	} else {
-		templateDir = templateDir + "/*.html"
+	if templateDir != "" {
+		if strings.HasSuffix(templateDir, "/") {
+			templateDir = templateDir + "*.html"
+		} else {
+			templateDir = templateDir + "/*.html"
+		}
+		logging.Log().Infof("Intialize templates from %s", templateDir)
+		router.LoadHTMLGlob(templateDir)
 	}
-
-	logging.Log().Infof("Intialize templates from %s", templateDir)
-	router.LoadHTMLGlob(templateDir)
 
 	// initiate metrics
 	metrics := ginmetrics.GetMonitor()
