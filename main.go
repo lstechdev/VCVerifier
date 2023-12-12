@@ -74,7 +74,7 @@ func main() {
 	}
 
 	logging.Log().Infof("Intialize templates from %s", templateDir)
-	router.LoadHTMLGlob(templateDir)
+	//router.LoadHTMLGlob(templateDir)
 
 	// initiate metrics
 	metrics := ginmetrics.GetMonitor()
