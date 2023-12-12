@@ -12,6 +12,7 @@ package openapi
 import (
 	"net/http"
 
+	"github.com/fiware/VCVerifier/config"
 	"github.com/gin-gonic/gin"
 )
 
@@ -30,9 +31,13 @@ type Route struct {
 // Routes is the list of the generated Route.
 type Routes []Route
 
+var configuration config.Server
+
 // NewRouter returns a new router.
-func NewRouter() *gin.Engine {
+func NewRouter(serverConfig config.Server) *gin.Engine {
 	router := gin.New()
+
+	configuration = serverConfig
 
 	for _, route := range routes {
 		switch route.Method {
