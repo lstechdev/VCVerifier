@@ -15,6 +15,7 @@ import (
 
 	"golang.org/x/exp/slices"
 
+	common "github.com/fiware/VCVerifier/common"
 	configModel "github.com/fiware/VCVerifier/config"
 	"github.com/fiware/VCVerifier/tir"
 
@@ -52,7 +53,7 @@ type Verifier interface {
 	GetJWKS() jwk.Set
 	AuthenticationResponse(state string, verifiableCredentials []map[string]interface{}, holder string) (sameDevice SameDeviceResponse, err error)
 	GenerateToken(clientId, subject, audience string, scope []string, verifiableCredentials []map[string]interface{}) (int64, string, error)
-	GetOpenIDConfiguration(host string, protocol string, serviceIdentifier string) OpenIDProviderMetadata
+	GetOpenIDConfiguration(serviceIdentifier string) (metadata common.OpenIDProviderMetadata, err error)
 }
 
 type VerificationService interface {
@@ -62,6 +63,8 @@ type VerificationService interface {
 
 // implementation of the verifier, using waltId ssikit and gaia-x compliance issuers registry as a validation backends.
 type CredentialVerifier struct {
+	// host of the verifier
+	host string
 	// did of the verifier
 	did string
 	// trusted-issuers-registry to be used for verification
@@ -75,9 +78,9 @@ type CredentialVerifier struct {
 	// nonce generator
 	nonceGenerator NonceGenerator
 	// provides the current time
-	clock Clock
+	clock common.Clock
 	// provides the capabilities to signt the jwt
-	tokenSigner TokenSigner
+	tokenSigner common.TokenSigner
 	// provide the configuration to be used with the credentials
 	credentialsConfig CredentialsConfig
 	// Verification services to be used on the credentials
@@ -91,10 +94,6 @@ var verifier Verifier
 var httpClient = client.HttpClient()
 
 // interfaces and default implementations
-
-type Clock interface {
-	Now() time.Time
-}
 
 type VerificationContext interface{}
 
@@ -132,22 +131,6 @@ func removeDuplicate[T string | int](sliceList []T) []T {
 		}
 	}
 	return list
-}
-
-type realClock struct{}
-
-func (realClock) Now() time.Time {
-	return time.Now()
-}
-
-type TokenSigner interface {
-	Sign(t jwt.Token, alg jwa.SignatureAlgorithm, key interface{}, options ...jwt.SignOption) ([]byte, error)
-}
-
-type jwtTokenSigner struct{}
-
-func (jwtTokenSigner) Sign(t jwt.Token, alg jwa.SignatureAlgorithm, key interface{}, options ...jwt.SignOption) ([]byte, error) {
-	return jwt.Sign(t, alg, key, options...)
 }
 
 type randomGenerator struct{}
@@ -192,23 +175,6 @@ type SameDeviceResponse struct {
 	SessionId string
 }
 
-type OpenIDProviderMetadata struct {
-	Issuer                                 string   `json:"issuer"`
-	AuthorizationEndpoint                  string   `json:"authorization_endpoint"`
-	TokenEndpoint                          string   `json:"token_endpoint"`
-	PresentationDefinitionEndpoint         string   `json:"presentation_definition_endpoint,omitempty"`
-	JwksUri                                string   `json:"jwks_uri"`
-	ScopesSupported                        []string `json:"scopes_supported"`
-	ResponseTypesSupported                 []string `json:"response_types_supported"`
-	ResponseModeSupported                  []string `json:"response_mode_supported,omitempty"`
-	GrantTypesSupported                    []string `json:"grant_types_supported,omitempty"`
-	SubjectTypesSupported                  []string `json:"subject_types_supported"`
-	IdTokenSigningAlgValuesSupported       []string `json:"id_token_signing_alg_values_supported"`
-	RequestObjectSigningAlgValuesSupported []string `json:"request_object_signing_alg_values_supported,omitempty"`
-	RequestParameterSupported              bool     `json:"request_parameter_supported,omitempty"`
-	TokenEndpointAuthMethodsSupported      []string `json:"token_endpoint_auth_methods_supported,omitempty"`
-}
-
 /**
 * Global singelton access to the verifier
 **/
@@ -222,12 +188,13 @@ func GetVerifier() Verifier {
 /**
 * Initialize the verifier and all its components from the configuration
 **/
-func InitVerifier(verifierConfig *configModel.Verifier, repoConfig *configModel.ConfigRepo, ssiKitClient ssikit.SSIKit) (err error) {
+func InitVerifier(config *configModel.Configuration, ssiKitClient ssikit.SSIKit) (err error) {
 
-	err = verifyConfig(verifierConfig)
+	err = verifyConfig(&config.Verifier)
 	if err != nil {
 		return
 	}
+	verifierConfig := &config.Verifier
 
 	sessionCache := cache.New(time.Duration(verifierConfig.SessionExpiry)*time.Second, time.Duration(2*verifierConfig.SessionExpiry)*time.Second)
 	tokenCache := cache.New(time.Duration(verifierConfig.SessionExpiry)*time.Second, time.Duration(2*verifierConfig.SessionExpiry)*time.Second)
@@ -239,12 +206,26 @@ func InitVerifier(verifierConfig *configModel.Verifier, repoConfig *configModel.
 	}
 	externalGaiaXVerifier := InitGaiaXRegistryVerificationService(verifierConfig)
 
-	credentialsConfig, err := InitServiceBackedCredentialsConfig(repoConfig)
+	credentialsConfig, err := InitServiceBackedCredentialsConfig(&config.ConfigRepo)
 	if err != nil {
 		logging.Log().Errorf("Was not able to initiate the credentials config. Err: %v", err)
 	}
 
-	tirClient, err := tir.NewTirHttpClient()
+	clock := common.RealClock{}
+
+	var tokenProvider tir.TokenProvider
+	if (&config.M2M).AuthEnabled {
+		tokenProvider, err = tir.InitM2MTokenProvider(config, clock)
+		if err != nil {
+			logging.Log().Errorf("Was not able to instantiate the token provider. Err: %v", err)
+			return err
+		}
+		logging.Log().Info("Successfully created token provider")
+	} else {
+		logging.Log().Infof("Auth disabled.")
+	}
+
+	tirClient, err := tir.NewTirHttpClient(tokenProvider, config.M2M)
 	if err != nil {
 		logging.Log().Errorf("Was not able to instantiate the trusted-issuers-registry client. Err: %v", err)
 		return err
@@ -260,14 +241,15 @@ func InitVerifier(verifierConfig *configModel.Verifier, repoConfig *configModel.
 	}
 	logging.Log().Warnf("Initiated key %s.", logging.PrettyPrintObject(key))
 	verifier = &CredentialVerifier{
+		(&config.Server).Host,
 		verifierConfig.Did,
 		verifierConfig.TirAddress,
 		key,
 		sessionCache,
 		tokenCache,
 		&randomGenerator{},
-		realClock{},
-		jwtTokenSigner{},
+		clock,
+		common.JwtTokenSigner{},
 		credentialsConfig,
 		[]VerificationService{
 			&externalSsiKitVerifier,
@@ -431,25 +413,24 @@ func (v *CredentialVerifier) GenerateToken(clientId, subject, audience string, s
 	return expiration, string(tokenBytes), nil
 }
 
-func (v *CredentialVerifier) GetOpenIDConfiguration(host string, protocol string, serviceIdentifier string) OpenIDProviderMetadata {
-	verifierUrl := fmt.Sprintf("%s://%s", protocol, host)
+func (v *CredentialVerifier) GetOpenIDConfiguration(serviceIdentifier string) (metadata common.OpenIDProviderMetadata, err error) {
 
 	scopes, err := v.credentialsConfig.GetScope(serviceIdentifier)
 	if err != nil {
-		return OpenIDProviderMetadata{}
+		return metadata, err
 	}
 
-	return OpenIDProviderMetadata{
-		Issuer:                           verifierUrl,
-		AuthorizationEndpoint:            verifierUrl,
-		TokenEndpoint:                    verifierUrl + "/token",
-		JwksUri:                          verifierUrl + "/.well-known/jwks",
+	return common.OpenIDProviderMetadata{
+		Issuer:                           v.host,
+		AuthorizationEndpoint:            v.host,
+		TokenEndpoint:                    v.host + "/token",
+		JwksUri:                          v.host + "/.well-known/jwks",
 		GrantTypesSupported:              []string{"authorization_code", "vp_token"},
 		ResponseTypesSupported:           []string{"token"},
 		ResponseModeSupported:            []string{"direct_post"},
 		SubjectTypesSupported:            []string{"public"},
 		IdTokenSigningAlgValuesSupported: []string{"EdDSA", "ES256"},
-		ScopesSupported:                  scopes}
+		ScopesSupported:                  scopes}, err
 }
 
 /**

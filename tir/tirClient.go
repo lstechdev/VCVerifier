@@ -1,15 +1,13 @@
 package tir
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/bxcodec/httpcache"
+	"github.com/fiware/VCVerifier/config"
 	"github.com/fiware/VCVerifier/logging"
 )
 
@@ -23,6 +21,7 @@ var ErrorTirEmptyResponse = errors.New("empty_response_from_tir")
 
 type HttpClient interface {
 	Get(url string) (resp *http.Response, err error)
+	Do(req *http.Request) (*http.Response, error)
 }
 
 type TirClient interface {
@@ -34,7 +33,7 @@ type TirClient interface {
 * A client to retrieve infromation from EBSI-compatible TrustedIssuerRegistry APIs.
  */
 type TirHttpClient struct {
-	client HttpClient
+	client HttpGetClient
 }
 
 /**
@@ -75,15 +74,23 @@ type Claim struct {
 	AllowedValues []interface{} `json:"allowedValues"`
 }
 
-func NewTirHttpClient() (client TirClient, err error) {
+func NewTirHttpClient(tokenProvider TokenProvider, config config.M2M) (client TirClient, err error) {
 
 	httpClient := &http.Client{}
 	_, err = httpcache.NewWithInmemoryCache(httpClient, true, time.Second*60)
 	if err != nil {
-		logging.Log().Errorf("Was not able to inject the cach to the client. Err: %v", err)
+		logging.Log().Errorf("Was not able to inject the cache to the client. Err: %v", err)
 		return
 	}
-	return TirHttpClient{httpClient}, err
+	var httpGetClient HttpGetClient
+	if config.AuthEnabled {
+		logging.Log().Debug("Authorization for the tursted-issuers-registry is enabled.")
+		httpGetClient = AuthorizingHttpClient{httpClient: httpClient, tokenProvider: tokenProvider, clientId: config.ClientId}
+	} else {
+		httpGetClient = NoAuthHttpClient{httpClient: httpClient}
+	}
+
+	return TirHttpClient{client: httpGetClient}, err
 }
 
 func (tc TirHttpClient) IsTrustedParticipant(tirEndpoints []string, did string) (trusted bool) {
@@ -135,9 +142,6 @@ func parseTirResponse(resp http.Response) (trustedIssuer TrustedIssuer, err erro
 }
 
 func (tc TirHttpClient) issuerExists(tirEndpoint string, did string) (trusted bool) {
-	// in 2.1.0 the did-document was requested. However, this seems to be wrong, therefor we go back to the issuers check.
-	// for future discussion, this part is left as a comment.
-	// 	resp, err := tc.requestDidDocument(tirEndpoint, did)
 
 	resp, err := tc.requestIssuer(tirEndpoint, did)
 	if err != nil {
@@ -149,68 +153,37 @@ func (tc TirHttpClient) issuerExists(tirEndpoint string, did string) (trusted bo
 }
 
 func (tc TirHttpClient) requestIssuer(tirEndpoint string, did string) (response *http.Response, err error) {
-	response, err = tc.requestIssuerWithVersion(getIssuerV4Url(tirEndpoint), did)
+	response, err = tc.requestIssuerWithVersion(tirEndpoint, getIssuerV4Url(did))
 	if err != nil {
 		logging.Log().Debugf("Got error %v", err)
-		return tc.requestIssuerWithVersion(getIssuerV3Url(tirEndpoint), did)
+		return tc.requestIssuerWithVersion(tirEndpoint, getIssuerV3Url(did))
 	}
 	if response.StatusCode != 200 {
 		logging.Log().Debugf("Got status %v", response.StatusCode)
-		return tc.requestIssuerWithVersion(getIssuerV3Url(tirEndpoint), did)
+		return tc.requestIssuerWithVersion(tirEndpoint, getIssuerV3Url(did))
 	}
 	return response, err
 }
 
-// currently unused, did-registry has a different purpose.
-func (tc TirHttpClient) requestDidDocument(tirEndpoint string, did string) (didDocument DIDDocument, err error) {
-
-	client, err := NewClientWithResponses(tirEndpoint)
+func (tc TirHttpClient) requestIssuerWithVersion(tirEndpoint string, didPath string) (response *http.Response, err error) {
+	logging.Log().Debugf("Get issuer %s/%s.", tirEndpoint, didPath)
+	resp, err := tc.client.Get(tirEndpoint, didPath)
 	if err != nil {
-		return didDocument, fmt.Errorf("error while initiating client for requesting did %s from %s: %W", did, tirEndpoint, err)
-	}
-	timeoutContext, derefFunc := context.WithTimeout(context.Background(), time.Second*30)
-	defer derefFunc()
-	resp, err := client.GetDIDDocumentWithResponse(timeoutContext, did, nil)
-	if err != nil {
-		return didDocument, fmt.Errorf("error while requesting did %s from %s: %W", did, tirEndpoint, err)
-	}
-	if resp.StatusCode() != 200 {
-		return didDocument, fmt.Errorf("unexpected status code %d while requesting did %s from %s", resp.StatusCode(), did, tirEndpoint)
-	}
-
-	if resp.JSON200 == nil {
-		return didDocument, fmt.Errorf("answer did not include the did document for %s from %s: %v", did, tirEndpoint, resp)
-	}
-	return *resp.JSON200, nil
-}
-
-func (tc TirHttpClient) requestIssuerWithVersion(tirEndpoint string, did string) (response *http.Response, err error) {
-	logging.Log().Debugf("Get issuer %s/%s.", tirEndpoint, did)
-	resp, err := tc.client.Get(tirEndpoint + "/" + did)
-	if err != nil {
-		logging.Log().Warnf("Was not able to get the issuer %s from %s. Err: %v", did, tirEndpoint, err)
+		logging.Log().Warnf("Was not able to get the issuer %s from %s. Err: %v", didPath, tirEndpoint, err)
 		return resp, err
 	}
 	if resp == nil {
-		logging.Log().Warnf("Was not able to get any response for issuer %s from %s.", did, tirEndpoint)
+		logging.Log().Warnf("Was not able to get any response for issuer %s from %s.", didPath, tirEndpoint)
 		return nil, ErrorTirNoResponse
 	}
-
 	return resp, err
 }
 
-func getIssuerV4Url(tirEndpoint string) string {
-	if strings.HasSuffix(tirEndpoint, "/") {
-		return tirEndpoint + ISSUERS_V4_PATH
-	} else {
-		return tirEndpoint + "/" + ISSUERS_V4_PATH
-	}
+func getIssuerV4Url(did string) string {
+	return ISSUERS_V4_PATH + "/" + did
 }
 
-func getIssuerV3Url(tirEndpoint string) string {
-	if strings.HasSuffix(tirEndpoint, "/") {
-		return tirEndpoint + ISSUERS_V3_PATH
-	} else {
-		return tirEndpoint + "/" + ISSUERS_V3_PATH
-	}
+func getIssuerV3Url(did string) string {
+	return ISSUERS_V3_PATH + "/" + did
+
 }
