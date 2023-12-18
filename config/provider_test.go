@@ -59,8 +59,8 @@ func Test_ReadConfig(t *testing.T) {
 							Id:               "testService",
 							DefaultOidcScope: "someScope",
 							ServiceScopes: map[string][]Credential{
-								"someScope": []Credential{
-									Credential{
+								"someScope": {
+									{
 										Type:                     "VerifiableCredential",
 										TrustedParticipantsLists: []string{"https://tir-pdc.gaia-x.fiware.dev"},
 										TrustedIssuersLists:      []string{"https://til-pdc.gaia-x.fiware.dev"},
@@ -70,6 +70,7 @@ func Test_ReadConfig(t *testing.T) {
 						},
 					},
 				},
+				M2M: M2M{AuthEnabled: false, VerificationMethod: "JsonWebKey2020", SignatureType: "JsonWebSignature2020", KeyType: "RSAPS256"},
 			},
 			false,
 		}, {
@@ -92,6 +93,7 @@ func Test_ReadConfig(t *testing.T) {
 					LogRequests: true,
 					PathsToSkip: nil,
 				},
+				M2M: M2M{AuthEnabled: false, VerificationMethod: "JsonWebKey2020", SignatureType: "JsonWebSignature2020", KeyType: "RSAPS256"},
 			},
 			false,
 		},
