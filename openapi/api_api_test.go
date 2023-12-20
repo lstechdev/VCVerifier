@@ -13,6 +13,7 @@ import (
 	"github.com/fiware/VCVerifier/common"
 	"github.com/fiware/VCVerifier/logging"
 	verifier "github.com/fiware/VCVerifier/verifier"
+	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lestrrat-go/jwx/jwk"
@@ -45,14 +46,14 @@ func (mV *mockVerifier) GetToken(authorizationCode string, redirectUri string) (
 func (mV *mockVerifier) GetJWKS() jwk.Set {
 	return mV.mockJWKS
 }
-func (mV *mockVerifier) AuthenticationResponse(state string, verifiableCredentials []map[string]interface{}, holder string) (sameDevice verifier.SameDeviceResponse, err error) {
+func (mV *mockVerifier) AuthenticationResponse(state string, presentation *verifiable.Presentation) (sameDevice verifier.SameDeviceResponse, err error) {
 	return mV.mockSameDevice, mV.mockError
 }
 func (mV *mockVerifier) GetOpenIDConfiguration(serviceIdentifier string) (metadata common.OpenIDProviderMetadata, err error) {
 	return mV.mockOpenIDConfig, err
 }
 
-func (mV *mockVerifier) GenerateToken(clientId, subject, audience string, scope []string, verifiableCredentials []map[string]interface{}) (int64, string, error) {
+func (mV *mockVerifier) GenerateToken(clientId, subject, audience string, scope []string, presentation *verifiable.Presentation) (int64, string, error) {
 	return mV.mockExpiration, mV.mockJWTString, mV.mockError
 }
 
@@ -89,67 +90,69 @@ func TestGetToken(t *testing.T) {
 
 	for _, tc := range tests {
 
-		logging.Log().Info("TestGetToken +++++++++++++++++ Running test: ", tc.testName)
+		t.Run(tc.testName, func(t *testing.T) {
+			presentationOptions = []verifiable.PresentationOpt{verifiable.WithPresDisabledProofCheck(), verifiable.WithDisabledJSONLDChecks()}
 
-		recorder := httptest.NewRecorder()
-		testContext, _ := gin.CreateTestContext(recorder)
-		apiVerifier = &mockVerifier{mockJWTString: tc.mockJWTString, mockExpiration: tc.mockExpiration, mockError: tc.mockError}
+			recorder := httptest.NewRecorder()
+			testContext, _ := gin.CreateTestContext(recorder)
+			apiVerifier = &mockVerifier{mockJWTString: tc.mockJWTString, mockExpiration: tc.mockExpiration, mockError: tc.mockError}
 
-		formArray := []string{}
+			formArray := []string{}
 
-		if tc.testGrantType != "" {
-			formArray = append(formArray, "grant_type="+tc.testGrantType)
-		}
-		if tc.testCode != "" {
-			formArray = append(formArray, "code="+tc.testCode)
-		}
-		if tc.testRedirectUri != "" {
-			formArray = append(formArray, "redirect_uri="+tc.testRedirectUri)
-		}
-
-		if tc.testScope != "" {
-			formArray = append(formArray, "scope="+tc.testScope)
-		}
-
-		if tc.testVPToken != "" {
-			formArray = append(formArray, "vp_token="+tc.testVPToken)
-		}
-
-		body := bytes.NewBufferString(strings.Join(formArray, "&"))
-		testContext.Request, _ = http.NewRequest("POST", "/", body)
-		testContext.Request.Header.Add("Content-Type", gin.MIMEPOSTForm)
-
-		GetToken(testContext)
-
-		if recorder.Code != tc.expectedStatusCode {
-			t.Errorf("%s - Expected status %v but was %v.", tc.testName, tc.expectedStatusCode, recorder.Code)
-			continue
-		}
-
-		if tc.expectedStatusCode == 400 {
-			errorBody, _ := ioutil.ReadAll(recorder.Body)
-			errorMessage := ErrorMessage{}
-			json.Unmarshal(errorBody, &errorMessage)
-			if errorMessage != tc.expectedError {
-				t.Errorf("%s - Expected error %s but was %s.", tc.testName, logging.PrettyPrintObject(tc.expectedError), logging.PrettyPrintObject(errorMessage))
-				continue
+			if tc.testGrantType != "" {
+				formArray = append(formArray, "grant_type="+tc.testGrantType)
 			}
-			continue
-		}
+			if tc.testCode != "" {
+				formArray = append(formArray, "code="+tc.testCode)
+			}
+			if tc.testRedirectUri != "" {
+				formArray = append(formArray, "redirect_uri="+tc.testRedirectUri)
+			}
 
-		tokenResponse := TokenResponse{}
-		if tc.expectedResponse != tokenResponse {
-			body, _ := ioutil.ReadAll(recorder.Body)
-			err := json.Unmarshal(body, &tokenResponse)
-			if err != nil {
-				t.Errorf("%s - Was not able to unmarshal the token response. Err: %v.", tc.testName, err)
-				continue
+			if tc.testScope != "" {
+				formArray = append(formArray, "scope="+tc.testScope)
 			}
-			if tokenResponse != tc.expectedResponse {
-				t.Errorf("%s - Expected token response %s but was %s.", tc.testName, logging.PrettyPrintObject(tc.expectedResponse), logging.PrettyPrintObject(tokenResponse))
-				continue
+
+			if tc.testVPToken != "" {
+				formArray = append(formArray, "vp_token="+tc.testVPToken)
 			}
-		}
+
+			body := bytes.NewBufferString(strings.Join(formArray, "&"))
+			testContext.Request, _ = http.NewRequest("POST", "/", body)
+			testContext.Request.Header.Add("Content-Type", gin.MIMEPOSTForm)
+
+			GetToken(testContext)
+
+			if recorder.Code != tc.expectedStatusCode {
+				t.Errorf("%s - Expected status %v but was %v.", tc.testName, tc.expectedStatusCode, recorder.Code)
+				return
+			}
+
+			if tc.expectedStatusCode == 400 {
+				errorBody, _ := ioutil.ReadAll(recorder.Body)
+				errorMessage := ErrorMessage{}
+				json.Unmarshal(errorBody, &errorMessage)
+				if errorMessage != tc.expectedError {
+					t.Errorf("%s - Expected error %s but was %s.", tc.testName, logging.PrettyPrintObject(tc.expectedError), logging.PrettyPrintObject(errorMessage))
+					return
+				}
+				return
+			}
+
+			tokenResponse := TokenResponse{}
+			if tc.expectedResponse != tokenResponse {
+				body, _ := ioutil.ReadAll(recorder.Body)
+				err := json.Unmarshal(body, &tokenResponse)
+				if err != nil {
+					t.Errorf("%s - Was not able to unmarshal the token response. Err: %v.", tc.testName, err)
+					return
+				}
+				if tokenResponse != tc.expectedResponse {
+					t.Errorf("%s - Expected token response %s but was %s.", tc.testName, logging.PrettyPrintObject(tc.expectedResponse), logging.PrettyPrintObject(tokenResponse))
+					return
+				}
+			}
+		})
 
 	}
 }
@@ -178,36 +181,38 @@ func TestStartSIOPSameDevice(t *testing.T) {
 
 	for _, tc := range tests {
 
-		logging.Log().Info("TestStartSIOPSameDevice +++++++++++++++++ Running test: ", tc.testName)
+		t.Run(tc.testName, func(t *testing.T) {
+			presentationOptions = []verifiable.PresentationOpt{verifiable.WithPresDisabledProofCheck(), verifiable.WithDisabledJSONLDChecks()}
 
-		recorder := httptest.NewRecorder()
-		testContext, _ := gin.CreateTestContext(recorder)
-		apiVerifier = &mockVerifier{mockAuthRequest: tc.mockRedirect, mockError: tc.mockError}
+			recorder := httptest.NewRecorder()
+			testContext, _ := gin.CreateTestContext(recorder)
+			apiVerifier = &mockVerifier{mockAuthRequest: tc.mockRedirect, mockError: tc.mockError}
 
-		testParameters := []string{}
-		if tc.testState != "" {
-			testParameters = append(testParameters, "state="+tc.testState)
-		}
-		if tc.testRedirectPath != "" {
-			testParameters = append(testParameters, "redirect_path="+tc.testRedirectPath)
-		}
+			testParameters := []string{}
+			if tc.testState != "" {
+				testParameters = append(testParameters, "state="+tc.testState)
+			}
+			if tc.testRedirectPath != "" {
+				testParameters = append(testParameters, "redirect_path="+tc.testRedirectPath)
+			}
 
-		testContext.Request, _ = http.NewRequest("GET", tc.testRequestAddress+"/?"+strings.Join(testParameters, "&"), nil)
-		StartSIOPSameDevice(testContext)
+			testContext.Request, _ = http.NewRequest("GET", tc.testRequestAddress+"/?"+strings.Join(testParameters, "&"), nil)
+			StartSIOPSameDevice(testContext)
 
-		if recorder.Code != tc.expectedStatusCode {
-			t.Errorf("%s - Expected status %v but was %v.", tc.testName, tc.expectedStatusCode, recorder.Code)
-			continue
-		}
-		if tc.expectedStatusCode != 302 {
-			// everything other is an error, we dont care about the details
-			continue
-		}
+			if recorder.Code != tc.expectedStatusCode {
+				t.Errorf("%s - Expected status %v but was %v.", tc.testName, tc.expectedStatusCode, recorder.Code)
+				return
+			}
+			if tc.expectedStatusCode != 302 {
+				// everything other is an error, we dont care about the details
+				return
+			}
 
-		location := recorder.Result().Header.Get("Location")
-		if location != tc.expectedLocation {
-			t.Errorf("%s - Expected location %s but was %s.", tc.testName, tc.expectedLocation, location)
-		}
+			location := recorder.Result().Header.Get("Location")
+			if location != tc.expectedLocation {
+				t.Errorf("%s - Expected location %s but was %s.", tc.testName, tc.expectedLocation, location)
+			}
+		})
 	}
 }
 
@@ -233,68 +238,69 @@ func TestVerifierAPIAuthenticationResponse(t *testing.T) {
 		{"If the same-device flow responds an error, a 400 should be returend", true, "my-state", getValidVPToken(), errors.New("verification_error"), verifier.SameDeviceResponse{}, 400, "", ErrorMessage{Summary: "verification_error"}},
 		{"If no state is provided, a 400 should be returned.", true, "", getValidVPToken(), nil, verifier.SameDeviceResponse{}, 400, "", ErrorMessageNoState},
 		{"If an no token is provided, a 400 should be returned.", true, "my-state", "", nil, verifier.SameDeviceResponse{}, 400, "", ErrorMessageNoToken},
-		{"If a token with invalid credentials is provided, a 400 should be returned.", true, "my-state", getNoVCVPToken(), nil, verifier.SameDeviceResponse{}, 400, "", ErrorMessageUnableToDecodeCredential},
-		{"If a token with an invalid holder is provided, a 400 should be returned.", true, "my-state", getNoHolderVPToken(), nil, verifier.SameDeviceResponse{}, 400, "", ErrorMessageUnableToDecodeHolder},
+		{"If a token with invalid credentials is provided, a 400 should be returned.", true, "my-state", getNoVCVPToken(), nil, verifier.SameDeviceResponse{}, 400, "", ErrorMessageUnableToDecodeToken},
+		{"If a token with an invalid holder is provided, a 400 should be returned.", true, "my-state", getNoHolderVPToken(), nil, verifier.SameDeviceResponse{}, 400, "", ErrorMessageUnableToDecodeToken},
 	}
 
 	for _, tc := range tests {
 
-		logging.Log().Info("TestVerifierAPIAuthenticationResponse +++++++++++++++++ Running test: ", tc.testName)
+		t.Run(tc.testName, func(t *testing.T) {
+			presentationOptions = []verifiable.PresentationOpt{verifiable.WithPresDisabledProofCheck(), verifiable.WithDisabledJSONLDChecks()}
 
-		recorder := httptest.NewRecorder()
-		testContext, _ := gin.CreateTestContext(recorder)
-		apiVerifier = &mockVerifier{mockSameDevice: tc.mockSameDeviceResponse, mockError: tc.mockError}
+			recorder := httptest.NewRecorder()
+			testContext, _ := gin.CreateTestContext(recorder)
+			apiVerifier = &mockVerifier{mockSameDevice: tc.mockSameDeviceResponse, mockError: tc.mockError}
 
-		formArray := []string{}
+			formArray := []string{}
 
-		if tc.testVPToken != "" {
-			formArray = append(formArray, "vp_token="+tc.testVPToken)
-		}
-
-		requestAddress := "http://my-verifier.org/"
-		if tc.testState != "" {
-			requestAddress = requestAddress + "?state=" + tc.testState
-		}
-
-		body := bytes.NewBufferString(strings.Join(formArray, "&"))
-		testContext.Request, _ = http.NewRequest("POST", requestAddress, body)
-		testContext.Request.Header.Add("Content-Type", gin.MIMEPOSTForm)
-
-		VerifierAPIAuthenticationResponse(testContext)
-
-		if tc.expectedStatusCode == 400 {
-			errorBody, _ := ioutil.ReadAll(recorder.Body)
-			errorMessage := ErrorMessage{}
-			json.Unmarshal(errorBody, &errorMessage)
-			if errorMessage != tc.expectedError {
-				t.Errorf("%s - Expected error %s but was %s.", tc.testName, logging.PrettyPrintObject(tc.expectedError), logging.PrettyPrintObject(errorMessage))
-				continue
+			if tc.testVPToken != "" {
+				formArray = append(formArray, "vp_token="+tc.testVPToken)
 			}
-			continue
-		}
 
-		if tc.sameDevice && tc.expectedStatusCode != 302 && tc.expectedStatusCode != recorder.Code {
-			t.Errorf("%s - Expected status %v but was %v.", tc.testName, tc.expectedStatusCode, recorder.Code)
-			continue
-		}
-
-		if tc.sameDevice {
-			location := recorder.Result().Header.Get("Location")
-			if location != tc.expectedRedirect {
-				t.Errorf("%s - Expected location %s but was %s.", tc.testName, tc.expectedRedirect, location)
-				continue
+			requestAddress := "http://my-verifier.org/"
+			if tc.testState != "" {
+				requestAddress = requestAddress + "?state=" + tc.testState
 			}
-			continue
-		}
 
-		if recorder.Code != tc.expectedStatusCode {
-			t.Errorf("%s - Expected status %v but was %v.", tc.testName, tc.expectedStatusCode, recorder.Code)
-			continue
-		}
-		if tc.expectedStatusCode != 200 {
-			continue
-		}
+			body := bytes.NewBufferString(strings.Join(formArray, "&"))
+			testContext.Request, _ = http.NewRequest("POST", requestAddress, body)
+			testContext.Request.Header.Add("Content-Type", gin.MIMEPOSTForm)
 
+			VerifierAPIAuthenticationResponse(testContext)
+
+			if tc.expectedStatusCode == 400 {
+				errorBody, _ := ioutil.ReadAll(recorder.Body)
+				errorMessage := ErrorMessage{}
+				json.Unmarshal(errorBody, &errorMessage)
+				if errorMessage != tc.expectedError {
+					t.Errorf("%s - Expected error %s but was %s.", tc.testName, logging.PrettyPrintObject(tc.expectedError), logging.PrettyPrintObject(errorMessage))
+					return
+				}
+				return
+			}
+
+			if tc.sameDevice && tc.expectedStatusCode != 302 && tc.expectedStatusCode != recorder.Code {
+				t.Errorf("%s - Expected status %v but was %v.", tc.testName, tc.expectedStatusCode, recorder.Code)
+				return
+			}
+
+			if tc.sameDevice {
+				location := recorder.Result().Header.Get("Location")
+				if location != tc.expectedRedirect {
+					t.Errorf("%s - Expected location %s but was %s.", tc.testName, tc.expectedRedirect, location)
+					return
+				}
+				return
+			}
+
+			if recorder.Code != tc.expectedStatusCode {
+				t.Errorf("%s - Expected status %v but was %v.", tc.testName, tc.expectedStatusCode, recorder.Code)
+				return
+			}
+			if tc.expectedStatusCode != 200 {
+				return
+			}
+		})
 	}
 }
 
@@ -325,50 +331,54 @@ func TestVerifierAPIStartSIOP(t *testing.T) {
 
 		logging.Log().Info("TestVerifierAPIStartSIOP +++++++++++++++++ Running test: ", tc.testName)
 
-		recorder := httptest.NewRecorder()
-		testContext, _ := gin.CreateTestContext(recorder)
-		apiVerifier = &mockVerifier{mockConnectionString: tc.mockConnectionString, mockError: tc.mockError}
+		t.Run(tc.testName, func(t *testing.T) {
+			presentationOptions = []verifiable.PresentationOpt{verifiable.WithPresDisabledProofCheck(), verifiable.WithDisabledJSONLDChecks()}
 
-		testParameters := []string{}
-		if tc.testState != "" {
-			testParameters = append(testParameters, "state="+tc.testState)
-		}
-		if tc.testCallback != "" {
-			testParameters = append(testParameters, "client_callback="+tc.testCallback)
-		}
+			recorder := httptest.NewRecorder()
+			testContext, _ := gin.CreateTestContext(recorder)
+			apiVerifier = &mockVerifier{mockConnectionString: tc.mockConnectionString, mockError: tc.mockError}
 
-		testContext.Request, _ = http.NewRequest("GET", tc.testAddress+"/?"+strings.Join(testParameters, "&"), nil)
-		VerifierAPIStartSIOP(testContext)
-
-		if recorder.Code != tc.expectedStatusCode {
-			t.Errorf("%s - Expected code %v but was %v.", tc.testName, tc.expectedStatusCode, recorder.Code)
-			continue
-		}
-		if tc.expectedStatusCode == 500 {
-			// something internal, we dont care about the details
-			continue
-		}
-
-		if tc.expectedStatusCode == 400 {
-			errorBody, _ := ioutil.ReadAll(recorder.Body)
-			errorMessage := ErrorMessage{}
-			json.Unmarshal(errorBody, &errorMessage)
-			if errorMessage != tc.expectedError {
-				t.Errorf("%s - Expected error %s but was %s.", tc.testName, logging.PrettyPrintObject(tc.expectedError), logging.PrettyPrintObject(errorMessage))
-				continue
+			testParameters := []string{}
+			if tc.testState != "" {
+				testParameters = append(testParameters, "state="+tc.testState)
 			}
-			continue
-		}
-		body, _ := ioutil.ReadAll(recorder.Body)
-		connectionString := string(body)
-		if connectionString != tc.expectedConnectionString {
-			t.Errorf("%s - Expected connectionString %s but was %s.", tc.testName, tc.expectedConnectionString, connectionString)
-		}
+			if tc.testCallback != "" {
+				testParameters = append(testParameters, "client_callback="+tc.testCallback)
+			}
+
+			testContext.Request, _ = http.NewRequest("GET", tc.testAddress+"/?"+strings.Join(testParameters, "&"), nil)
+			VerifierAPIStartSIOP(testContext)
+
+			if recorder.Code != tc.expectedStatusCode {
+				t.Errorf("%s - Expected code %v but was %v.", tc.testName, tc.expectedStatusCode, recorder.Code)
+				return
+			}
+			if tc.expectedStatusCode == 500 {
+				// something internal, we dont care about the details
+				return
+			}
+
+			if tc.expectedStatusCode == 400 {
+				errorBody, _ := ioutil.ReadAll(recorder.Body)
+				errorMessage := ErrorMessage{}
+				json.Unmarshal(errorBody, &errorMessage)
+				if errorMessage != tc.expectedError {
+					t.Errorf("%s - Expected error %s but was %s.", tc.testName, logging.PrettyPrintObject(tc.expectedError), logging.PrettyPrintObject(errorMessage))
+					return
+				}
+				return
+			}
+			body, _ := ioutil.ReadAll(recorder.Body)
+			connectionString := string(body)
+			if connectionString != tc.expectedConnectionString {
+				t.Errorf("%s - Expected connectionString %s but was %s.", tc.testName, tc.expectedConnectionString, connectionString)
+			}
+		})
 	}
 }
 
 func getValidVPToken() string {
-	return "ewogICJAY29udGV4dCI6IFsKICAgICJodHRwczovL3d3dy53My5vcmcvMjAxOC9jcmVkZW50aWFscy92MSIKICBdLAogICJ0eXBlIjogWwogICAgIlZlcmlmaWFibGVQcmVzZW50YXRpb24iCiAgXSwKICAidmVyaWZpYWJsZUNyZWRlbnRpYWwiOiBbCiAgICB7CiAgICAgICJ0eXBlcyI6IFsKICAgICAgICAiUGFja2V0RGVsaXZlcnlTZXJ2aWNlIiwKICAgICAgICAiVmVyaWZpYWJsZUNyZWRlbnRpYWwiCiAgICAgIF0sCiAgICAgICJAY29udGV4dCI6IFsKICAgICAgICAiaHR0cHM6Ly93d3cudzMub3JnLzIwMTgvY3JlZGVudGlhbHMvdjEiLAogICAgICAgICJodHRwczovL3czaWQub3JnL3NlY3VyaXR5L3N1aXRlcy9qd3MtMjAyMC92MSIKICAgICAgXSwKICAgICAgImNyZWRlbnRpYWxzU3ViamVjdCI6IHt9LAogICAgICAiYWRkaXRpb25hbFByb3AxIjoge30KICAgIH0KICBdLAogICJpZCI6ICJlYmM2ZjFjMiIsCiAgImhvbGRlciI6ICJkaWQ6a2V5Ono2TWtzOW05aWZMd3kzSldxSDRjNTdFYkJRVlMyU3BSQ2pmYTc5d0hiNXZXTTZ2aCIsCiAgInByb29mIjogewogICAgInR5cGUiOiAiSnNvbldlYlNpZ25hdHVyZTIwMjAiLAogICAgImNyZWF0b3IiOiAiZGlkOmtleTp6Nk1rczltOWlmTHd5M0pXcUg0YzU3RWJCUVZTMlNwUkNqZmE3OXdIYjV2V002dmgiLAogICAgImNyZWF0ZWQiOiAiMjAyMy0wMS0wNlQwNzo1MTozNloiLAogICAgInZlcmlmaWNhdGlvbk1ldGhvZCI6ICJkaWQ6a2V5Ono2TWtzOW05aWZMd3kzSldxSDRjNTdFYkJRVlMyU3BSQ2pmYTc5d0hiNXZXTTZ2aCN6Nk1rczltOWlmTHd5M0pXcUg0YzU3RWJCUVZTMlNwUkNqZmE3OXdIYjV2V002dmgiLAogICAgImp3cyI6ICJleUppTmpRaU9tWmhiSE5sTENKamNtbDBJanBiSW1JMk5DSmRMQ0poYkdjaU9pSkZaRVJUUVNKOS4uNnhTcW9aamEwTndqRjBhZjlaa25xeDNDYmg5R0VOdW5CZjlDOHVMMnVsR2Z3dXMzVUZNX1puaFBqV3RIUGwtNzJFOXAzQlQ1ZjJwdFpvWWt0TUtwREEiCiAgfQp9"
+	return "ewogICJAY29udGV4dCI6IFsKICAgICJodHRwczovL3d3dy53My5vcmcvMjAxOC9jcmVkZW50aWFscy92MSIKICBdLAogICJ0eXBlIjogWwogICAgIlZlcmlmaWFibGVQcmVzZW50YXRpb24iCiAgXSwKICAidmVyaWZpYWJsZUNyZWRlbnRpYWwiOiBbCiAgICB7CiAgICAgICJ0eXBlIjogWwogICAgICAgICJQYWNrZXREZWxpdmVyeVNlcnZpY2UiLAogICAgICAgICJWZXJpZmlhYmxlQ3JlZGVudGlhbCIKICAgICAgXSwKICAgICAgIkBjb250ZXh0IjogWwogICAgICAgICJodHRwczovL3d3dy53My5vcmcvMjAxOC9jcmVkZW50aWFscy92MSIsCiAgICAgICAgImh0dHBzOi8vdzNpZC5vcmcvc2VjdXJpdHkvc3VpdGVzL2p3cy0yMDIwL3YxIgogICAgICBdLAogICAgICAiY3JlZGVudGlhbHNTdWJqZWN0Ijoge30sCiAgICAgICJhZGRpdGlvbmFsUHJvcDEiOiB7fQogICAgfQogIF0sCiAgImlkIjogImViYzZmMWMyIiwKICAiaG9sZGVyIjogImRpZDprZXk6ejZNa3M5bTlpZkx3eTNKV3FINGM1N0ViQlFWUzJTcFJDamZhNzl3SGI1dldNNnZoIiwKICAicHJvb2YiOiB7CiAgICAidHlwZSI6ICJKc29uV2ViU2lnbmF0dXJlMjAyMCIsCiAgICAiY3JlYXRvciI6ICJkaWQ6a2V5Ono2TWtzOW05aWZMd3kzSldxSDRjNTdFYkJRVlMyU3BSQ2pmYTc5d0hiNXZXTTZ2aCIsCiAgICAiY3JlYXRlZCI6ICIyMDIzLTAxLTA2VDA3OjUxOjM2WiIsCiAgICAidmVyaWZpY2F0aW9uTWV0aG9kIjogImRpZDprZXk6ejZNa3M5bTlpZkx3eTNKV3FINGM1N0ViQlFWUzJTcFJDamZhNzl3SGI1dldNNnZoI3o2TWtzOW05aWZMd3kzSldxSDRjNTdFYkJRVlMyU3BSQ2pmYTc5d0hiNXZXTTZ2aCIsCiAgICAiandzIjogImV5SmlOalFpT21aaGJITmxMQ0pqY21sMElqcGJJbUkyTkNKZExDSmhiR2NpT2lKRlpFUlRRU0o5Li42eFNxb1pqYTBOd2pGMGFmOVprbnF4M0NiaDlHRU51bkJmOUM4dUwydWxHZnd1czNVRk1fWm5oUGpXdEhQbC03MkU5cDNCVDVmMnB0Wm9Za3RNS3BEQSIKICB9Cn0"
 }
 
 func getNoVCVPToken() string {

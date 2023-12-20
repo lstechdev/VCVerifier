@@ -5,6 +5,7 @@ import (
 
 	configModel "github.com/fiware/VCVerifier/config"
 	"github.com/fiware/VCVerifier/gaiax"
+	"github.com/trustbloc/vc-go/verifiable"
 	"golang.org/x/exp/slices"
 
 	logging "github.com/fiware/VCVerifier/logging"
@@ -44,13 +45,21 @@ func InitGaiaXRegistryVerificationService(verifierConfig *configModel.Verifier) 
 	return verifier
 }
 
-func (v *GaiaXRegistryVerificationService) VerifyVC(verifiableCredential VerifiableCredential, verificationContext VerificationContext) (result bool, err error) {
-	if v.validateAll || slices.Contains(v.credentialTypesToValidate, verifiableCredential.GetCredentialType()) {
+func (v *GaiaXRegistryVerificationService) VerifyVC(verifiableCredential *verifiable.Credential, verificationContext VerificationContext) (result bool, err error) {
+	isContained := false
+	for _, t := range verifiableCredential.Contents().Types {
+		isContained = slices.Contains(v.credentialTypesToValidate, t)
+		if isContained {
+			break
+		}
+	}
+
+	if v.validateAll || isContained {
 		issuerDids, err := v.gaiaxRegistryClient.GetComplianceIssuers()
 		if err != nil {
 			return false, err
 		}
-		if slices.Contains(issuerDids, verifiableCredential.GetIssuer()) {
+		if slices.Contains(issuerDids, verifiableCredential.Contents().Issuer.ID) {
 			logging.Log().Info("Credential was issued by trusted issuer")
 			return true, nil
 		} else {
