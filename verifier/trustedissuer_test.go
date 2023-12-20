@@ -8,13 +8,14 @@ import (
 
 	"github.com/fiware/VCVerifier/logging"
 	tir "github.com/fiware/VCVerifier/tir"
+	"github.com/trustbloc/vc-go/verifiable"
 )
 
 func TestVerifyVC_Issuers(t *testing.T) {
 
 	type test struct {
 		testName            string
-		credentialToVerifiy VerifiableCredential
+		credentialToVerifiy verifiable.Credential
 		verificationContext VerificationContext
 		tirExists           bool
 		tirResponse         tir.TrustedIssuer
@@ -81,7 +82,7 @@ func TestVerifyVC_Issuers(t *testing.T) {
 			logging.Log().Info("TestVerifyVC +++++++++++++++++ Running test: ", tc.testName)
 
 			trustedIssuerVerficationService := TrustedIssuerVerificationService{mockTirClient{tc.tirExists, tc.tirResponse, tc.tirError}}
-			result, _ := trustedIssuerVerficationService.VerifyVC(tc.credentialToVerifiy, tc.verificationContext)
+			result, _ := trustedIssuerVerficationService.VerifyVC(&tc.credentialToVerifiy, tc.verificationContext)
 			if result != tc.expectedResult {
 				t.Errorf("%s - Expected result %v but was %v.", tc.testName, tc.expectedResult, result)
 				return
@@ -111,26 +112,42 @@ func getVerificationContext() VerificationContext {
 	return TrustRegistriesVerificationContext{trustedParticipantsRegistries: map[string][]string{"someType": []string{"http://my-trust-registry.org"}}, trustedIssuersLists: map[string][]string{"someType": []string{"http://my-til.org"}}}
 }
 
-func getMultiTypeCredential(types []string, claimName string, value interface{}) VerifiableCredential {
-	vc := getVerifiableCredential(claimName, value)
-	vc.Types = types
-	return vc
+func getMultiTypeCredential(types []string, claimName string, value interface{}) verifiable.Credential {
+	vc, _ := verifiable.CreateCredential(verifiable.CredentialContents{
+		Issuer: &verifiable.Issuer{ID: "did:test:issuer"},
+		Types:  types,
+		Subject: []verifiable.Subject{
+			{
+				CustomFields: map[string]interface{}{claimName: value},
+			},
+		}}, verifiable.CustomFields{})
+	return *vc
 }
 
-func getMultiClaimCredential(claims map[string]interface{}) VerifiableCredential {
-	return VerifiableCredential{
-		MappableVerifiableCredential: MappableVerifiableCredential{
-			Types:             []string{"VerifiableCredential"},
-			CredentialSubject: CredentialSubject{Claims: claims},
-		},
-	}
+func getMultiClaimCredential(claims map[string]interface{}) verifiable.Credential {
+
+	vc, _ := verifiable.CreateCredential(verifiable.CredentialContents{
+		Issuer: &verifiable.Issuer{ID: "did:test:issuer"},
+		Types:  []string{"VerifiableCredential"},
+		Subject: []verifiable.Subject{
+			{
+				CustomFields: claims,
+			},
+		}}, verifiable.CustomFields{})
+
+	return *vc
+
 }
 
-func getVerifiableCredential(claimName string, value interface{}) VerifiableCredential {
-	return VerifiableCredential{
-		MappableVerifiableCredential: MappableVerifiableCredential{
-			Types:             []string{"VerifiableCredential"},
-			CredentialSubject: CredentialSubject{Claims: map[string]interface{}{claimName: value}},
-		},
-	}
+func getVerifiableCredential(claimName string, value interface{}) verifiable.Credential {
+
+	vc, _ := verifiable.CreateCredential(verifiable.CredentialContents{
+		Issuer: &verifiable.Issuer{ID: "did:test:issuer"},
+		Types:  []string{"VerifiableCredential"},
+		Subject: []verifiable.Subject{
+			{
+				CustomFields: map[string]interface{}{claimName: value},
+			},
+		}}, verifiable.CustomFields{})
+	return *vc
 }

@@ -11,7 +11,6 @@ package openapi
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -19,11 +18,17 @@ import (
 	"github.com/fiware/VCVerifier/common"
 	"github.com/fiware/VCVerifier/logging"
 	"github.com/fiware/VCVerifier/verifier"
+	"github.com/piprate/json-gold/ld"
+	"github.com/trustbloc/vc-go/proof/defaults"
+	"github.com/trustbloc/vc-go/verifiable"
 
 	"github.com/gin-gonic/gin"
 )
 
 var apiVerifier verifier.Verifier
+var presentationOptions = []verifiable.PresentationOpt{
+	verifiable.WithPresProofChecker(defaults.NewDefaultProofChecker(verifier.JWTVerfificationMethodResolver{})),
+	verifiable.WithPresJSONLDDocumentLoader(ld.NewDefaultDocumentLoader(http.DefaultClient))}
 
 var ErrorMessagNoGrantType = ErrorMessage{"no_grant_type_provided", "Token requests require a grant_type."}
 var ErrorMessageUnsupportedGrantType = ErrorMessage{"unsupported_grant_type", "Provided grant_type is not supported by the implementation."}
@@ -92,7 +97,7 @@ func handleTokenTypeVPToken(c *gin.Context) {
 		return
 	}
 
-	rawCredentials, _, err := extractVpFromToken(c, vpToken)
+	presentation, err := extractVpFromToken(c, vpToken)
 	if err != nil {
 		logging.Log().Warnf("Was not able to extract the credentials from the vp_token.")
 		return
@@ -102,7 +107,7 @@ func handleTokenTypeVPToken(c *gin.Context) {
 	scopes := strings.Split(scope, ",")
 
 	// Subject is empty since multiple VCs with different subjects can be provided
-	expiration, signedToken, err := getApiVerifier().GenerateToken(clientId, "", clientId, scopes, rawCredentials)
+	expiration, signedToken, err := getApiVerifier().GenerateToken(clientId, "", clientId, scopes, presentation)
 	if err != nil {
 		logging.Log().Error("Failure during generating M2M token: ", err)
 		c.AbortWithStatusJSON(400, err)
@@ -185,12 +190,12 @@ func VerifierAPIAuthenticationResponse(c *gin.Context) {
 		return
 	}
 
-	rawCredentials, holder, err := extractVpFromToken(c, vptoken)
+	presentation, err := extractVpFromToken(c, vptoken)
 	if err != nil {
-		logging.Log().Warnf("Was not able to extract the credentials from the vp_token.")
+		logging.Log().Warnf("Was not able to extract the presentation from the vp_token.")
 		return
 	}
-	handleAuthenticationResponse(c, state, holder, rawCredentials)
+	handleAuthenticationResponse(c, state, presentation)
 }
 
 // GetVerifierAPIAuthenticationResponse - Stores the credential for the given session
@@ -206,49 +211,36 @@ func GetVerifierAPIAuthenticationResponse(c *gin.Context) {
 		c.AbortWithStatusJSON(400, ErrorMessageNoToken)
 		return
 	}
-	rawCredentials, holder, err := extractVpFromToken(c, vpToken)
+	presentation, err := extractVpFromToken(c, vpToken)
 	if err != nil {
-		logging.Log().Warnf("Was not able to extract the credentials from the vp_token.")
+		logging.Log().Warnf("Was not able to extract the presentation from the vp_token.")
 		return
 	}
-	handleAuthenticationResponse(c, state, holder, rawCredentials)
+	handleAuthenticationResponse(c, state, presentation)
 }
 
-func extractVpFromToken(c *gin.Context, vpToken string) (rawCredentials []map[string]interface{}, holder string, err error) {
+func extractVpFromToken(c *gin.Context, vpToken string) (parsedPresentation *verifiable.Presentation, err error) {
 
-	bytes, err := base64.RawURLEncoding.DecodeString(vpToken)
+	tokenBytes, err := base64.RawURLEncoding.DecodeString(vpToken)
 	if err != nil {
 		logging.Log().Infof("Was not able to decode the form string %s. Err: %v", vpToken, err)
 		c.AbortWithStatusJSON(400, ErrorMessageUnableToDecodeToken)
 		return
 	}
-	var vpObjectMap map[string]json.RawMessage
-	json.Unmarshal(bytes, &vpObjectMap)
 
-	verifiableCredentials := vpObjectMap["verifiableCredential"]
-	rawHolder := vpObjectMap["holder"]
-
-	// TODO: Check that the key in vpObjectMap["proof"] is equal to the key that we retrieve from the DID Registry API of the TrustedIssuersRegistry
-	// TODO: verify the proof of the vp
-
-	err = json.Unmarshal(verifiableCredentials, &rawCredentials)
+	parsedPresentation, err = verifiable.ParsePresentation(tokenBytes,
+		presentationOptions...)
 	if err != nil {
-		logging.Log().Infof("Was not able to decode the credentials from the token %s. Err: %v", vpToken, err)
-		c.AbortWithStatusJSON(400, ErrorMessageUnableToDecodeCredential)
+		logging.Log().Infof("Was not able to parse the token %s. Err: %v", vpToken, err)
+		c.AbortWithStatusJSON(400, ErrorMessageUnableToDecodeToken)
 		return
 	}
-	err = json.Unmarshal(rawHolder, &holder)
-	if err != nil || holder == "" {
-		logging.Log().Infof("Was not able to decode the holder from the token %s. Err: %v", vpToken, err)
-		c.AbortWithStatusJSON(400, ErrorMessageUnableToDecodeHolder)
-		return
-	}
-	return rawCredentials, holder, err
+	return
 }
 
-func handleAuthenticationResponse(c *gin.Context, state string, holder string, rawCredentials []map[string]interface{}) {
+func handleAuthenticationResponse(c *gin.Context, state string, presentation *verifiable.Presentation) {
 
-	sameDeviceResponse, err := getApiVerifier().AuthenticationResponse(state, rawCredentials, holder)
+	sameDeviceResponse, err := getApiVerifier().AuthenticationResponse(state, presentation)
 	if err != nil {
 		logging.Log().Warnf("Was not able to fullfil the authentication response. Err: %v", err)
 		c.AbortWithStatusJSON(400, ErrorMessage{Summary: err.Error()})

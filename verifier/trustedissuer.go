@@ -6,6 +6,7 @@ import (
 
 	"github.com/fiware/VCVerifier/logging"
 	tir "github.com/fiware/VCVerifier/tir"
+	"github.com/trustbloc/vc-go/verifiable"
 	"golang.org/x/exp/slices"
 )
 
@@ -16,7 +17,7 @@ type TrustedIssuerVerificationService struct {
 	tirClient tir.TirClient
 }
 
-func (tpvs *TrustedIssuerVerificationService) VerifyVC(verifiableCredential VerifiableCredential, verificationContext VerificationContext) (result bool, err error) {
+func (tpvs *TrustedIssuerVerificationService) VerifyVC(verifiableCredential *verifiable.Credential, verificationContext VerificationContext) (result bool, err error) {
 
 	logging.Log().Debugf("Verify trusted issuer for %s", logging.PrettyPrintObject(verifiableCredential))
 	defer func() {
@@ -40,7 +41,7 @@ func (tpvs *TrustedIssuerVerificationService) VerifyVC(verifiableCredential Veri
 		return true, err
 	}
 	// FIXME Can we assume that if we have a VC with multiple types, its enough to check for only one type?
-	exist, trustedIssuer, err := tpvs.tirClient.GetTrustedIssuer(getFirstElementOfMap(trustContext.GetTrustedIssuersLists()), verifiableCredential.Issuer)
+	exist, trustedIssuer, err := tpvs.tirClient.GetTrustedIssuer(getFirstElementOfMap(trustContext.GetTrustedIssuersLists()), verifiableCredential.Contents().Issuer.ID)
 
 	if err != nil {
 		logging.Log().Warnf("Was not able to verify trusted issuer. Err: %v", err)
@@ -57,7 +58,7 @@ func (tpvs *TrustedIssuerVerificationService) VerifyVC(verifiableCredential Veri
 	return verifyWithCredentialsConfig(verifiableCredential, credentials)
 }
 
-func verifyWithCredentialsConfig(verifiableCredential VerifiableCredential, credentials []tir.Credential) (result bool, err error) {
+func verifyWithCredentialsConfig(verifiableCredential *verifiable.Credential, credentials []tir.Credential) (result bool, err error) {
 
 	credentialsConfigMap := map[string]tir.Credential{}
 	allowedTypes := []string{}
@@ -70,27 +71,28 @@ func verifyWithCredentialsConfig(verifiableCredential VerifiableCredential, cred
 	var typeAllowed = true
 	// initalize to true, since everything without a specific rule is considered to be allowed
 	var subjectAllowed = true
-	logging.Log().Debugf("Validate that the type %v is allowed by %v.", verifiableCredential.Types, allowedTypes)
+	logging.Log().Debugf("Validate that the type %v is allowed by %v.", verifiableCredential.Contents().Types, allowedTypes)
 	// validate that the type(s) is allowed
-	for _, credentialType := range verifiableCredential.MappableVerifiableCredential.Types {
+	for _, credentialType := range verifiableCredential.Contents().Types {
 		typeAllowed = typeAllowed && slices.Contains(allowedTypes, credentialType)
-		subjectAllowed = subjectAllowed && verifyForType(verifiableCredential.MappableVerifiableCredential.CredentialSubject, credentialsConfigMap[credentialType])
+		// as of now, we only allow single subject credentials
+		subjectAllowed = subjectAllowed && verifyForType(verifiableCredential.Contents().Subject[0], credentialsConfigMap[credentialType])
 	}
 	if !typeAllowed {
-		logging.Log().Debugf("Credentials type %s is not allowed.", logging.PrettyPrintObject(verifiableCredential.Types))
+		logging.Log().Debugf("Credentials type %s is not allowed.", logging.PrettyPrintObject(verifiableCredential.Contents().Types))
 		return false, err
 	}
 	if !subjectAllowed {
-		logging.Log().Debugf("The subject contains forbidden claims or values: %s.", logging.PrettyPrintObject(verifiableCredential.CredentialSubject))
+		logging.Log().Debugf("The subject contains forbidden claims or values: %s.", logging.PrettyPrintObject(verifiableCredential.Contents().Subject[0]))
 		return false, err
 	}
 	logging.Log().Debugf("Credential %s is allowed by the config %s.", logging.PrettyPrintObject(verifiableCredential), logging.PrettyPrintObject(credentials))
 	return true, err
 }
 
-func verifyForType(subjectToVerfiy CredentialSubject, credentialConfig tir.Credential) (result bool) {
+func verifyForType(subjectToVerfiy verifiable.Subject, credentialConfig tir.Credential) (result bool) {
 	for _, claim := range credentialConfig.Claims {
-		claimValue, exists := subjectToVerfiy.Claims[claim.Name]
+		claimValue, exists := subjectToVerfiy.CustomFields[claim.Name]
 		if !exists {
 			logging.Log().Debugf("Restricted claim %s is not part of the subject %s.", claim.Name, logging.PrettyPrintObject(subjectToVerfiy))
 			continue
