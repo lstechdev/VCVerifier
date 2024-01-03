@@ -15,6 +15,7 @@ import (
 	"github.com/trustbloc/did-go/method/web"
 	"github.com/trustbloc/did-go/vdr"
 	"github.com/trustbloc/did-go/vdr/api"
+	"github.com/trustbloc/vc-go/verifiable"
 	"github.com/trustbloc/vc-go/vermethod"
 )
 
@@ -28,6 +29,8 @@ const (
 	defaultPath  = "/.well-known/did.json"
 	documentPath = "/did.json"
 )
+
+type TrustBlocVerifier struct{}
 
 type JWTVerfificationMethodResolver struct{}
 
@@ -135,6 +138,16 @@ func parseDIDWeb(id string, useHTTP bool) (string, string, error) {
 	}
 
 	return address, host, nil
+}
+
+func (tbv TrustBlocVerifier) VerifyVC(verifiableCredential *verifiable.Credential, verificationContext VerificationContext) (result bool, err error) {
+
+	err = verifiableCredential.ValidateCredential()
+	if err != nil {
+		logging.Log().Info("Credential is invalid.")
+		return false, err
+	}
+	return true, err
 }
 
 /**

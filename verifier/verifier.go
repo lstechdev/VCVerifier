@@ -207,6 +207,7 @@ func InitVerifier(config *configModel.Configuration, ssiKitClient ssikit.SSIKit)
 		logging.Log().Errorf("Was not able to initiate a external verifier. Err: %v", err)
 		return err
 	}*/
+	credentialsVerifier := TrustBlocVerifier{}
 	externalGaiaXVerifier := InitGaiaXRegistryVerificationService(verifierConfig)
 
 	credentialsConfig, err := InitServiceBackedCredentialsConfig(&config.ConfigRepo)
@@ -255,8 +256,7 @@ func InitVerifier(config *configModel.Configuration, ssiKitClient ssikit.SSIKit)
 		common.JwtTokenSigner{},
 		credentialsConfig,
 		[]VerificationService{
-			// validation is now done with the trustbloc lib
-			//&externalSsiKitVerifier,
+			&credentialsVerifier,
 			&externalGaiaXVerifier,
 			&trustedParticipantVerificationService,
 			&trustedIssuerVerificationService,
@@ -585,15 +585,15 @@ func verifyChain(vcs []*verifiable.Credential) (bool, error) {
 	}
 
 	// the expected credentials only have a single subject
-	legalEntitySubject := legalEntity.Contents().Subject[0]
+	legalEntitySubjectID := legalEntity.Contents().Subject[0].ID
 	complianceSubjectID := compliance.Contents().Subject[0].ID
 	// Make sure that the compliance credential is issued for the given credential
-	if legalEntitySubject.ID != complianceSubjectID {
-		return false, fmt.Errorf("compliance credential was not issued for the presented legal entity. Compliance VC subject id %s, legal VC id %s", complianceSubjectID, legalEntitySubject.ID)
+	if legalEntitySubjectID != complianceSubjectID {
+		return false, fmt.Errorf("compliance credential was not issued for the presented legal entity. Compliance VC subject id %s, legal VC id %s", complianceSubjectID, legalEntitySubjectID)
 	}
 	// Natural participientVC must be issued by the legal participient VC
-	if legalEntitySubject.ID != naturalEntity.Contents().Issuer.ID {
-		return false, fmt.Errorf("natural participent credential was not issued by the presented legal entity. Legal Participant VC id %s, natural VC issuer %s", legalEntitySubject.ID, naturalEntity.Contents().Issuer.ID)
+	if legalEntitySubjectID != naturalEntity.Contents().Issuer.ID {
+		return false, fmt.Errorf("natural participent credential was not issued by the presented legal entity. Legal Participant VC id %s, natural VC issuer %s", legalEntitySubjectID, naturalEntity.Contents().Issuer.ID)
 	}
 	return true, nil
 }
