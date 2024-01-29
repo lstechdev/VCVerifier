@@ -757,6 +757,7 @@ func getOpenIdProviderMetadataTests() []openIdProviderMetadataTest {
 func TestGetOpenIDConfiguration(t *testing.T) {
 	tests := getOpenIdProviderMetadataTests()
 	for _, tc := range tests {
+		common.ResetGlobalCache()
 		t.Run(tc.testName, func(t *testing.T) {
 			credentialsConfig := mockCredentialConfig{tc.credentialScopes, tc.mockConfigError}
 			verifier := CredentialVerifier{credentialsConfig: credentialsConfig, host: tc.host}

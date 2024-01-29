@@ -7,8 +7,10 @@ import (
 	"time"
 
 	"github.com/bxcodec/httpcache"
+	"github.com/fiware/VCVerifier/common"
 	"github.com/fiware/VCVerifier/config"
 	"github.com/fiware/VCVerifier/logging"
+	"github.com/patrickmn/go-cache"
 )
 
 const ISSUERS_V4_PATH = "v4/issuers"
@@ -84,8 +86,10 @@ func NewTirHttpClient(tokenProvider TokenProvider, config config.M2M) (client Ti
 	}
 	var httpGetClient HttpGetClient
 	if config.AuthEnabled {
-		logging.Log().Debug("Authorization for the tursted-issuers-registry is enabled.")
-		httpGetClient = AuthorizingHttpClient{httpClient: httpClient, tokenProvider: tokenProvider, clientId: config.ClientId}
+		logging.Log().Debug("Authorization for the trusted-issuers-registry is enabled.")
+		authorizingHttpClient := AuthorizingHttpClient{httpClient: httpClient, tokenProvider: tokenProvider, clientId: config.ClientId}
+		common.Schedule(authorizingHttpClient.FillMetadataCache)
+		httpGetClient = authorizingHttpClient
 	} else {
 		httpGetClient = NoAuthHttpClient{httpClient: httpClient}
 	}
@@ -167,6 +171,12 @@ func (tc TirHttpClient) requestIssuer(tirEndpoint string, did string) (response 
 
 func (tc TirHttpClient) requestIssuerWithVersion(tirEndpoint string, didPath string) (response *http.Response, err error) {
 	logging.Log().Debugf("Get issuer %s/%s.", tirEndpoint, didPath)
+	cacheKey := common.BuildUrlString(tirEndpoint, didPath)
+	responseInterface, hit := common.GlobalCache.IssuerCache.Get(cacheKey)
+	if hit {
+		return responseInterface.(*http.Response), nil
+	}
+
 	resp, err := tc.client.Get(tirEndpoint, didPath)
 	if err != nil {
 		logging.Log().Warnf("Was not able to get the issuer %s from %s. Err: %v", didPath, tirEndpoint, err)
@@ -175,6 +185,11 @@ func (tc TirHttpClient) requestIssuerWithVersion(tirEndpoint string, didPath str
 	if resp == nil {
 		logging.Log().Warnf("Was not able to get any response for issuer %s from %s.", didPath, tirEndpoint)
 		return nil, ErrorTirNoResponse
+	}
+
+	err = common.GlobalCache.IssuerCache.Add(cacheKey, resp, cache.DefaultExpiration)
+	if err != nil {
+		logging.Log().Warnf("Was not able to cache the response for issuer %s from %s.", didPath, tirEndpoint)
 	}
 	return resp, err
 }

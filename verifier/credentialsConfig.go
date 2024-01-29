@@ -4,17 +4,13 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"time"
 
+	"github.com/fiware/VCVerifier/common"
 	"github.com/fiware/VCVerifier/config"
 	"github.com/fiware/VCVerifier/logging"
 	"github.com/patrickmn/go-cache"
-	"github.com/procyon-projects/chrono"
 	"golang.org/x/exp/maps"
 )
-
-const CACHE_EXPIRY = 60
-
 
 /**
 * Provides information about credentialTypes associated with services and there trust anchors.
@@ -34,7 +30,6 @@ type CredentialsConfig interface {
 type ServiceBackedCredentialsConfig struct {
 	initialConfig *config.ConfigRepo
 	configClient  *config.ConfigClient
-	serviceCache  Cache
 }
 
 func InitServiceBackedCredentialsConfig(repoConfig *config.ConfigRepo) (credentialsConfig CredentialsConfig, err error) {
@@ -53,13 +48,12 @@ func InitServiceBackedCredentialsConfig(repoConfig *config.ConfigRepo) (credenti
 			logging.Log().Warnf("Was not able to instantiate the config client.")
 		}
 	}
-	var serviceCache Cache = cache.New(CACHE_EXPIRY*time.Second, 2*CACHE_EXPIRY*time.Second)
 
-	scb := ServiceBackedCredentialsConfig{configClient: &configClient, serviceCache: serviceCache, initialConfig: repoConfig}
+	scb := ServiceBackedCredentialsConfig{configClient: &configClient, initialConfig: repoConfig}
 
 	scb.fillStaticValues()
 	if repoConfig.ConfigEndpoint != "" {
-		chrono.NewDefaultTaskScheduler().ScheduleAtFixedRate(scb.fillCache, time.Duration(30)*time.Second)
+		common.Schedule(scb.fillCache)
 	}
 
 	return scb, err
@@ -68,24 +62,47 @@ func InitServiceBackedCredentialsConfig(repoConfig *config.ConfigRepo) (credenti
 func (cc ServiceBackedCredentialsConfig) fillStaticValues() {
 	for _, configuredService := range cc.initialConfig.Services {
 		logging.Log().Debugf("Add to service cache: %s", configuredService.Id)
-		cc.serviceCache.Add(configuredService.Id, configuredService, cache.NoExpiration)
+		err := common.GlobalCache.ServiceCache.Add(configuredService.Id, configuredService, cache.NoExpiration)
+		if err != nil {
+			logging.Log().Errorf("failed caching configured service in fillStaticValues(): %v", err)
+		}
 	}
 }
 
-func (cc ServiceBackedCredentialsConfig) fillCache(ctx context.Context) {
-	client := *(cc.configClient)
-	services, err := client.GetServices()
+func (cc ServiceBackedCredentialsConfig) fillCache(context.Context) {
+	configClient := *(cc.configClient)
+	services, err := configClient.GetServices()
 	if err != nil {
 		logging.Log().Warnf("Was not able to update the credentials config from the external service. Will try again. Err: %v.", err)
 		return
 	}
 	for _, configuredService := range services {
-		cc.serviceCache.Add(configuredService.Id, configuredService, cache.NoExpiration)
+		err := common.GlobalCache.ServiceCache.Add(configuredService.Id, configuredService, cache.NoExpiration)
+		if err != nil {
+			logging.Log().Errorf("failed caching configured service in fillCache(): %v", err)
+		}
+
+		var tirEndpoints []string
+
+		for serviceScope, credentials := range configuredService.ServiceScopes {
+			for _, credential := range credentials {
+				serviceIssuersLists, err := cc.GetTrustedIssuersLists(configuredService.Id, serviceScope, credential.Type)
+				if err != nil {
+					logging.Log().Errorf("failed caching issuers lists in fillCache(): %v", err)
+				}
+				tirEndpoints = append(tirEndpoints, serviceIssuersLists...)
+			}
+		}
+		err = common.GlobalCache.TirEndpoints.Add("tirEndpoints", tirEndpoints, cache.NoExpiration)
+		if err != nil {
+			logging.Log().Errorf("failed caching issuers lists in fillCache(): %v", err)
+		}
 	}
+
 }
 
 func (cc ServiceBackedCredentialsConfig) RequiredCredentialTypes(serviceIdentifier string, scope string) (credentialTypes []string, err error) {
-	cacheEntry, hit := cc.serviceCache.Get(serviceIdentifier)
+	cacheEntry, hit := common.GlobalCache.ServiceCache.Get(serviceIdentifier)
 	if hit {
 		logging.Log().Debugf("Found service for %s", serviceIdentifier)
 		configuredService := cacheEntry.(config.ConfiguredService)
@@ -97,7 +114,7 @@ func (cc ServiceBackedCredentialsConfig) RequiredCredentialTypes(serviceIdentifi
 
 // FIXME shall we return all scopes or just the default one?
 func (cc ServiceBackedCredentialsConfig) GetScope(serviceIdentifier string) (credentialTypes []string, err error) {
-	cacheEntry, hit := cc.serviceCache.Get(serviceIdentifier)
+	cacheEntry, hit := common.GlobalCache.ServiceCache.Get(serviceIdentifier)
 	if hit {
 		logging.Log().Debugf("Found scope for %s", serviceIdentifier)
 		configuredService := cacheEntry.(config.ConfiguredService)
@@ -109,7 +126,7 @@ func (cc ServiceBackedCredentialsConfig) GetScope(serviceIdentifier string) (cre
 
 func (cc ServiceBackedCredentialsConfig) GetTrustedParticipantLists(serviceIdentifier string, scope string, credentialType string) (trustedIssuersRegistryUrl []string, err error) {
 	logging.Log().Debugf("Get participants list for %s - %s - %s.", serviceIdentifier, scope, credentialType)
-	cacheEntry, hit := cc.serviceCache.Get(serviceIdentifier)
+	cacheEntry, hit := common.GlobalCache.ServiceCache.Get(serviceIdentifier)
 	if hit {
 		credential, ok := cacheEntry.(config.ConfiguredService).GetCredential(scope, credentialType)
 		if ok {
@@ -123,7 +140,7 @@ func (cc ServiceBackedCredentialsConfig) GetTrustedParticipantLists(serviceIdent
 
 func (cc ServiceBackedCredentialsConfig) GetTrustedIssuersLists(serviceIdentifier string, scope string, credentialType string) (trustedIssuersRegistryUrl []string, err error) {
 	logging.Log().Debugf("Get issuers list for %s - %s - %s.", serviceIdentifier, scope, credentialType)
-	cacheEntry, hit := cc.serviceCache.Get(serviceIdentifier)
+	cacheEntry, hit := common.GlobalCache.ServiceCache.Get(serviceIdentifier)
 	if hit {
 		credential, ok := cacheEntry.(config.ConfiguredService).GetCredential(scope, credentialType)
 		if ok {
