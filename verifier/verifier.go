@@ -72,9 +72,9 @@ type CredentialVerifier struct {
 	// key to sign the jwt's with
 	signingKey jwk.Key
 	// cache to be used for in-progress authentication sessions
-	sessionCache Cache
+	sessionCache common.Cache
 	// cache to be used for jwt retrieval
-	tokenCache Cache
+	tokenCache common.Cache
 	// nonce generator
 	nonceGenerator NonceGenerator
 	// provides the current time
@@ -151,7 +151,7 @@ func (r *randomGenerator) GenerateNonce() string {
 type loginSession struct {
 	// is it using the same-device flow?
 	sameDevice bool
-	// callback to be notfied after success
+	// callback to be notified after success
 	callback string
 	// sessionId to be included in the notification
 	sessionId string
@@ -512,7 +512,7 @@ func (v *CredentialVerifier) AuthenticationResponse(state string, verifiableCred
 	if loginSession.sameDevice {
 		return SameDeviceResponse{loginSession.callback, authorizationCode, loginSession.sessionId}, err
 	} else {
-		return sameDevice, callbackToRequestor(loginSession, authorizationCode)
+		return sameDevice, callbackToRequester(loginSession, authorizationCode)
 	}
 }
 
@@ -682,7 +682,7 @@ func (v *CredentialVerifier) createAuthenticationRequest(base string, redirect_u
 }
 
 // call back to the original initiator of the login-session, providing an authorization_code for token retrieval
-func callbackToRequestor(loginSession loginSession, authorizationCode string) error {
+func callbackToRequester(loginSession loginSession, authorizationCode string) error {
 	callbackRequest, err := http.NewRequest("GET", loginSession.callback, nil)
 	logging.Log().Infof("Try to callback %s", loginSession.callback)
 	if err != nil {

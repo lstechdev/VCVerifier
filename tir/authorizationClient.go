@@ -1,19 +1,22 @@
 package tir
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
 	"strings"
 
-	common "github.com/fiware/VCVerifier/common"
+	"github.com/fiware/VCVerifier/common"
 	"github.com/fiware/VCVerifier/logging"
+	"github.com/patrickmn/go-cache"
 	"golang.org/x/exp/slices"
 )
 
 const WELL_KNOWN_ENDPOINT = "/.well-known/openid-configuration"
 const SCOPE_TIR_READ = "tir_read"
+const TirEndpointsCache = "tirEndpoints"
 
 // http client to be used
 var ErrorTokenEndpointNoResponse = errors.New("no_response_from_token_endpoint")
@@ -35,13 +38,33 @@ type NoAuthHttpClient struct {
 	httpClient HttpClient
 }
 
+func (ac AuthorizingHttpClient) FillMetadataCache(context.Context) {
+	tirEndpointsInterface, hit := common.GlobalCache.TirEndpoints.Get(TirEndpointsCache)
+	if !hit {
+		logging.Log().Info("issuers list not found in cache")
+		return
+	}
+
+	tirEndpoints := tirEndpointsInterface.([]string)
+	for _, tirEndpoint := range tirEndpoints {
+		metaData, err := ac.getMetaData(tirEndpoint)
+		if err != nil {
+			logging.Log().Errorf("Was not able to get the openid metadata from endpoint %s. Err: %v", tirEndpoint, err)
+		}
+		err = common.GlobalCache.IssuersCache.Add(tirEndpoint, metaData, cache.NoExpiration)
+		if err != nil {
+			logging.Log().Errorf("failed caching issuer metadata in FillMetadataCache(): %v", err)
+		}
+	}
+}
+
 func (nac NoAuthHttpClient) Get(tirAddress string, tirPath string) (resp *http.Response, err error) {
-	urlString := buildUrlString(tirAddress, tirPath)
+	urlString := common.BuildUrlString(tirAddress, tirPath)
 	return nac.httpClient.Get(urlString)
 }
 
 func (ac AuthorizingHttpClient) Get(tirAddress string, tirPath string) (resp *http.Response, err error) {
-	urlString := buildUrlString(tirAddress, tirPath)
+	urlString := common.BuildUrlString(tirAddress, tirPath)
 	resp, err = ac.httpClient.Get(urlString)
 	if err != nil {
 		logging.Log().Infof("Was not able to get a response. Err: %v", err)
@@ -67,22 +90,6 @@ func (ac AuthorizingHttpClient) Get(tirAddress string, tirPath string) (resp *ht
 	return ac.httpClient.Do(authenticatedRequest)
 }
 
-func buildUrlString(address string, path string) string {
-	if strings.HasSuffix(address, "/") {
-		if strings.HasPrefix(path, "/") {
-			return address + strings.TrimPrefix(path, "/")
-		} else {
-			return address + path
-		}
-	} else {
-		if strings.HasPrefix(path, "/") {
-			return address + path
-		} else {
-			return address + "/" + path
-		}
-	}
-}
-
 func (ac AuthorizingHttpClient) handleAuthorization(tirAddress string) (bearerToken string, err error) {
 	logging.Log().Debugf("Handle authorization for %s", tirAddress)
 	vc, err := ac.tokenProvider.GetAuthCredential()
@@ -97,11 +104,13 @@ func (ac AuthorizingHttpClient) handleAuthorization(tirAddress string) (bearerTo
 		return bearerToken, err
 	}
 
-	metaData, err := ac.getMetaData(tirAddress)
-	if err != nil {
-		logging.Log().Warnf("Was not able to get the openid metadata. Err: %v", err)
+	metaDataInterface, hit := common.GlobalCache.IssuersCache.Get(tirAddress)
+	if !hit {
+		logging.Log().Errorf("Was not able to get the openid metadata from address %s. Err: %v", tirAddress, err)
 		return bearerToken, err
 	}
+
+	metaData := metaDataInterface.(common.OpenIDProviderMetadata)
 	if !slices.Contains(metaData.GrantTypesSupported, common.TYPE_VP_TOKEN) {
 		logging.Log().Warnf("The server does not support grant type vp_token. Config: %v", logging.PrettyPrintObject(metaData))
 		return bearerToken, ErrorGrantTypeNotSupported
@@ -121,7 +130,7 @@ func (ac AuthorizingHttpClient) handleAuthorization(tirAddress string) (bearerTo
 
 func (ac AuthorizingHttpClient) getMetaData(tokenHost string) (metadata common.OpenIDProviderMetadata, err error) {
 	logging.Log().Debugf("Retrieve openid-metadata from %s", tokenHost)
-	resp, err := ac.httpClient.Get(buildUrlString(tokenHost, "/.well-known/openid-configuration"))
+	resp, err := ac.httpClient.Get(common.BuildUrlString(tokenHost, WELL_KNOWN_ENDPOINT))
 	if err != nil {
 		logging.Log().Warnf("Was not able to get openid metadata from %s. Err: %v", tokenHost, err)
 		return metadata, err

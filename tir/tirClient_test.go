@@ -3,6 +3,7 @@ package tir
 import (
 	"errors"
 	"fmt"
+	"github.com/fiware/VCVerifier/common"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -58,6 +59,7 @@ func TestIsTrustedParticipant(t *testing.T) {
 	}
 
 	for _, tc := range tests {
+		common.ResetGlobalCache()
 		t.Run(tc.testName, func(t *testing.T) {
 			tirClient := TirHttpClient{mockClient{responses: tc.mockResponses, errors: tc.mockErrors}}
 			isTrusted := tirClient.IsTrustedParticipant(tc.testEndpoints, tc.testIssuer)
@@ -99,6 +101,7 @@ func TestGetTrustedIssuer(t *testing.T) {
 	}
 
 	for _, tc := range tests {
+		common.ResetGlobalCache()
 		t.Run(tc.testName, func(t *testing.T) {
 			tirClient := TirHttpClient{mockClient{responses: tc.mockResponses, errors: tc.mockErrors}}
 			exists, issuer, err := tirClient.GetTrustedIssuer(tc.testEndpoints, tc.testIssuer)
