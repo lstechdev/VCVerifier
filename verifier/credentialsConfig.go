@@ -3,7 +3,10 @@ package verifier
 import (
 	"context"
 	"fmt"
+	"github.com/fiware/VCVerifier/tir"
+	"github.com/procyon-projects/chrono"
 	"net/url"
+	"time"
 
 	"github.com/fiware/VCVerifier/common"
 	"github.com/fiware/VCVerifier/config"
@@ -51,22 +54,32 @@ func InitServiceBackedCredentialsConfig(repoConfig *config.ConfigRepo) (credenti
 
 	scb := ServiceBackedCredentialsConfig{configClient: &configClient, initialConfig: repoConfig}
 
-	scb.fillStaticValues()
+	err = scb.fillStaticValues()
+	if err != nil {
+		return nil, err
+	}
+
 	if repoConfig.ConfigEndpoint != "" {
-		common.Schedule(scb.fillCache)
+		_, err := chrono.NewDefaultTaskScheduler().ScheduleAtFixedRate(scb.fillCache, time.Duration(30)*time.Second)
+		if err != nil {
+			logging.Log().Errorf("failed scheduling task: %v", err)
+			return nil, err
+		}
 	}
 
 	return scb, err
 }
 
-func (cc ServiceBackedCredentialsConfig) fillStaticValues() {
+func (cc ServiceBackedCredentialsConfig) fillStaticValues() error {
 	for _, configuredService := range cc.initialConfig.Services {
 		logging.Log().Debugf("Add to service cache: %s", configuredService.Id)
-		err := common.GlobalCache.ServiceCache.Add(configuredService.Id, configuredService, cache.NoExpiration)
+		err := common.GlobalCache.ServiceCache.Add(configuredService.Id, configuredService, cache.DefaultExpiration)
 		if err != nil {
-			logging.Log().Errorf("failed caching configured service in fillStaticValues(): %v", err)
+			logging.Log().Errorf("failed caching configured service %s in fillStaticValues(): %v", configuredService.Id, err)
+			return err
 		}
 	}
+	return nil
 }
 
 func (cc ServiceBackedCredentialsConfig) fillCache(context.Context) {
@@ -77,7 +90,7 @@ func (cc ServiceBackedCredentialsConfig) fillCache(context.Context) {
 		return
 	}
 	for _, configuredService := range services {
-		err := common.GlobalCache.ServiceCache.Add(configuredService.Id, configuredService, cache.NoExpiration)
+		err := common.GlobalCache.ServiceCache.Add(configuredService.Id, configuredService, cache.DefaultExpiration)
 		if err != nil {
 			logging.Log().Errorf("failed caching configured service in fillCache(): %v", err)
 		}
@@ -93,7 +106,7 @@ func (cc ServiceBackedCredentialsConfig) fillCache(context.Context) {
 				tirEndpoints = append(tirEndpoints, serviceIssuersLists...)
 			}
 		}
-		err = common.GlobalCache.TirEndpoints.Add("tirEndpoints", tirEndpoints, cache.NoExpiration)
+		err = common.GlobalCache.TirEndpoints.Add(tir.TirEndpointsCache, tirEndpoints, cache.NoExpiration)
 		if err != nil {
 			logging.Log().Errorf("failed caching issuers lists in fillCache(): %v", err)
 		}

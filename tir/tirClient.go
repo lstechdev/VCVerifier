@@ -3,6 +3,7 @@ package tir
 import (
 	"encoding/json"
 	"errors"
+	"github.com/procyon-projects/chrono"
 	"net/http"
 	"time"
 
@@ -82,13 +83,19 @@ func NewTirHttpClient(tokenProvider TokenProvider, config config.M2M) (client Ti
 	_, err = httpcache.NewWithInmemoryCache(httpClient, true, time.Second*60)
 	if err != nil {
 		logging.Log().Errorf("Was not able to inject the cache to the client. Err: %v", err)
-		return
+		return nil, err
 	}
 	var httpGetClient HttpGetClient
 	if config.AuthEnabled {
 		logging.Log().Debug("Authorization for the trusted-issuers-registry is enabled.")
 		authorizingHttpClient := AuthorizingHttpClient{httpClient: httpClient, tokenProvider: tokenProvider, clientId: config.ClientId}
-		common.Schedule(authorizingHttpClient.FillMetadataCache)
+
+		_, err := chrono.NewDefaultTaskScheduler().ScheduleAtFixedRate(authorizingHttpClient.FillMetadataCache, time.Duration(30)*time.Second)
+		if err != nil {
+			logging.Log().Errorf("failed scheduling task: %v", err)
+			return nil, err
+		}
+
 		httpGetClient = authorizingHttpClient
 	} else {
 		httpGetClient = NoAuthHttpClient{httpClient: httpClient}
@@ -189,7 +196,7 @@ func (tc TirHttpClient) requestIssuerWithVersion(tirEndpoint string, didPath str
 
 	err = common.GlobalCache.IssuerCache.Add(cacheKey, resp, cache.DefaultExpiration)
 	if err != nil {
-		logging.Log().Warnf("Was not able to cache the response for issuer %s from %s.", didPath, tirEndpoint)
+		logging.Log().Errorf("Was not able to cache the response for issuer %s from %s.", didPath, tirEndpoint)
 	}
 	return resp, err
 }

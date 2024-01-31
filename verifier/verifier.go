@@ -73,7 +73,7 @@ type CredentialVerifier struct {
 	signingKey jwk.Key
 	// cache to be used for in-progress authentication sessions
 	sessionCache common.Cache
-	// cache to be cused for jwt retrieval
+	// cache to be used for jwt retrieval
 	tokenCache common.Cache
 	// nonce generator
 	nonceGenerator NonceGenerator
@@ -151,7 +151,7 @@ func (r *randomGenerator) GenerateNonce() string {
 type loginSession struct {
 	// is it using the same-device flow?
 	sameDevice bool
-	// callback to be notfied after success
+	// callback to be notified after success
 	callback string
 	// sessionId to be included in the notification
 	sessionId string

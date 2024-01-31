@@ -16,6 +16,7 @@ import (
 
 const WELL_KNOWN_ENDPOINT = "/.well-known/openid-configuration"
 const SCOPE_TIR_READ = "tir_read"
+const TirEndpointsCache = "tirEndpoints"
 
 // http client to be used
 var ErrorTokenEndpointNoResponse = errors.New("no_response_from_token_endpoint")
@@ -38,7 +39,7 @@ type NoAuthHttpClient struct {
 }
 
 func (ac AuthorizingHttpClient) FillMetadataCache(context.Context) {
-	tirEndpointsInterface, hit := common.GlobalCache.TirEndpoints.Get("tirEndpoints")
+	tirEndpointsInterface, hit := common.GlobalCache.TirEndpoints.Get(TirEndpointsCache)
 	if !hit {
 		logging.Log().Info("issuers list not found in cache")
 		return
@@ -48,8 +49,7 @@ func (ac AuthorizingHttpClient) FillMetadataCache(context.Context) {
 	for _, tirEndpoint := range tirEndpoints {
 		metaData, err := ac.getMetaData(tirEndpoint)
 		if err != nil {
-			logging.Log().Errorf("Was not able to get the openid metadata. Err: %v", err)
-			return
+			logging.Log().Errorf("Was not able to get the openid metadata from endpoint %s. Err: %v", tirEndpoint, err)
 		}
 		err = common.GlobalCache.IssuersCache.Add(tirEndpoint, metaData, cache.NoExpiration)
 		if err != nil {
@@ -106,7 +106,7 @@ func (ac AuthorizingHttpClient) handleAuthorization(tirAddress string) (bearerTo
 
 	metaDataInterface, hit := common.GlobalCache.IssuersCache.Get(tirAddress)
 	if !hit {
-		logging.Log().Warnf("Was not able to get the openid metadata. Err: %v", err)
+		logging.Log().Errorf("Was not able to get the openid metadata from address %s. Err: %v", tirAddress, err)
 		return bearerToken, err
 	}
 
