@@ -15,7 +15,6 @@ import (
 
 const CACHE_EXPIRY = 60
 
-
 /**
 * Provides information about credentialTypes associated with services and there trust anchors.
  */
@@ -59,7 +58,7 @@ func InitServiceBackedCredentialsConfig(repoConfig *config.ConfigRepo) (credenti
 
 	scb.fillStaticValues()
 	if repoConfig.ConfigEndpoint != "" {
-		chrono.NewDefaultTaskScheduler().ScheduleAtFixedRate(scb.fillCache, time.Duration(30)*time.Second)
+		chrono.NewDefaultTaskScheduler().ScheduleAtFixedRate(scb.fillCache, time.Duration(repoConfig.UpdateInterval)*time.Second)
 	}
 
 	return scb, err
