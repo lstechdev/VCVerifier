@@ -51,7 +51,7 @@ func (jwtVMR JWTVerfificationMethodResolver) ResolveVerificationMethod(verificat
 //   - thePublicKey(1)
 //   - did:key:thePublicKey(2)
 //   - did:key:thePublicKey#id(3)
-func compareVerficationMethod(presentedMethod string, didDocumentMethod string) (result bool) {
+func compareVerificationMethod(presentedMethod string, didDocumentMethod string) (result bool) {
 	keyId, absolutePath, fullAbsolutePath, _ := getKeyFromMethod(didDocumentMethod)
 
 	if presentedMethod != "" {
