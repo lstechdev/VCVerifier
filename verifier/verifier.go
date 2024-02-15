@@ -620,7 +620,7 @@ func (v *CredentialVerifier) generateJWT(presentation *verifiable.Presentation, 
 	if len(presentation.Credentials()) > 1 {
 		jwtBuilder.Claim("verifiablePresentation", presentation)
 	} else {
-		jwtBuilder.Claim("verifiableCredential", presentation.Credentials()[0])
+		jwtBuilder.Claim("verifiableCredential", presentation.Credentials()[0].ToRawJSON())
 	}
 
 	token, err := jwtBuilder.Build()
