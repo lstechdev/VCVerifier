@@ -6,16 +6,9 @@ package config
 type Configuration struct {
 	Server     Server     `mapstructure:"server"`
 	Verifier   Verifier   `mapstructure:"verifier"`
-	SSIKit     SSIKit     `mapstructure:"ssiKit"`
 	Logging    Logging    `mapstructure:"logging"`
 	ConfigRepo ConfigRepo `mapstructure:"configRepo"`
 	M2M        M2M        `mapstructure:"m2m"`
-}
-
-// configuration to be used by the ssiKit configuration
-type SSIKit struct {
-	// address of waltIDs auditor-endpoint
-	AuditorURL string `mapstructure:"auditorURL"`
 }
 
 // general configuration to run the application
@@ -70,6 +63,14 @@ type Verifier struct {
 	SessionExpiry int `mapstructure:"sessionExpiry" default:"30"`
 	// policies that shall be checked
 	PolicyConfig Policies `mapstructure:"policies"`
+	// Validation mode for validating the vcs. Does not touch verification, just content validation.
+	// applicable modes:
+	// * `none`: No validation, just swallow everything
+	// * `combined`: ld and schema validation
+	// * `jsonLd`: uses JSON-LD parser for validation
+	// * `baseContext`: validates that only the fields and values (when applicable)are present in the document. No extra fields are allowed (outside of credentialSubject).
+	// Default is set to `none` to ensure backwards compatibility
+	ValidationMode string `mapstructure:"validationMode" default:"none"`
 }
 
 type Policies struct {
@@ -83,7 +84,8 @@ type ConfigRepo struct {
 	// url of the configuration service to be used
 	ConfigEndpoint string `mapstructure:"configEndpoint"`
 	// statically configured services with their trust anchors and scopes.
-	Services []ConfiguredService `mapstructure:"services"`
+	Services       []ConfiguredService `mapstructure:"services"`
+	UpdateInterval int64               `mapstructure:"updateInterval" default:"30"`
 }
 
 type PolicyMap map[string]PolicyConfigParameters
