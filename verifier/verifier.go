@@ -364,7 +364,7 @@ func (v *CredentialVerifier) GenerateToken(clientId, subject, audience string, s
 
 	// Go through all requested scopes and create a verification context
 	for _, scope := range scopes {
-		verificationContext, err := v.getTrustRegistriesVerificationContextFromScope(clientId, scope, credentialTypes)
+		verificationContext, err := v.getTrustRegistriesValidationContextFromScope(clientId, scope, credentialTypes)
 		if err != nil {
 			logging.Log().Warnf("Was not able to create a valid verification context. Credential will be rejected. Err: %v", err)
 			return 0, "", ErrorVerficationContextSetup
@@ -445,7 +445,7 @@ func (v *CredentialVerifier) AuthenticationResponse(state string, verifiablePres
 	trustedChain, _ := verifyChain(verifiablePresentation.Credentials())
 
 	for _, credential := range verifiablePresentation.Credentials() {
-		verificationContext, err := v.getTrustRegistriesVerificationContext(loginSession.clientId, credential.Contents().Types)
+		verificationContext, err := v.getTrustRegistriesValidationContext(loginSession.clientId, credential.Contents().Types)
 		if err != nil {
 			logging.Log().Warnf("Was not able to create a valid verification context. Credential will be rejected. Err: %v", err)
 			return sameDevice, ErrorVerficationContextSetup
@@ -499,7 +499,7 @@ func (v *CredentialVerifier) AuthenticationResponse(state string, verifiablePres
 	}
 }
 
-func (v *CredentialVerifier) getTrustRegistriesVerificationContext(clientId string, credentialTypes []string) (verificationContext TrustRegistriesValidationContext, err error) {
+func (v *CredentialVerifier) getTrustRegistriesValidationContext(clientId string, credentialTypes []string) (verificationContext TrustRegistriesValidationContext, err error) {
 	trustedIssuersLists := map[string][]string{}
 	trustedParticipantsRegistries := map[string][]string{}
 
@@ -521,7 +521,7 @@ func (v *CredentialVerifier) getTrustRegistriesVerificationContext(clientId stri
 	return context, err
 }
 
-func (v *CredentialVerifier) getTrustRegistriesVerificationContextFromScope(clientId string, scope string, credentialTypes []string) (verificationContext TrustRegistriesValidationContext, err error) {
+func (v *CredentialVerifier) getTrustRegistriesValidationContextFromScope(clientId string, scope string, credentialTypes []string) (verificationContext TrustRegistriesValidationContext, err error) {
 	trustedIssuersLists := map[string][]string{}
 	trustedParticipantsRegistries := map[string][]string{}
 

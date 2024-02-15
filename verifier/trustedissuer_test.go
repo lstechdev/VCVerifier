@@ -30,18 +30,15 @@ func TestVerifyVC_Issuers(t *testing.T) {
 		{testName: "If the trusted issuer is invalid, the vc should be rejected.",
 			credentialToVerifiy: getVerifiableCredential("test", "claim"), verificationContext: getVerificationContext(),
 			tirExists: true, tirResponse: tir.TrustedIssuer{Attributes: []tir.IssuerAttribute{{Body: "invalidBody"}}}, tirError: nil, expectedResult: false},
-		{testName: "If no restriction is configured, the vc should be accepted.",
-			credentialToVerifiy: getVerifiableCredential("testClaim", "testValue"), verificationContext: getVerificationContext(),
-			tirExists: true, tirResponse: getTrustedIssuer([]tir.IssuerAttribute{getAttribute(tir.TimeRange{}, "VerifiableCredential", map[string][]interface{}{})}), tirError: nil, expectedResult: true},
 		{testName: "If the type is not included, the vc should be rejected.",
-			credentialToVerifiy: getVerifiableCredential("testClaim", "testValue"), verificationContext: getVerificationContext(),
+			credentialToVerifiy: getTypedCredential("AnotherType", "testClaim", "testValue"), verificationContext: getVerificationContext(),
 			tirExists: true, tirResponse: getTrustedIssuer([]tir.IssuerAttribute{getAttribute(tir.TimeRange{}, "AnotherType", map[string][]interface{}{})}), tirError: nil, expectedResult: false},
-		{testName: "If all types are allowed, the vc should be allowed.",
-			credentialToVerifiy: getMultiTypeCredential([]string{"VerifiableCredential", "SecondType"}, "testClaim", "testValue"), verificationContext: getVerificationContext(),
-			tirExists: true, tirResponse: getTrustedIssuer([]tir.IssuerAttribute{getAttribute(tir.TimeRange{}, "VerifiableCredential", map[string][]interface{}{}), getAttribute(tir.TimeRange{}, "SecondType", map[string][]interface{}{})}), tirError: nil, expectedResult: true},
 		{testName: "If one of the types is not allowed, the vc should be rejected.",
 			credentialToVerifiy: getMultiTypeCredential([]string{"VerifiableCredential", "SecondType"}, "testClaim", "testValue"), verificationContext: getVerificationContext(),
 			tirExists: true, tirResponse: getTrustedIssuer([]tir.IssuerAttribute{getAttribute(tir.TimeRange{}, "VerifiableCredential", map[string][]interface{}{})}), tirError: nil, expectedResult: false},
+		{testName: "If no restriction is configured, the vc should be accepted.",
+			credentialToVerifiy: getVerifiableCredential("testClaim", "testValue"), verificationContext: getVerificationContext(),
+			tirExists: true, tirResponse: getTrustedIssuer([]tir.IssuerAttribute{getAttribute(tir.TimeRange{}, "VerifiableCredential", map[string][]interface{}{})}), tirError: nil, expectedResult: true},
 		{testName: "If no restricted claim is included, the vc should be accepted.",
 			credentialToVerifiy: getVerifiableCredential("testClaim", "testValue"), verificationContext: getVerificationContext(),
 			tirExists: true, tirResponse: getTrustedIssuer([]tir.IssuerAttribute{getAttribute(tir.TimeRange{}, "VerifiableCredential", map[string][]interface{}{"another": {"claim"}})}), tirError: nil, expectedResult: true},
@@ -66,6 +63,12 @@ func TestVerifyVC_Issuers(t *testing.T) {
 		{testName: "If the all claim allowed, the vc should be allowed.",
 			credentialToVerifiy: getMultiClaimCredential(map[string]interface{}{"claimA": map[string]interface{}{"some": "object"}, "claimB": "b"}), verificationContext: getVerificationContext(),
 			tirExists: true, tirResponse: getTrustedIssuer([]tir.IssuerAttribute{getAttribute(tir.TimeRange{}, "VerifiableCredential", map[string][]interface{}{"claimA": {map[string]interface{}{"some": "object"}}, "claimB": {"b"}})}), tirError: nil, expectedResult: true},
+		{testName: "If a wildcard til is configured for the type, the vc should be allowed.",
+			credentialToVerifiy: getVerifiableCredential("testClaim", "testValue"), verificationContext: getWildcardVerificationContext(),
+			tirExists: true, tirError: nil, expectedResult: true},
+		{testName: "If all types are allowed, the vc should be allowed.",
+			credentialToVerifiy: getMultiTypeCredential([]string{"VerifiableCredential", "SecondType"}, "testClaim", "testValue"), verificationContext: getWildcardAndNormalVerificationContext(),
+			tirExists: true, tirResponse: getTrustedIssuer([]tir.IssuerAttribute{getAttribute(tir.TimeRange{}, "SecondType", map[string][]interface{}{})}), tirError: nil, expectedResult: true},
 		{testName: "If not all claims are allowed, the vc should be rejected.",
 			credentialToVerifiy: getMultiClaimCredential(map[string]interface{}{"claimA": map[string]interface{}{"some": "object"}, "claimB": "b"}), verificationContext: getVerificationContext(),
 			tirExists: true, tirResponse: getTrustedIssuer([]tir.IssuerAttribute{getAttribute(tir.TimeRange{}, "VerifiableCredential", map[string][]interface{}{"claimA": {map[string]interface{}{"some": "object"}}, "claimB": {"c"}})}), tirError: nil, expectedResult: false},
@@ -74,6 +77,9 @@ func TestVerifyVC_Issuers(t *testing.T) {
 			tirExists: true, tirResponse: getTrustedIssuer([]tir.IssuerAttribute{getAttribute(tir.TimeRange{}, "VerifiableCredential", map[string][]interface{}{})}), tirError: errors.New("some-error"), expectedResult: false},
 		{testName: "If an invalid verification context is provided, the credential should be rejected.",
 			credentialToVerifiy: getVerifiableCredential("test", "claim"), verificationContext: "No-context", tirExists: false, tirResponse: tir.TrustedIssuer{}, tirError: nil, expectedResult: false},
+		{testName: "If a wildcard til and another til is configured for the type, the vc should be rejected.",
+			credentialToVerifiy: getVerifiableCredential("testClaim", "testValue"), verificationContext: getInvalidMixedVerificationContext(),
+			tirExists: true, tirError: nil, expectedResult: false},
 	}
 
 	for _, tc := range tests {
@@ -109,7 +115,19 @@ func getTrustedIssuer(attributes []tir.IssuerAttribute) tir.TrustedIssuer {
 }
 
 func getVerificationContext() ValidationContext {
-	return TrustRegistriesValidationContext{trustedParticipantsRegistries: map[string][]string{"someType": []string{"http://my-trust-registry.org"}}, trustedIssuersLists: map[string][]string{"someType": []string{"http://my-til.org"}}}
+	return TrustRegistriesValidationContext{trustedParticipantsRegistries: map[string][]string{"VerifiableCredential": []string{"http://my-trust-registry.org"}}, trustedIssuersLists: map[string][]string{"VerifiableCredential": []string{"http://my-til.org"}}}
+}
+
+func getWildcardVerificationContext() ValidationContext {
+	return TrustRegistriesValidationContext{trustedParticipantsRegistries: map[string][]string{"VerifiableCredential": []string{"http://my-trust-registry.org"}}, trustedIssuersLists: map[string][]string{"VerifiableCredential": []string{"*"}}}
+}
+
+func getInvalidMixedVerificationContext() ValidationContext {
+	return TrustRegistriesValidationContext{trustedParticipantsRegistries: map[string][]string{"VerifiableCredential": []string{"http://my-trust-registry.org"}}, trustedIssuersLists: map[string][]string{"VerifiableCredential": []string{"*", "http://my-til.org"}}}
+}
+
+func getWildcardAndNormalVerificationContext() ValidationContext {
+	return TrustRegistriesValidationContext{trustedParticipantsRegistries: map[string][]string{"VerifiableCredential": []string{"http://my-trust-registry.org"}, "SecondType": []string{"http://my-trust-registry.org"}}, trustedIssuersLists: map[string][]string{"VerifiableCredential": []string{"*"}, "SecondType": []string{"http://my-til.org"}}}
 }
 
 func getMultiTypeCredential(types []string, claimName string, value interface{}) verifiable.Credential {
@@ -139,15 +157,18 @@ func getMultiClaimCredential(claims map[string]interface{}) verifiable.Credentia
 
 }
 
-func getVerifiableCredential(claimName string, value interface{}) verifiable.Credential {
-
+func getTypedCredential(credentialType, claimName string, value interface{}) verifiable.Credential {
 	vc, _ := verifiable.CreateCredential(verifiable.CredentialContents{
 		Issuer: &verifiable.Issuer{ID: "did:test:issuer"},
-		Types:  []string{"VerifiableCredential"},
+		Types:  []string{credentialType},
 		Subject: []verifiable.Subject{
 			{
 				CustomFields: map[string]interface{}{claimName: value},
 			},
 		}}, verifiable.CustomFields{})
 	return *vc
+}
+
+func getVerifiableCredential(claimName string, value interface{}) verifiable.Credential {
+	return getTypedCredential("VerifiableCredential", claimName, value)
 }

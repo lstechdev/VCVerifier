@@ -3,12 +3,17 @@ package verifier
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 
 	"github.com/fiware/VCVerifier/logging"
 	tir "github.com/fiware/VCVerifier/tir"
 	"github.com/trustbloc/vc-go/verifiable"
 	"golang.org/x/exp/slices"
 )
+
+const WILDCARD_TIL = "*"
+
+var ErrorInvalidTil = errors.New("invalid_til_configured")
 
 /**
 *	The trusted participant verification service will validate the entry of a participant within the trusted list.
@@ -32,55 +37,82 @@ func (tpvs *TrustedIssuerValidationService) ValidateVC(verifiableCredential *ver
 	for _, tl := range trustContext.GetTrustedIssuersLists() {
 		if len(tl) > 0 {
 			tilSpecified = true
-			break
 		}
 	}
 
 	if !tilSpecified {
-		logging.Log().Debug("The validation context does not specify a trusted issuers list, therefor we consider every issuer as trusted.")
+		logging.Log().Debug("The validation context does not specify a trusted issuers list, therefor we consider no issuer as trusted.")
+		return false, err
+	}
+
+	til := trustContext.GetTrustedIssuersLists()
+	for _, credentialType := range verifiableCredential.Contents().Types {
+		isWildcard, err := isWildcardTil(til[credentialType])
+		if isWildcard {
+			logging.Log().Debugf("Wildcard til is configured for type %s.", credentialType)
+			continue
+		}
+		if err != nil {
+			logging.Log().Warnf("Invalid til configured for type %s.", credentialType)
+			return false, err
+		}
+
+		tilAddress, credentialSupported := til[credentialType]
+		if !credentialSupported {
+			logging.Log().Debugf("No credential configured for type %s", credentialType)
+			return false, err
+		}
+
+		exist, trustedIssuer, err := tpvs.tirClient.GetTrustedIssuer(tilAddress, verifiableCredential.Contents().Issuer.ID)
+
+		if err != nil {
+			logging.Log().Warnf("Was not able to validate trusted issuer. Err: %v", err)
+			return false, err
+		}
+		if !exist {
+			logging.Log().Warnf("Trusted issuer for %s does not exist in context %s.", logging.PrettyPrintObject(verifiableCredential), logging.PrettyPrintObject(validationContext))
+			return false, err
+		}
+		credentials, err := parseAttributes(trustedIssuer)
+		if err != nil {
+			logging.Log().Warnf("Was not able to parse the issuer %s. Err: %v", logging.PrettyPrintObject(trustedIssuer), err)
+			return false, err
+		}
+		result, err := verifyWithCredentialsConfig(verifiableCredential, credentials)
+		if err != nil || !result {
+			return result, err
+		}
+	}
+
+	return true, err
+}
+
+func isWildcardTil(tilList []string) (isWildcard bool, err error) {
+	if len(tilList) == 1 && tilList[0] == WILDCARD_TIL {
 		return true, err
 	}
-	// FIXME Can we assume that if we have a VC with multiple types, its enough to check for only one type?
-	exist, trustedIssuer, err := tpvs.tirClient.GetTrustedIssuer(getFirstElementOfMap(trustContext.GetTrustedIssuersLists()), verifiableCredential.Contents().Issuer.ID)
-
-	if err != nil {
-		logging.Log().Warnf("Was not able to validate trusted issuer. Err: %v", err)
-		return false, err
+	if len(tilList) > 1 && slices.Contains(tilList, WILDCARD_TIL) {
+		return false, ErrorInvalidTil
 	}
-	if !exist {
-		logging.Log().Warnf("Trusted issuer for %s does not exist in context %s.", logging.PrettyPrintObject(verifiableCredential), logging.PrettyPrintObject(validationContext))
-		return false, err
-	}
-	credentials, err := parseAttributes(trustedIssuer)
-	if err != nil {
-		logging.Log().Warnf("Was not able to parse the issuer %s. Err: %v", logging.PrettyPrintObject(trustedIssuer), err)
-	}
-	return verifyWithCredentialsConfig(verifiableCredential, credentials)
+	return false, err
 }
 
 func verifyWithCredentialsConfig(verifiableCredential *verifiable.Credential, credentials []tir.Credential) (result bool, err error) {
 
 	credentialsConfigMap := map[string]tir.Credential{}
-	allowedTypes := []string{}
+
 	// format for better validation
 	for _, credential := range credentials {
-		allowedTypes = append(allowedTypes, credential.CredentialsType)
 		credentialsConfigMap[credential.CredentialsType] = credential
 	}
-	// we initalize with true, since there is no case where types can be empty.
-	var typeAllowed = true
+
 	// initalize to true, since everything without a specific rule is considered to be allowed
 	var subjectAllowed = true
-	logging.Log().Debugf("Validate that the type %v is allowed by %v.", verifiableCredential.Contents().Types, allowedTypes)
+
 	// validate that the type(s) is allowed
 	for _, credentialType := range verifiableCredential.Contents().Types {
-		typeAllowed = typeAllowed && slices.Contains(allowedTypes, credentialType)
 		// as of now, we only allow single subject credentials
 		subjectAllowed = subjectAllowed && verifyForType(verifiableCredential.Contents().Subject[0], credentialsConfigMap[credentialType])
-	}
-	if !typeAllowed {
-		logging.Log().Debugf("Credentials type %s is not allowed.", logging.PrettyPrintObject(verifiableCredential.Contents().Types))
-		return false, err
 	}
 	if !subjectAllowed {
 		logging.Log().Debugf("The subject contains forbidden claims or values: %s.", logging.PrettyPrintObject(verifiableCredential.Contents().Subject[0]))
