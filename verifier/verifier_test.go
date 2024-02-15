@@ -18,7 +18,6 @@ import (
 	common "github.com/fiware/VCVerifier/common"
 	configModel "github.com/fiware/VCVerifier/config"
 	logging "github.com/fiware/VCVerifier/logging"
-	"github.com/fiware/VCVerifier/ssikit"
 	"github.com/google/go-cmp/cmp"
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jwk"
@@ -37,10 +36,11 @@ func TestVerifyConfig(t *testing.T) {
 	}
 
 	tests := []test{
-		{"If all mandatory parameters are present, verfication should succeed.", configModel.Verifier{Did: "did:key:verifier", TirAddress: "http:tir.de"}, nil},
-		{"If no TIR is configured, the verification should fail.", configModel.Verifier{Did: "did:key:verifier"}, ErrorNoTIR},
-		{"If no DID is configured, the verification should fail.", configModel.Verifier{TirAddress: "http:tir.de"}, ErrorNoDID},
-		{"If no DID and TIR is configured, the verification should fail.", configModel.Verifier{}, ErrorNoDID},
+		{"If all mandatory parameters are present, verfication should succeed.", configModel.Verifier{Did: "did:key:verifier", TirAddress: "http:tir.de", ValidationMode: "none"}, nil},
+		{"If no TIR is configured, the verification should fail.", configModel.Verifier{Did: "did:key:verifier", ValidationMode: "none"}, ErrorNoTIR},
+		{"If no DID is configured, the verification should fail.", configModel.Verifier{TirAddress: "http:tir.de", ValidationMode: "none"}, ErrorNoDID},
+		{"If no DID and TIR is configured, the verification should fail.", configModel.Verifier{ValidationMode: "none"}, ErrorNoDID},
+		{"If no validation mode is configured, verfication should fail.", configModel.Verifier{Did: "did:key:verifier", TirAddress: "http:tir.de"}, ErrorUnsupportedValidationMode},
 	}
 
 	for _, tc := range tests {
@@ -279,23 +279,7 @@ type mockExternalSsiKit struct {
 	verificationError   error
 }
 
-func (msk *mockExternalSsiKit) VerifyVC(verifiableCredential *verifiable.Credential, verificationContext VerificationContext) (result bool, err error) {
-	if msk.verificationError != nil {
-		return result, msk.verificationError
-	}
-	result = msk.verificationResults[0]
-	copy(msk.verificationResults[0:], msk.verificationResults[1:])
-	msk.verificationResults[len(msk.verificationResults)-1] = false
-	msk.verificationResults = msk.verificationResults[:len(msk.verificationResults)-1]
-	return
-}
-
-type mockSsiKit struct {
-	verificationResults []bool
-	verificationError   error
-}
-
-func (msk *mockSsiKit) VerifyVC(policies []ssikit.Policy, verifiableCredential map[string]interface{}) (result bool, err error) {
+func (msk *mockExternalSsiKit) ValidateVC(verifiableCredential *verifiable.Credential, verificationContext ValidationContext) (result bool, err error) {
 	if msk.verificationError != nil {
 		return result, msk.verificationError
 	}
@@ -393,7 +377,7 @@ func TestAuthenticationResponse(t *testing.T) {
 			jwk.AssignKeyID(testKey)
 			nonceGenerator := mockNonceGenerator{staticValues: []string{"authCode"}}
 			credentialsConfig := mockCredentialConfig{}
-			verifier := CredentialVerifier{did: "did:key:verifier", signingKey: testKey, tokenCache: &tokenCache, sessionCache: &sessionCache, nonceGenerator: &nonceGenerator, verificationServices: []VerificationService{&mockExternalSsiKit{tc.verificationResult, tc.verificationError}}, clock: mockClock{}, credentialsConfig: credentialsConfig}
+			verifier := CredentialVerifier{did: "did:key:verifier", signingKey: testKey, tokenCache: &tokenCache, sessionCache: &sessionCache, nonceGenerator: &nonceGenerator, validationServices: []ValidationService{&mockExternalSsiKit{tc.verificationResult, tc.verificationError}}, clock: mockClock{}, credentialsConfig: credentialsConfig}
 
 			sameDeviceResponse, err := verifier.AuthenticationResponse(tc.requestedState, &tc.testVP)
 			if err != tc.expectedError {
@@ -484,9 +468,10 @@ func TestInitVerifier(t *testing.T) {
 	}
 
 	tests := []test{
-		{"A verifier should be properly intantiated.", configModel.Configuration{Verifier: configModel.Verifier{Did: "did:key:verifier", TirAddress: "https://tir.org", SessionExpiry: 30}}, nil},
-		{"Without a did, no verifier should be instantiated.", configModel.Configuration{Verifier: configModel.Verifier{TirAddress: "https://tir.org", SessionExpiry: 30}}, ErrorNoDID},
-		{"Without a tir, no verifier should be instantiated.", configModel.Configuration{Verifier: configModel.Verifier{Did: "did:key:verifier", SessionExpiry: 30}}, ErrorNoTIR},
+		{"A verifier should be properly intantiated.", configModel.Configuration{Verifier: configModel.Verifier{Did: "did:key:verifier", TirAddress: "https://tir.org", ValidationMode: "none", SessionExpiry: 30}}, nil},
+		{"Without a did, no verifier should be instantiated.", configModel.Configuration{Verifier: configModel.Verifier{TirAddress: "https://tir.org", ValidationMode: "none", SessionExpiry: 30}}, ErrorNoDID},
+		{"Without a tir, no verifier should be instantiated.", configModel.Configuration{Verifier: configModel.Verifier{Did: "did:key:verifier", SessionExpiry: 30, ValidationMode: "none"}}, ErrorNoTIR},
+		{"Without a validationMode, no verifier should be instantiated.", configModel.Configuration{Verifier: configModel.Verifier{Did: "did:key:verifier", TirAddress: "https://tir.org", ValidationMode: "blub", SessionExpiry: 30}}, ErrorUnsupportedValidationMode},
 	}
 
 	for _, tc := range tests {
@@ -494,7 +479,7 @@ func TestInitVerifier(t *testing.T) {
 			verifier = nil
 			logging.Log().Info("TestInitVerifier +++++++++++++++++ Running test: ", tc.testName)
 
-			err := InitVerifier(&tc.testConfig, &mockSsiKit{})
+			err := InitVerifier(&tc.testConfig)
 			if tc.expectedError != err {
 				t.Errorf("%s - Expected error %v but was %v.", tc.testName, tc.expectedError, err)
 			}

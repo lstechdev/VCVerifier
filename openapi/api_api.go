@@ -177,7 +177,7 @@ func StartSIOPSameDevice(c *gin.Context) {
 
 // VerifierAPIAuthenticationResponse - Stores the credential for the given session
 func VerifierAPIAuthenticationResponse(c *gin.Context) {
-	state, stateExists := c.GetQuery("state")
+	state, stateExists := c.GetPostForm("state")
 	if !stateExists {
 		c.AbortWithStatusJSON(400, ErrorMessageNoState)
 		return

@@ -74,10 +74,10 @@ func TestGaiaXRegistryVerificationService_VerifyVC(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			v := InitGaiaXRegistryVerificationService(tt.fields.verifierConfig)
+			v := InitGaiaXRegistryValidationService(tt.fields.verifierConfig)
 			v.gaiaxRegistryClient = tt.fields.gaiaxRegistryClient
 
-			gotResult, err := v.VerifyVC(&tt.verifiableCredential, nil)
+			gotResult, err := v.ValidateVC(&tt.verifiableCredential, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GaiaXRegistryVerificationService.VerifyVC() error = %v, wantErr %v", err, tt.wantErr)
 				return

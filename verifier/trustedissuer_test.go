@@ -16,7 +16,7 @@ func TestVerifyVC_Issuers(t *testing.T) {
 	type test struct {
 		testName            string
 		credentialToVerifiy verifiable.Credential
-		verificationContext VerificationContext
+		verificationContext ValidationContext
 		tirExists           bool
 		tirResponse         tir.TrustedIssuer
 		tirError            error
@@ -81,8 +81,8 @@ func TestVerifyVC_Issuers(t *testing.T) {
 
 			logging.Log().Info("TestVerifyVC +++++++++++++++++ Running test: ", tc.testName)
 
-			trustedIssuerVerficationService := TrustedIssuerVerificationService{mockTirClient{tc.tirExists, tc.tirResponse, tc.tirError}}
-			result, _ := trustedIssuerVerficationService.VerifyVC(&tc.credentialToVerifiy, tc.verificationContext)
+			trustedIssuerVerficationService := TrustedIssuerValidationService{mockTirClient{tc.tirExists, tc.tirResponse, tc.tirError}}
+			result, _ := trustedIssuerVerficationService.ValidateVC(&tc.credentialToVerifiy, tc.verificationContext)
 			if result != tc.expectedResult {
 				t.Errorf("%s - Expected result %v but was %v.", tc.testName, tc.expectedResult, result)
 				return
@@ -108,8 +108,8 @@ func getTrustedIssuer(attributes []tir.IssuerAttribute) tir.TrustedIssuer {
 	return tir.TrustedIssuer{Attributes: attributes}
 }
 
-func getVerificationContext() VerificationContext {
-	return TrustRegistriesVerificationContext{trustedParticipantsRegistries: map[string][]string{"someType": []string{"http://my-trust-registry.org"}}, trustedIssuersLists: map[string][]string{"someType": []string{"http://my-til.org"}}}
+func getVerificationContext() ValidationContext {
+	return TrustRegistriesValidationContext{trustedParticipantsRegistries: map[string][]string{"someType": []string{"http://my-trust-registry.org"}}, trustedIssuersLists: map[string][]string{"someType": []string{"http://my-til.org"}}}
 }
 
 func getMultiTypeCredential(types []string, claimName string, value interface{}) verifiable.Credential {

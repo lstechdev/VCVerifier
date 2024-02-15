@@ -20,12 +20,12 @@ var ErrorNotAValidVerficationMethod = errors.New("not_a_valid_verfication_method
 
 const RsaVerificationKey2018 = "RsaVerificationKey2018"
 const Ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
-const (
-	defaultPath  = "/.well-known/did.json"
-	documentPath = "/did.json"
-)
 
-type TrustBlocVerifier struct{}
+var SupportedModes = []string{"none", "combined", "jsonLd", "baseContext"}
+
+type TrustBlocValidator struct {
+	validationMode string
+}
 
 type JWTVerfificationMethodResolver struct{}
 
@@ -79,9 +79,19 @@ func getKeyFromMethod(verficationMethod string) (keyId, absolutePath, fullAbsolu
 	return keyId, absolutePath, fullAbsolutePath, ErrorNotAValidVerficationMethod
 }
 
-func (tbv TrustBlocVerifier) VerifyVC(verifiableCredential *verifiable.Credential, verificationContext VerificationContext) (result bool, err error) {
+// the credential is already verified after parsing it from the VP, only content validation should happen here.
+func (tbv TrustBlocValidator) ValidateVC(verifiableCredential *verifiable.Credential, verificationContext ValidationContext) (result bool, err error) {
 
-	err = verifiableCredential.ValidateCredential()
+	switch tbv.validationMode {
+	case "none":
+		return true, err
+	case "combined":
+		err = verifiableCredential.ValidateCredential()
+	case "jsonLd":
+		err = verifiableCredential.ValidateCredential(verifiable.WithJSONLDValidation())
+	case "baseContext":
+		err = verifiableCredential.ValidateCredential(verifiable.WithBaseContextValidation())
+	}
 	if err != nil {
 		logging.Log().Info("Credential is invalid.")
 		return false, err

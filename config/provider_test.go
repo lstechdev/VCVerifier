@@ -43,8 +43,7 @@ func Test_ReadConfig(t *testing.T) {
 							},
 						},
 					},
-				}, SSIKit: SSIKit{
-					AuditorURL: "http://waltid:7003",
+					ValidationMode: "none",
 				},
 				Logging: Logging{
 					Level:       "DEBUG",
@@ -83,10 +82,9 @@ func Test_ReadConfig(t *testing.T) {
 					StaticDir:   "views/static/",
 				},
 				Verifier: Verifier{Did: "",
-					TirAddress:    "",
-					SessionExpiry: 30,
-				}, SSIKit: SSIKit{
-					AuditorURL: "",
+					TirAddress:     "",
+					SessionExpiry:  30,
+					ValidationMode: "none",
 				},
 				Logging: Logging{
 					Level:       "INFO",

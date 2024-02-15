@@ -13,20 +13,20 @@ import (
 /**
 *	The trusted participant verification service will validate the entry of a participant within the trusted list.
  */
-type TrustedIssuerVerificationService struct {
+type TrustedIssuerValidationService struct {
 	tirClient tir.TirClient
 }
 
-func (tpvs *TrustedIssuerVerificationService) VerifyVC(verifiableCredential *verifiable.Credential, verificationContext VerificationContext) (result bool, err error) {
+func (tpvs *TrustedIssuerValidationService) ValidateVC(verifiableCredential *verifiable.Credential, validationContext ValidationContext) (result bool, err error) {
 
-	logging.Log().Debugf("Verify trusted issuer for %s", logging.PrettyPrintObject(verifiableCredential))
+	logging.Log().Debugf("Validate trusted issuer for %s", logging.PrettyPrintObject(verifiableCredential))
 	defer func() {
 		if recErr := recover(); recErr != nil {
 			logging.Log().Warnf("Was not able to convert context. Err: %v", recErr)
 			err = ErrorCannotConverContext
 		}
 	}()
-	trustContext := verificationContext.(TrustRegistriesVerificationContext)
+	trustContext := validationContext.(TrustRegistriesValidationContext)
 
 	tilSpecified := false
 	for _, tl := range trustContext.GetTrustedIssuersLists() {
@@ -37,18 +37,18 @@ func (tpvs *TrustedIssuerVerificationService) VerifyVC(verifiableCredential *ver
 	}
 
 	if !tilSpecified {
-		logging.Log().Debug("The verfication context does not specify a trusted issuers list, therefor we consider every issuer as trusted.")
+		logging.Log().Debug("The validation context does not specify a trusted issuers list, therefor we consider every issuer as trusted.")
 		return true, err
 	}
 	// FIXME Can we assume that if we have a VC with multiple types, its enough to check for only one type?
 	exist, trustedIssuer, err := tpvs.tirClient.GetTrustedIssuer(getFirstElementOfMap(trustContext.GetTrustedIssuersLists()), verifiableCredential.Contents().Issuer.ID)
 
 	if err != nil {
-		logging.Log().Warnf("Was not able to verify trusted issuer. Err: %v", err)
+		logging.Log().Warnf("Was not able to validate trusted issuer. Err: %v", err)
 		return false, err
 	}
 	if !exist {
-		logging.Log().Warnf("Trusted issuer for %s does not exist in context %s.", logging.PrettyPrintObject(verifiableCredential), logging.PrettyPrintObject(verificationContext))
+		logging.Log().Warnf("Trusted issuer for %s does not exist in context %s.", logging.PrettyPrintObject(verifiableCredential), logging.PrettyPrintObject(validationContext))
 		return false, err
 	}
 	credentials, err := parseAttributes(trustedIssuer)
