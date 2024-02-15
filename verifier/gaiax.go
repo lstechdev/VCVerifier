@@ -45,7 +45,7 @@ func InitGaiaXRegistryValidationService(verifierConfig *configModel.Verifier) Ga
 	return verifier
 }
 
-func (v *GaiaXRegistryValidationService) ValidateVC(verifiableCredential *verifiable.Credential, verificationContext ValidationContext) (result bool, err error) {
+func (v *GaiaXRegistryValidationService) ValidateVC(verifiableCredential *verifiable.Credential, validationContext ValidationContext) (result bool, err error) {
 	isContained := false
 	for _, t := range verifiableCredential.Contents().Types {
 		isContained = slices.Contains(v.credentialTypesToValidate, t)
