@@ -37,7 +37,7 @@ func (jwtVMR JWTVerfificationMethodResolver) ResolveVerificationMethod(verificat
 		return nil, ErrorUnresolvableDid
 	}
 	for _, vm := range didDocument.DIDDocument.VerificationMethod {
-		if compareVerficationMethod(verificationMethod, vm.ID) {
+		if compareVerificationMethod(verificationMethod, vm.ID) {
 			var vermethod = vermethod.VerificationMethod{Type: vm.Type, Value: vm.Value, JWK: vm.JSONWebKey()}
 			return &vermethod, err
 		}
