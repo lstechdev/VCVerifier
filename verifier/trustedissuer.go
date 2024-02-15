@@ -59,7 +59,7 @@ func (tpvs *TrustedIssuerValidationService) ValidateVC(verifiableCredential *ver
 
 		tilAddress, credentialSupported := til[credentialType]
 		if !credentialSupported {
-			logging.Log().Debugf("No credential configured for type %s", credentialType)
+			logging.Log().Debugf("No trusted issuers list configured for type %s", credentialType)
 			return false, err
 		}
 
