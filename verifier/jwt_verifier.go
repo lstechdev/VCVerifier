@@ -62,20 +62,20 @@ func compareVerificationMethod(presentedMethod string, didDocumentMethod string)
 
 }
 
-func getKeyFromMethod(verficationMethod string) (keyId, absolutePath, fullAbsolutePath string, err error) {
-	keyArray := strings.Split(verficationMethod, "#")
+func getKeyFromMethod(verificationMethod string) (keyId, absolutePath, fullAbsolutePath string, err error) {
+	keyArray := strings.Split(verificationMethod, "#")
 	if len(keyArray) == 2 {
 		// full-absolute path - format 3
-		return keyArray[1], keyArray[0], verficationMethod, nil
-	} else if didParts := strings.Split(verficationMethod, ":"); len(didParts) == 1 && len(keyArray) == 1 {
+		return keyArray[1], keyArray[0], verificationMethod, nil
+	} else if didParts := strings.Split(verificationMethod, ":"); len(didParts) == 1 && len(keyArray) == 1 {
 		// just the key - format 1
-		return verficationMethod, absolutePath, fullAbsolutePath, nil
-	} else if didParts := strings.Split(verficationMethod, ":"); len(didParts) > 1 && len(keyArray) == 1 {
+		return verificationMethod, absolutePath, fullAbsolutePath, nil
+	} else if didParts := strings.Split(verificationMethod, ":"); len(didParts) > 1 && len(keyArray) == 1 {
 		// absolute path did - format 2
-		return didParts[len(didParts)-1], verficationMethod, fullAbsolutePath, nil
+		return didParts[len(didParts)-1], verificationMethod, fullAbsolutePath, nil
 	}
 
-	logging.Log().Warnf("The verification method %s is invalid.", verficationMethod)
+	logging.Log().Warnf("The verification method %s is invalid.", verificationMethod)
 	return keyId, absolutePath, fullAbsolutePath, ErrorNotAValidVerficationMethod
 }
 
