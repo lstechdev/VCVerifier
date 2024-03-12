@@ -47,7 +47,10 @@ func main() {
 		return
 	}
 
-	verifier.InitVerifier(&configuration, ssiKitClient)
+	err = verifier.InitVerifier(&configuration, ssiKitClient)
+	if err != nil {
+		panic(err)
+	}
 
 	router := getRouter()
 
