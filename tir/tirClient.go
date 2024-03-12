@@ -83,7 +83,7 @@ func NewTirHttpClient(tokenProvider TokenProvider, config config.M2M) (client Ti
 	_, err = httpcache.NewWithInmemoryCache(httpClient, true, time.Second*60)
 	if err != nil {
 		logging.Log().Errorf("Was not able to inject the cache to the client. Err: %v", err)
-		return nil, err
+		return
 	}
 	var httpGetClient HttpGetClient
 	if config.AuthEnabled {

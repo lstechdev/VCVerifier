@@ -23,6 +23,7 @@ var ErrorTokenEndpointNoResponse = errors.New("no_response_from_token_endpoint")
 var ErrorMetaDataNotOk = errors.New("no_metadata_available")
 var ErrorGrantTypeNotSupported = errors.New("grant_type_not_supported")
 var ErrorScopeNotSupported = errors.New("scope_not_supported")
+var ErrorCachedOpenidMetadataNotFound = errors.New("cached_openid_metadata_not_found")
 
 type HttpGetClient interface {
 	Get(tirAddress string, tirPath string) (resp *http.Response, err error)
@@ -106,8 +107,8 @@ func (ac AuthorizingHttpClient) handleAuthorization(tirAddress string) (bearerTo
 
 	metaDataInterface, hit := common.GlobalCache.IssuersCache.Get(tirAddress)
 	if !hit {
-		logging.Log().Errorf("Was not able to get the openid metadata from address %s. Err: %v", tirAddress, err)
-		return bearerToken, err
+		logging.Log().Warnf("Was not able to get the openid metadata from address %s. Err: %v", tirAddress, err)
+		return bearerToken, ErrorCachedOpenidMetadataNotFound
 	}
 
 	metaData := metaDataInterface.(common.OpenIDProviderMetadata)

@@ -102,8 +102,9 @@ func (cc ServiceBackedCredentialsConfig) fillCache(context.Context) {
 				serviceIssuersLists, err := cc.GetTrustedIssuersLists(configuredService.Id, serviceScope, credential.Type)
 				if err != nil {
 					logging.Log().Errorf("failed caching issuers lists in fillCache(): %v", err)
+				} else {
+					tirEndpoints = append(tirEndpoints, serviceIssuersLists...)
 				}
-				tirEndpoints = append(tirEndpoints, serviceIssuersLists...)
 			}
 		}
 		err = common.GlobalCache.TirEndpoints.Add(tir.TirEndpointsCache, tirEndpoints, cache.NoExpiration)
