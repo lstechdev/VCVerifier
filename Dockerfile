@@ -1,5 +1,7 @@
 FROM golang:1.21-alpine AS build
 
+LABEL org.opencontainers.image.source="https://github.com/FIWARE/VCVerifier"
+
 WORKDIR /go/src/app
 COPY ./ ./
 
