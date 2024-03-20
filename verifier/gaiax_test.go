@@ -6,6 +6,7 @@ import (
 
 	configModel "github.com/fiware/VCVerifier/config"
 	"github.com/fiware/VCVerifier/gaiax"
+	"github.com/trustbloc/vc-go/verifiable"
 )
 
 type mockRegistryClient struct {
@@ -36,7 +37,7 @@ func TestGaiaXRegistryVerificationService_VerifyVC(t *testing.T) {
 	tests := []struct {
 		name                 string
 		fields               fields
-		verifiableCredential VerifiableCredential
+		verifiableCredential verifiable.Credential
 		wantResult           bool
 		wantErr              bool
 	}{
@@ -46,7 +47,7 @@ func TestGaiaXRegistryVerificationService_VerifyVC(t *testing.T) {
 				verifierConfig:      createConfig(true, false),
 				gaiaxRegistryClient: &mockRegistryClient{[]string{"someDid"}, nil},
 			},
-			VerifiableCredential{MappableVerifiableCredential{Issuer: "someDid"}, nil},
+			getCredential("someDid"),
 			true,
 			false,
 		},
@@ -56,7 +57,7 @@ func TestGaiaXRegistryVerificationService_VerifyVC(t *testing.T) {
 				verifierConfig:      createConfig(true, false),
 				gaiaxRegistryClient: &mockRegistryClient{[]string{"someDid"}, nil},
 			},
-			VerifiableCredential{MappableVerifiableCredential{Issuer: "someUnknownDid"}, nil},
+			getCredential("someUnknownDid"),
 			false,
 			false,
 		},
@@ -66,17 +67,17 @@ func TestGaiaXRegistryVerificationService_VerifyVC(t *testing.T) {
 				verifierConfig:      createConfig(true, false),
 				gaiaxRegistryClient: &mockRegistryClient{[]string{}, errors.New("Registry failed")},
 			},
-			VerifiableCredential{MappableVerifiableCredential{Issuer: "someDid"}, nil},
+			getCredential("someDid"),
 			false,
 			true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			v := InitGaiaXRegistryVerificationService(tt.fields.verifierConfig)
+			v := InitGaiaXRegistryValidationService(tt.fields.verifierConfig)
 			v.gaiaxRegistryClient = tt.fields.gaiaxRegistryClient
 
-			gotResult, err := v.VerifyVC(tt.verifiableCredential, nil)
+			gotResult, err := v.ValidateVC(&tt.verifiableCredential, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GaiaXRegistryVerificationService.VerifyVC() error = %v, wantErr %v", err, tt.wantErr)
 				return

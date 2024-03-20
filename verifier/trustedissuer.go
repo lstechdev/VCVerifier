@@ -3,94 +3,128 @@ package verifier
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 
 	"github.com/fiware/VCVerifier/logging"
 	tir "github.com/fiware/VCVerifier/tir"
+	"github.com/trustbloc/vc-go/verifiable"
 	"golang.org/x/exp/slices"
 )
+
+const WILDCARD_TIL = "*"
+
+var ErrorInvalidTil = errors.New("invalid_til_configured")
 
 /**
 *	The trusted participant verification service will validate the entry of a participant within the trusted list.
  */
-type TrustedIssuerVerificationService struct {
+type TrustedIssuerValidationService struct {
 	tirClient tir.TirClient
 }
 
-func (tpvs *TrustedIssuerVerificationService) VerifyVC(verifiableCredential VerifiableCredential, verificationContext VerificationContext) (result bool, err error) {
+func (tpvs *TrustedIssuerValidationService) ValidateVC(verifiableCredential *verifiable.Credential, validationContext ValidationContext) (result bool, err error) {
 
-	logging.Log().Debugf("Verify trusted issuer for %s", logging.PrettyPrintObject(verifiableCredential))
+	logging.Log().Debugf("Validate trusted issuer for %s", logging.PrettyPrintObject(verifiableCredential))
 	defer func() {
 		if recErr := recover(); recErr != nil {
 			logging.Log().Warnf("Was not able to convert context. Err: %v", recErr)
 			err = ErrorCannotConverContext
 		}
 	}()
-	trustContext := verificationContext.(TrustRegistriesVerificationContext)
+	trustContext := validationContext.(TrustRegistriesValidationContext)
 
 	tilSpecified := false
 	for _, tl := range trustContext.GetTrustedIssuersLists() {
 		if len(tl) > 0 {
 			tilSpecified = true
-			break
 		}
 	}
 
 	if !tilSpecified {
-		logging.Log().Debug("The verfication context does not specify a trusted issuers list, therefor we consider every issuer as trusted.")
-		return true, err
+		logging.Log().Debug("The validation context does not specify a trusted issuers list, therefor we consider no issuer as trusted.")
+		return false, err
 	}
-	// FIXME Can we assume that if we have a VC with multiple types, its enough to check for only one type?
-	exist, trustedIssuer, err := tpvs.tirClient.GetTrustedIssuer(getFirstElementOfMap(trustContext.GetTrustedIssuersLists()), verifiableCredential.Issuer)
 
-	if err != nil {
-		logging.Log().Warnf("Was not able to verify trusted issuer. Err: %v", err)
-		return false, err
+	til := trustContext.GetTrustedIssuersLists()
+	for _, credentialType := range verifiableCredential.Contents().Types {
+		isWildcard, err := isWildcardTil(til[credentialType])
+		if isWildcard {
+			logging.Log().Debugf("Wildcard til is configured for type %s.", credentialType)
+			continue
+		}
+		if err != nil {
+			logging.Log().Warnf("Invalid til configured for type %s.", credentialType)
+			return false, err
+		}
+
+		tilAddress, credentialSupported := til[credentialType]
+		if !credentialSupported {
+			logging.Log().Debugf("No trusted issuers list configured for type %s", credentialType)
+			return false, err
+		}
+
+		exist, trustedIssuer, err := tpvs.tirClient.GetTrustedIssuer(tilAddress, verifiableCredential.Contents().Issuer.ID)
+
+		if err != nil {
+			logging.Log().Warnf("Was not able to validate trusted issuer. Err: %v", err)
+			return false, err
+		}
+		if !exist {
+			logging.Log().Warnf("Trusted issuer for %s does not exist in context %s.", logging.PrettyPrintObject(verifiableCredential), logging.PrettyPrintObject(validationContext))
+			return false, err
+		}
+		credentials, err := parseAttributes(trustedIssuer)
+		if err != nil {
+			logging.Log().Warnf("Was not able to parse the issuer %s. Err: %v", logging.PrettyPrintObject(trustedIssuer), err)
+			return false, err
+		}
+		result, err := verifyWithCredentialsConfig(verifiableCredential, credentials)
+		if err != nil || !result {
+			return result, err
+		}
 	}
-	if !exist {
-		logging.Log().Warnf("Trusted issuer for %s does not exist in context %s.", logging.PrettyPrintObject(verifiableCredential), logging.PrettyPrintObject(verificationContext))
-		return false, err
-	}
-	credentials, err := parseAttributes(trustedIssuer)
-	if err != nil {
-		logging.Log().Warnf("Was not able to parse the issuer %s. Err: %v", logging.PrettyPrintObject(trustedIssuer), err)
-	}
-	return verifyWithCredentialsConfig(verifiableCredential, credentials)
+
+	return true, err
 }
 
-func verifyWithCredentialsConfig(verifiableCredential VerifiableCredential, credentials []tir.Credential) (result bool, err error) {
+func isWildcardTil(tilList []string) (isWildcard bool, err error) {
+	if len(tilList) == 1 && tilList[0] == WILDCARD_TIL {
+		return true, err
+	}
+	if len(tilList) > 1 && slices.Contains(tilList, WILDCARD_TIL) {
+		return false, ErrorInvalidTil
+	}
+	return false, err
+}
+
+func verifyWithCredentialsConfig(verifiableCredential *verifiable.Credential, credentials []tir.Credential) (result bool, err error) {
 
 	credentialsConfigMap := map[string]tir.Credential{}
-	allowedTypes := []string{}
+
 	// format for better validation
 	for _, credential := range credentials {
-		allowedTypes = append(allowedTypes, credential.CredentialsType)
 		credentialsConfigMap[credential.CredentialsType] = credential
 	}
-	// we initalize with true, since there is no case where types can be empty.
-	var typeAllowed = true
+
 	// initalize to true, since everything without a specific rule is considered to be allowed
 	var subjectAllowed = true
-	logging.Log().Debugf("Validate that the type %v is allowed by %v.", verifiableCredential.Types, allowedTypes)
+
 	// validate that the type(s) is allowed
-	for _, credentialType := range verifiableCredential.MappableVerifiableCredential.Types {
-		typeAllowed = typeAllowed && slices.Contains(allowedTypes, credentialType)
-		subjectAllowed = subjectAllowed && verifyForType(verifiableCredential.MappableVerifiableCredential.CredentialSubject, credentialsConfigMap[credentialType])
-	}
-	if !typeAllowed {
-		logging.Log().Debugf("Credentials type %s is not allowed.", logging.PrettyPrintObject(verifiableCredential.Types))
-		return false, err
+	for _, credentialType := range verifiableCredential.Contents().Types {
+		// as of now, we only allow single subject credentials
+		subjectAllowed = subjectAllowed && verifyForType(verifiableCredential.Contents().Subject[0], credentialsConfigMap[credentialType])
 	}
 	if !subjectAllowed {
-		logging.Log().Debugf("The subject contains forbidden claims or values: %s.", logging.PrettyPrintObject(verifiableCredential.CredentialSubject))
+		logging.Log().Debugf("The subject contains forbidden claims or values: %s.", logging.PrettyPrintObject(verifiableCredential.Contents().Subject[0]))
 		return false, err
 	}
 	logging.Log().Debugf("Credential %s is allowed by the config %s.", logging.PrettyPrintObject(verifiableCredential), logging.PrettyPrintObject(credentials))
 	return true, err
 }
 
-func verifyForType(subjectToVerfiy CredentialSubject, credentialConfig tir.Credential) (result bool) {
+func verifyForType(subjectToVerfiy verifiable.Subject, credentialConfig tir.Credential) (result bool) {
 	for _, claim := range credentialConfig.Claims {
-		claimValue, exists := subjectToVerfiy.Claims[claim.Name]
+		claimValue, exists := subjectToVerfiy.CustomFields[claim.Name]
 		if !exists {
 			logging.Log().Debugf("Restricted claim %s is not part of the subject %s.", claim.Name, logging.PrettyPrintObject(subjectToVerfiy))
 			continue

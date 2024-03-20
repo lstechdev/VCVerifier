@@ -12,7 +12,7 @@ import (
 	common "github.com/fiware/VCVerifier/common"
 	configModel "github.com/fiware/VCVerifier/config"
 	"github.com/fiware/VCVerifier/logging"
-	v4 "github.com/golang-jwt/jwt/v4"
+	v5 "github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/piprate/json-gold/ld"
 
@@ -164,7 +164,7 @@ func getSigningKey(keyPath string) (key *rsa.PrivateKey, err error) {
 		logging.Log().Warnf("Was not able to read the key file from %s. err: %v", keyPath, err)
 		return key, err
 	} // parse key file
-	key, err = v4.ParseRSAPrivateKeyFromPEM(rawKey)
+	key, err = v5.ParseRSAPrivateKeyFromPEM(rawKey)
 	if err != nil {
 		logging.Log().Warnf("Was not able to parse the key %s. err: %v", rawKey, err)
 		return key, err

@@ -15,6 +15,8 @@ import (
 	"golang.org/x/exp/maps"
 )
 
+const CACHE_EXPIRY = 60
+
 /**
 * Provides information about credentialTypes associated with services and there trust anchors.
  */
@@ -60,7 +62,8 @@ func InitServiceBackedCredentialsConfig(repoConfig *config.ConfigRepo) (credenti
 	}
 
 	if repoConfig.ConfigEndpoint != "" {
-		_, err := chrono.NewDefaultTaskScheduler().ScheduleAtFixedRate(scb.fillCache, time.Duration(30)*time.Second)
+		
+		_, err := chrono.NewDefaultTaskScheduler().ScheduleAtFixedRate(scb.fillCache, time.Duration(repoConfig.UpdateInterval)*time.Second)
 		if err != nil {
 			logging.Log().Errorf("failed scheduling task: %v", err)
 			return nil, err

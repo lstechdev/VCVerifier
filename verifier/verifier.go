@@ -18,12 +18,11 @@ import (
 	common "github.com/fiware/VCVerifier/common"
 	configModel "github.com/fiware/VCVerifier/config"
 	"github.com/fiware/VCVerifier/tir"
+	"github.com/trustbloc/vc-go/verifiable"
 
 	logging "github.com/fiware/VCVerifier/logging"
 
 	client "github.com/fiware/dsba-pdp/http"
-
-	"github.com/fiware/VCVerifier/ssikit"
 
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jwk"
@@ -35,12 +34,15 @@ import (
 
 var ErrorNoDID = errors.New("no_did_configured")
 var ErrorNoTIR = errors.New("no_tir_configured")
+var ErrorUnsupportedValidationMode = errors.New("unsupported_validation_mode")
 var ErrorInvalidVC = errors.New("invalid_vc")
 var ErrorNoSuchSession = errors.New("no_such_session")
 var ErrorWrongGrantType = errors.New("wrong_grant_type")
 var ErrorNoSuchCode = errors.New("no_such_code")
 var ErrorRedirectUriMismatch = errors.New("redirect_uri_does_not_match")
 var ErrorVerficationContextSetup = errors.New("no_valid_verification_context")
+var ErrorTokenUnparsable = errors.New("unable_to_parse_token")
+var ErrorRequiredCredentialNotProvided = errors.New("required_credential_not_provided")
 
 // Actual implementation of the verfifier functionality
 
@@ -51,17 +53,17 @@ type Verifier interface {
 	StartSameDeviceFlow(host string, protocol string, sessionId string, redirectPath string, clientId string) (authenticationRequest string, err error)
 	GetToken(authorizationCode string, redirectUri string) (jwtString string, expiration int64, err error)
 	GetJWKS() jwk.Set
-	AuthenticationResponse(state string, verifiableCredentials []map[string]interface{}, holder string) (sameDevice SameDeviceResponse, err error)
-	GenerateToken(clientId, subject, audience string, scope []string, verifiableCredentials []map[string]interface{}) (int64, string, error)
+	AuthenticationResponse(state string, verifiablePresentation *verifiable.Presentation) (sameDevice SameDeviceResponse, err error)
+	GenerateToken(clientId, subject, audience string, scope []string, verifiablePresentation *verifiable.Presentation) (int64, string, error)
 	GetOpenIDConfiguration(serviceIdentifier string) (metadata common.OpenIDProviderMetadata, err error)
 }
 
-type VerificationService interface {
-	// Verifies the given VC. FIXME Currently a positiv result is returned even when no policy was checked
-	VerifyVC(verifiableCredential VerifiableCredential, verificationContext VerificationContext) (result bool, err error)
+type ValidationService interface {
+	// Validates the given VC. FIXME Currently a positiv result is returned even when no policy was checked
+	ValidateVC(verifiableCredential *verifiable.Credential, verificationContext ValidationContext) (result bool, err error)
 }
 
-// implementation of the verifier, using waltId ssikit and gaia-x compliance issuers registry as a validation backends.
+// implementation of the verifier, using trustbloc and gaia-x compliance issuers registry as a validation backends.
 type CredentialVerifier struct {
 	// host of the verifier
 	host string
@@ -83,8 +85,8 @@ type CredentialVerifier struct {
 	tokenSigner common.TokenSigner
 	// provide the configuration to be used with the credentials
 	credentialsConfig CredentialsConfig
-	// Verification services to be used on the credentials
-	verificationServices []VerificationService
+	// Validation services to be used on the credentials
+	validationServices []ValidationService
 }
 
 // allow singleton access to the verifier
@@ -95,22 +97,22 @@ var httpClient = client.HttpClient()
 
 // interfaces and default implementations
 
-type VerificationContext interface{}
+type ValidationContext interface{}
 
-type TrustRegistriesVerificationContext struct {
+type TrustRegistriesValidationContext struct {
 	trustedIssuersLists           map[string][]string
 	trustedParticipantsRegistries map[string][]string
 }
 
-func (trvc TrustRegistriesVerificationContext) GetTrustedIssuersLists() map[string][]string {
+func (trvc TrustRegistriesValidationContext) GetTrustedIssuersLists() map[string][]string {
 	return trvc.trustedIssuersLists
 }
 
-func (trvc TrustRegistriesVerificationContext) GetTrustedParticipantLists() map[string][]string {
+func (trvc TrustRegistriesValidationContext) GetTrustedParticipantLists() map[string][]string {
 	return trvc.trustedParticipantsRegistries
 }
 
-func (trvc TrustRegistriesVerificationContext) GetRequiredCredentialTypes() []string {
+func (trvc TrustRegistriesValidationContext) GetRequiredCredentialTypes() []string {
 	requiredTypes := []string{}
 	for credentialType := range trvc.trustedIssuersLists {
 		requiredTypes = append(requiredTypes, credentialType)
@@ -188,7 +190,7 @@ func GetVerifier() Verifier {
 /**
 * Initialize the verifier and all its components from the configuration
 **/
-func InitVerifier(config *configModel.Configuration, ssiKitClient ssikit.SSIKit) (err error) {
+func InitVerifier(config *configModel.Configuration) (err error) {
 
 	err = verifyConfig(&config.Verifier)
 	if err != nil {
@@ -199,12 +201,9 @@ func InitVerifier(config *configModel.Configuration, ssiKitClient ssikit.SSIKit)
 	sessionCache := cache.New(time.Duration(verifierConfig.SessionExpiry)*time.Second, time.Duration(2*verifierConfig.SessionExpiry)*time.Second)
 	tokenCache := cache.New(time.Duration(verifierConfig.SessionExpiry)*time.Second, time.Duration(2*verifierConfig.SessionExpiry)*time.Second)
 
-	externalSsiKitVerifier, err := InitSsiKitExternalVerificationService(verifierConfig, ssiKitClient)
-	if err != nil {
-		logging.Log().Errorf("Was not able to initiate a external verifier. Err: %v", err)
-		return err
-	}
-	externalGaiaXVerifier := InitGaiaXRegistryVerificationService(verifierConfig)
+	credentialsVerifier := TrustBlocValidator{validationMode: config.Verifier.ValidationMode}
+
+	externalGaiaXValidator := InitGaiaXRegistryValidationService(verifierConfig)
 
 	credentialsConfig, err := InitServiceBackedCredentialsConfig(&config.ConfigRepo)
 	if err != nil {
@@ -230,8 +229,8 @@ func InitVerifier(config *configModel.Configuration, ssiKitClient ssikit.SSIKit)
 		logging.Log().Errorf("Was not able to instantiate the trusted-issuers-registry client. Err: %v", err)
 		return err
 	}
-	trustedParticipantVerificationService := TrustedParticipantVerificationService{tirClient: tirClient}
-	trustedIssuerVerificationService := TrustedIssuerVerificationService{tirClient: tirClient}
+	trustedParticipantVerificationService := TrustedParticipantValidationService{tirClient: tirClient}
+	trustedIssuerVerificationService := TrustedIssuerValidationService{tirClient: tirClient}
 
 	key, err := initPrivateKey()
 
@@ -251,9 +250,9 @@ func InitVerifier(config *configModel.Configuration, ssiKitClient ssikit.SSIKit)
 		clock,
 		common.JwtTokenSigner{},
 		credentialsConfig,
-		[]VerificationService{
-			&externalSsiKitVerifier,
-			&externalGaiaXVerifier,
+		[]ValidationService{
+			&credentialsVerifier,
+			&externalGaiaXValidator,
 			&trustedParticipantVerificationService,
 			&trustedIssuerVerificationService,
 		},
@@ -349,43 +348,37 @@ func (v *CredentialVerifier) GetJWKS() jwk.Set {
 	return jwks
 }
 
-func (v *CredentialVerifier) GenerateToken(clientId, subject, audience string, scopes []string, verifiableCredentials []map[string]interface{}) (int64, string, error) {
-
+func (v *CredentialVerifier) GenerateToken(clientId, subject, audience string, scopes []string, verifiablePresentation *verifiable.Presentation) (int64, string, error) {
 	// collect all submitted credential types
-	mappedCredentials := map[string][]VerifiableCredential{}
+	credentialsByType := map[string][]*verifiable.Credential{}
 	credentialTypes := []string{}
-	for _, vc := range verifiableCredentials {
-		mappedCredential, err := MapVerifiableCredential(vc)
-		if err != nil {
-			logging.Log().Warnf("Failed to map credential %s. Err: %v", logging.PrettyPrintObject(vc), err)
-			return 0, "", err
-		}
-		for _, credentialType := range mappedCredential.Types {
-			if _, ok := mappedCredentials[credentialType]; !ok {
-				mappedCredentials[credentialType] = []VerifiableCredential{}
+	for _, vc := range verifiablePresentation.Credentials() {
+		for _, credentialType := range vc.Contents().Types {
+			if _, ok := credentialsByType[credentialType]; !ok {
+				credentialsByType[credentialType] = []*verifiable.Credential{}
 			}
-			mappedCredentials[credentialType] = append(mappedCredentials[credentialType], mappedCredential)
+			credentialsByType[credentialType] = append(credentialsByType[credentialType], vc)
 		}
-		credentialTypes = append(credentialTypes, mappedCredential.Types...)
+		credentialTypes = append(credentialTypes, vc.Contents().Types...)
 	}
 
 	// Go through all requested scopes and create a verification context
 	for _, scope := range scopes {
-		verificationContext, err := v.getTrustRegistriesVerificationContextFromScope(clientId, scope, credentialTypes)
+		verificationContext, err := v.getTrustRegistriesValidationContextFromScope(clientId, scope, credentialTypes)
 		if err != nil {
 			logging.Log().Warnf("Was not able to create a valid verification context. Credential will be rejected. Err: %v", err)
 			return 0, "", ErrorVerficationContextSetup
 		}
 		credentialTypesNeededForScope := verificationContext.GetRequiredCredentialTypes()
-		credentialsNeededForScope := []VerifiableCredential{}
+		credentialsNeededForScope := []*verifiable.Credential{}
 		for _, credentialType := range credentialTypesNeededForScope {
-			if cred, ok := mappedCredentials[credentialType]; ok {
+			if cred, ok := credentialsByType[credentialType]; ok {
 				credentialsNeededForScope = append(credentialsNeededForScope, cred...)
 			}
 		}
 		for _, credential := range credentialsNeededForScope {
-			for _, verificationService := range v.verificationServices {
-				result, err := verificationService.VerifyVC(credential, verificationContext)
+			for _, verificationService := range v.validationServices {
+				result, err := verificationService.ValidateVC(credential, verificationContext)
 				if err != nil {
 					logging.Log().Warnf("Failed to verify credential %s. Err: %v", logging.PrettyPrintObject(credential), err)
 					return 0, "", err
@@ -398,7 +391,7 @@ func (v *CredentialVerifier) GenerateToken(clientId, subject, audience string, s
 		}
 	}
 	// FIXME How shall we handle VCs that are not needed for the give scope? Just ignore them and not include in the token?
-	token, err := v.generateJWT(verifiableCredentials, subject, audience)
+	token, err := v.generateJWT(verifiablePresentation, subject, audience)
 	if err != nil {
 		logging.Log().Warnf("Was not able to create the token. Err: %v", err)
 		return 0, "", err
@@ -437,7 +430,7 @@ func (v *CredentialVerifier) GetOpenIDConfiguration(serviceIdentifier string) (m
 * Receive credentials and verify them in the context of an already present login-session. Will return either an error if failed, a sameDevice response to be used for
 * redirection or notify the original initiator(in case of a cross-device flow)
 **/
-func (v *CredentialVerifier) AuthenticationResponse(state string, verifiableCredentials []map[string]interface{}, holder string) (sameDevice SameDeviceResponse, err error) {
+func (v *CredentialVerifier) AuthenticationResponse(state string, verifiablePresentation *verifiable.Presentation) (sameDevice SameDeviceResponse, err error) {
 
 	logging.Log().Debugf("Authenticate credential for session %s", state)
 
@@ -448,44 +441,34 @@ func (v *CredentialVerifier) AuthenticationResponse(state string, verifiableCred
 	}
 	loginSession := loginSessionInterface.(loginSession)
 
-	mappedCredentials := []VerifiableCredential{}
-	for _, vc := range verifiableCredentials {
-		mappedCredential, err := MapVerifiableCredential(vc)
-		if err != nil {
-			logging.Log().Warnf("Failed to map credential %s. Err: %v", logging.PrettyPrintObject(vc), err)
-			return sameDevice, err
-		}
-		mappedCredentials = append(mappedCredentials, mappedCredential)
-	}
-
 	// TODO extract into separate policy
-	trustedChain, _ := verifyChain(mappedCredentials)
+	trustedChain, _ := verifyChain(verifiablePresentation.Credentials())
 
-	for _, mappedCredential := range mappedCredentials {
-		verificationContext, err := v.getTrustRegistriesVerificationContext(loginSession.clientId, mappedCredential.Types)
+	for _, credential := range verifiablePresentation.Credentials() {
+		verificationContext, err := v.getTrustRegistriesValidationContext(loginSession.clientId, credential.Contents().Types)
 		if err != nil {
 			logging.Log().Warnf("Was not able to create a valid verification context. Credential will be rejected. Err: %v", err)
 			return sameDevice, ErrorVerficationContextSetup
 		}
 		//FIXME make it an error if no policy was checked at all( possible misconfiguration)
-		for _, verificationService := range v.verificationServices {
+		for _, verificationService := range v.validationServices {
 			if trustedChain {
 				logging.Log().Debug("Credentials chain is trusted.")
-				_, isTrustedParticipantVerificationService := verificationService.(*TrustedParticipantVerificationService)
-				_, isTrustedIssuerVerificationService := verificationService.(*TrustedIssuerVerificationService)
+				_, isTrustedParticipantVerificationService := verificationService.(*TrustedParticipantValidationService)
+				_, isTrustedIssuerVerificationService := verificationService.(*TrustedIssuerValidationService)
 				if isTrustedIssuerVerificationService || isTrustedParticipantVerificationService {
 					logging.Log().Debug("Skip the tir services.")
 					continue
 				}
 			}
 
-			result, err := verificationService.VerifyVC(mappedCredential, verificationContext)
+			result, err := verificationService.ValidateVC(credential, verificationContext)
 			if err != nil {
-				logging.Log().Warnf("Failed to verify credential %s. Err: %v", logging.PrettyPrintObject(mappedCredential), err)
+				logging.Log().Warnf("Failed to verify credential %s. Err: %v", logging.PrettyPrintObject(credential), err)
 				return sameDevice, err
 			}
 			if !result {
-				logging.Log().Infof("VC %s is not valid.", logging.PrettyPrintObject(mappedCredential))
+				logging.Log().Infof("VC %s is not valid.", logging.PrettyPrintObject(credential))
 				return sameDevice, ErrorInvalidVC
 			}
 		}
@@ -494,7 +477,7 @@ func (v *CredentialVerifier) AuthenticationResponse(state string, verifiableCred
 	// we ignore the error here, since the only consequence is that sub will be empty.
 	hostname, _ := getHostName(loginSession.callback)
 
-	token, err := v.generateJWT(verifiableCredentials, holder, hostname)
+	token, err := v.generateJWT(verifiablePresentation, verifiablePresentation.Holder, hostname)
 	if err != nil {
 		logging.Log().Warnf("Was not able to create a jwt for %s. Err: %v", state, err)
 		return sameDevice, err
@@ -516,7 +499,7 @@ func (v *CredentialVerifier) AuthenticationResponse(state string, verifiableCred
 	}
 }
 
-func (v *CredentialVerifier) getTrustRegistriesVerificationContext(clientId string, credentialTypes []string) (verificationContext TrustRegistriesVerificationContext, err error) {
+func (v *CredentialVerifier) getTrustRegistriesValidationContext(clientId string, credentialTypes []string) (verificationContext TrustRegistriesValidationContext, err error) {
 	trustedIssuersLists := map[string][]string{}
 	trustedParticipantsRegistries := map[string][]string{}
 
@@ -534,11 +517,11 @@ func (v *CredentialVerifier) getTrustRegistriesVerificationContext(clientId stri
 		trustedIssuersLists[credentialType] = issuersLists
 		trustedParticipantsRegistries[credentialType] = participantsLists
 	}
-	context := TrustRegistriesVerificationContext{trustedIssuersLists: trustedIssuersLists, trustedParticipantsRegistries: trustedParticipantsRegistries}
+	context := TrustRegistriesValidationContext{trustedIssuersLists: trustedIssuersLists, trustedParticipantsRegistries: trustedParticipantsRegistries}
 	return context, err
 }
 
-func (v *CredentialVerifier) getTrustRegistriesVerificationContextFromScope(clientId string, scope string, credentialTypes []string) (verificationContext TrustRegistriesVerificationContext, err error) {
+func (v *CredentialVerifier) getTrustRegistriesValidationContextFromScope(clientId string, scope string, credentialTypes []string) (verificationContext TrustRegistriesValidationContext, err error) {
 	trustedIssuersLists := map[string][]string{}
 	trustedParticipantsRegistries := map[string][]string{}
 
@@ -551,7 +534,8 @@ func (v *CredentialVerifier) getTrustRegistriesVerificationContextFromScope(clie
 	// Check if all required credentials were presented
 	for _, credentialType := range requiredCredentialTypes {
 		if !slices.Contains(credentialTypes, credentialType) {
-			return verificationContext, fmt.Errorf("Required Credential of Type %s was not provided", credentialType)
+			logging.Log().Warnf("Required Credential of Type %s was not provided", credentialType)
+			return verificationContext, ErrorRequiredCredentialNotProvided
 		}
 	}
 
@@ -569,40 +553,43 @@ func (v *CredentialVerifier) getTrustRegistriesVerificationContextFromScope(clie
 		trustedIssuersLists[credentialType] = issuersLists
 		trustedParticipantsRegistries[credentialType] = participantsLists
 	}
-	context := TrustRegistriesVerificationContext{trustedIssuersLists: trustedIssuersLists, trustedParticipantsRegistries: trustedParticipantsRegistries}
+	context := TrustRegistriesValidationContext{trustedIssuersLists: trustedIssuersLists, trustedParticipantsRegistries: trustedParticipantsRegistries}
 	return context, err
 }
 
 // TODO Use more generic approach to validate that every credential is issued by a party that we trust
-func verifyChain(vcs []VerifiableCredential) (bool, error) {
+func verifyChain(vcs []*verifiable.Credential) (bool, error) {
 	if len(vcs) != 3 {
 		// TODO Simplification to be removed/replaced
 		return false, nil
 	}
 
-	var legalEntity VerifiableCredential
-	var naturalEntity VerifiableCredential
-	var compliance VerifiableCredential
-
+	var legalEntity *verifiable.Credential
+	var naturalEntity *verifiable.Credential
+	var compliance *verifiable.Credential
 	for _, vc := range vcs {
-		if vc.GetCredentialType() == "gx:LegalParticipant" {
+		types := vc.Contents().Types
+		if slices.Contains(types, "gx:LegalParticipant") {
 			legalEntity = vc
 		}
-		if vc.GetCredentialType() == "gx:compliance" {
+		if slices.Contains(types, "gx:compliance") {
 			compliance = vc
 		}
-		if vc.GetCredentialType() == "gx:NaturalParticipant" {
+		if slices.Contains(types, "gx:NaturalParticipant") {
 			naturalEntity = vc
 		}
 	}
 
+	// the expected credentials only have a single subject
+	legalEntitySubjectID := legalEntity.Contents().Subject[0].ID
+	complianceSubjectID := compliance.Contents().Subject[0].ID
 	// Make sure that the compliance credential is issued for the given credential
-	if legalEntity.CredentialSubject.Id != compliance.CredentialSubject.Id {
-		return false, fmt.Errorf("compliance credential was not issued for the presented legal entity. Compliance VC subject id %s, legal VC id %s", compliance.CredentialSubject.Id, legalEntity.Id)
+	if legalEntitySubjectID != complianceSubjectID {
+		return false, fmt.Errorf("compliance credential was not issued for the presented legal entity. Compliance VC subject id %s, legal VC id %s", complianceSubjectID, legalEntitySubjectID)
 	}
 	// Natural participientVC must be issued by the legal participient VC
-	if legalEntity.CredentialSubject.Id != naturalEntity.Issuer {
-		return false, fmt.Errorf("natural participent credential was not issued by the presented legal entity. Legal Participant VC id %s, natural VC issuer %s", legalEntity.CredentialSubject.Id, naturalEntity.Issuer)
+	if legalEntitySubjectID != naturalEntity.Contents().Issuer.ID {
+		return false, fmt.Errorf("natural participent credential was not issued by the presented legal entity. Legal Participant VC id %s, natural VC issuer %s", legalEntitySubjectID, naturalEntity.Contents().Issuer.ID)
 	}
 	return true, nil
 }
@@ -626,14 +613,14 @@ func (v *CredentialVerifier) initSiopFlow(host string, protocol string, callback
 }
 
 // generate a jwt, containing the credential and mandatory information as defined by the dsba-convergence
-func (v *CredentialVerifier) generateJWT(verifiableCredentials []map[string]interface{}, holder string, audience string) (generatedJwt jwt.Token, err error) {
+func (v *CredentialVerifier) generateJWT(presentation *verifiable.Presentation, holder string, audience string) (generatedJwt jwt.Token, err error) {
 
 	jwtBuilder := jwt.NewBuilder().Issuer(v.did).Claim("client_id", v.did).Subject(holder).Audience([]string{audience}).Claim("kid", v.signingKey.KeyID()).Expiration(v.clock.Now().Add(time.Minute * 30))
 
-	if len(verifiableCredentials) > 1 {
-		jwtBuilder.Claim("verifiablePresentation", verifiableCredentials)
+	if len(presentation.Credentials()) > 1 {
+		jwtBuilder.Claim("verifiablePresentation", presentation)
 	} else {
-		jwtBuilder.Claim("verifiableCredential", verifiableCredentials[0])
+		jwtBuilder.Claim("verifiableCredential", presentation.Credentials()[0].ToRawJSON())
 	}
 
 	token, err := jwtBuilder.Build()
@@ -736,6 +723,9 @@ func verifyConfig(verifierConfig *configModel.Verifier) error {
 	}
 	if verifierConfig.TirAddress == "" {
 		return ErrorNoTIR
+	}
+	if !slices.Contains(SupportedModes, verifierConfig.ValidationMode) {
+		return ErrorUnsupportedValidationMode
 	}
 	return nil
 }

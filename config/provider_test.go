@@ -43,8 +43,7 @@ func Test_ReadConfig(t *testing.T) {
 							},
 						},
 					},
-				}, SSIKit: SSIKit{
-					AuditorURL: "http://waltid:7003",
+					ValidationMode: "none",
 				},
 				Logging: Logging{
 					Level:       "DEBUG",
@@ -69,6 +68,7 @@ func Test_ReadConfig(t *testing.T) {
 							},
 						},
 					},
+					UpdateInterval: 30,
 				},
 				M2M: M2M{AuthEnabled: false, VerificationMethod: "JsonWebKey2020", SignatureType: "JsonWebSignature2020", KeyType: "RSAPS256"},
 			},
@@ -82,10 +82,9 @@ func Test_ReadConfig(t *testing.T) {
 					StaticDir:   "views/static/",
 				},
 				Verifier: Verifier{Did: "",
-					TirAddress:    "",
-					SessionExpiry: 30,
-				}, SSIKit: SSIKit{
-					AuditorURL: "",
+					TirAddress:     "",
+					SessionExpiry:  30,
+					ValidationMode: "none",
 				},
 				Logging: Logging{
 					Level:       "INFO",
@@ -93,7 +92,8 @@ func Test_ReadConfig(t *testing.T) {
 					LogRequests: true,
 					PathsToSkip: nil,
 				},
-				M2M: M2M{AuthEnabled: false, VerificationMethod: "JsonWebKey2020", SignatureType: "JsonWebSignature2020", KeyType: "RSAPS256"},
+				M2M:        M2M{AuthEnabled: false, VerificationMethod: "JsonWebKey2020", SignatureType: "JsonWebSignature2020", KeyType: "RSAPS256"},
+				ConfigRepo: ConfigRepo{UpdateInterval: 30},
 			},
 			false,
 		},
