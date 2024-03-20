@@ -31,7 +31,7 @@ VCVerifier provides the necessary endpoints(see [API](./api/api.yaml)) to offer 
 
 [VerifiableCredentials](https://www.w3.org/TR/vc-data-model/) provide a mechanism to represent information in a tamper-evident and therefor trustworthy way. The term "verifiable" refers to the characteristic of a credential being able to be verified by a 3rd party(e.g. a verifier). Verification in that regard means, that it can be proven, that the claims made in the credential are as they were provided by the issuer of that credential. 
 This characteristics make [VerifiableCredentials](https://www.w3.org/TR/vc-data-model/) a good option to be used for authentication and authorization, as a replacement of other credentials types, like the traditional username/password. The [SIOP-2](https://openid.net/specs/openid-connect-self-issued-v2-1_0.html#name-cross-device-self-issued-op)/[OIDC4VP](https://openid.net/specs/openid-4-verifiable-presentations-1_0.html#request_scope) standards define a flow to request and present such credentials as an extension to the well-established [OpenID Connect](https://openid.net/connect/).
-The VCVerifier provides the necessary endpoints required for a `Relying Party`(as used in the [SIOP-2 spec](https://openid.net/specs/openid-connect-self-issued-v2-1_0.html#name-abbreviations)) to participate in the authentication flows. It verifies the credentials by using [WaltID SSIkit](https://walt.id/ssi-kit) as a downstream component to provide Verfiable Credentials specific functionality and return a signed [JWT](https://www.rfc-editor.org/rfc/rfc7519), containing the credential as a claim, to be used for further interaction by the participant.
+The VCVerifier provides the necessary endpoints required for a `Relying Party`(as used in the [SIOP-2 spec](https://openid.net/specs/openid-connect-self-issued-v2-1_0.html#name-abbreviations)) to participate in the authentication flows. It verifies the credentials using the [Trustbloc Libraries](https://github.com/trustbloc/vc-go) to provide Verfiable Credentials specific functionality and return a signed [JWT](https://www.rfc-editor.org/rfc/rfc7519), containing the credential as a claim, to be used for further interaction by the participant.
 
 ### Overview
 
@@ -68,7 +68,7 @@ To ease the deployment on [Kubernetes](https://kubernetes.io/) environments, the
 
 ### Local setup
 
-Since the VCVerifier requires WaltID, a Trusted Issuers Registry and someone to issuer credentials, a local setup is not directly integrated into this repository. However, the [VC-Integration-Test](https://github.com/fiware/VC-Integration-Test) repository provides an extensive setup of various components participating in the flows. It can be used to run a local setup, either for trying-out or as a basis for further development. Run it via:
+Since the VCVerifier requires a Trusted Issuers Registry and someone to issuer credentials, a local setup is not directly integrated into this repository. However, the [VC-Integration-Test](https://github.com/fiware/VC-Integration-Test) repository provides an extensive setup of various components participating in the flows. It can be used to run a local setup, either for trying-out or as a basis for further development. Run it via:
 ```shell
     git clone git@github.com:fiware/VC-Integration-Test.git
     cd VC-Integration-Test/
@@ -110,11 +110,14 @@ verifier:
     sessionExpiry: 30
     # scope(e.g. type of credential) to be requested from the wallet. if not configured, not specific scope will be requested.
     requestScope:
-
-# endpoints of ssikit to be used
-ssiKit:
-    # url of the ssikit auditor-api(see https://docs.walt.id/v/ssikit/getting-started/rest-apis/auditor-api)
-    auditorURL:
+    # Validation mode for validating the vcs. Does not touch verification, just content validation.
+	# applicable modes:
+	# * `none`: No validation, just swallow everything
+	# * `combined`: ld and schema validation
+	# * `jsonLd`: uses JSON-LD parser for validation
+	# * `baseContext`: validates that only the fields and values (when applicable)are present in the document. No extra fields are allowed (outside of credentialSubject).
+	# Default is set to `none` to ensure backwards compatibility
+    validationMode: 
 
 # configuration of the service to retrieve configuration for
 configRepo:
@@ -149,10 +152,6 @@ configRepo:
 #### Templating
 
 The login-page, provided at ```/api/v1/loginQR```, can be configured by providing a different template in the ```templateDir```. The templateDir needs to contain a file named ```verifier_present_qr.html``` which will be rendered on calls to the login-api. The template needs to include the QR-Code via ```<img src="data:{{.qrcode}}"```. Beside that, all options provided by the [goview-framework](https://github.com/foolin/goview) can be used. Static content(like icons, images) can be provided through the ```staticDir``` and will be available at the path ```/static```.
-
-### WaltID SSIKit
-
-In order to properly work, a connection to the WaltID-SSIKit needs to be provided. For information about the deployment of SSIKit, check the [official documentation](https://github.com/walt-id/waltid-ssikit) or use the [helm-chart](https://github.com/i4Trust/helm-charts/tree/main/charts/vcwaltid). 
 
 ## Usage
 
@@ -221,7 +220,6 @@ The VCVerifier does currently not support all functionalities defined in the con
 * the verifier does not offer any endpoint to proof its own identity
 * requests to the authentication-response endpoint do accept "presentation_submissions", but do not evaluate them
 * even thought the vp_token can contain multiple credentials and all of them will be verified, just the first one will be included in the JWT
-* no verifier-metadata endpoint is implemented
 
 ## Testing
 

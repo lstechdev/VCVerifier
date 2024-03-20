@@ -9,7 +9,6 @@ import (
 	configModel "github.com/fiware/VCVerifier/config"
 	logging "github.com/fiware/VCVerifier/logging"
 	api "github.com/fiware/VCVerifier/openapi"
-	ssi "github.com/fiware/VCVerifier/ssikit"
 	"github.com/fiware/VCVerifier/verifier"
 
 	"github.com/foolin/goview/supports/ginview"
@@ -41,16 +40,7 @@ func main() {
 
 	logger.Infof("Configuration is: %s", logging.PrettyPrintObject(configuration))
 
-	ssiKitClient, err := ssi.NewSSIKitClient(&configuration.SSIKit)
-	if err != nil {
-		logger.Errorf("Was not able to get an ssiKit client. Err: %v", err)
-		return
-	}
-
-	err = verifier.InitVerifier(&configuration, ssiKitClient)
-	if err != nil {
-		panic(err)
-	}
+	verifier.InitVerifier(&configuration)
 
 	router := getRouter()
 
