@@ -10,7 +10,7 @@ RUN go build -v .
 
 FROM golang:1.21-alpine
 
-LABEL org.opencontainers.image.source="https://github.com/FIWARE/VCVerifier"
+LABEL org.opencontainers.image.source="https://github.com/lstechdev/VCVerifier"
 
 WORKDIR /go/src/app
 
