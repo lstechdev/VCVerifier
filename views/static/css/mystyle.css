@@ -1,22 +1,22 @@
 /* The color system, using variables */
 :root {
     --fore-color-primary:  white!important;
-    --bg-color-primary:  #20295b!important;
+    --bg-color-primary:  #1659C0!important;
 
     --fore-color-medium:  white!important;
-    --bg-color-medium:  #3f51b5!important;
+    --bg-color-medium:  #D1E1F7!important;
 
     --fore-color-light:  black!important;
     --bg-color-light:  #f3f4fb!important;
 
-    --text-color-primary: #20295b!important;
-    --text-color-medium:  #3f51b5!important;
+    --text-color-primary: #1659C0!important;
+    --text-color-medium:  #D1E1F7!important;
 
     --fore-color-secondary:  #04FF00!important;
     --bg-color-secondary:  #102a3a!important;
 
-    --border-color-primary: #20295b!important;
-    --border-color-medium: #3f51b5!important;
+    --border-color-primary: #1659C0!important;
+    --border-color-medium: #D1E1F7!important;
 }
 
 .color-primary,.hover-color-primary:hover{color: var(--fore-color-primary); background-color:var(--bg-color-primary)}
